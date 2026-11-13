@@ -1,0 +1,22 @@
+{
+  "id": "ledgerline",
+  "device": "iphone-12-pro-max",
+  "order": [
+    "debt",
+    "debt-loan",
+    "debt-networth",
+    "log",
+    "log-month",
+    "ledger",
+    "ledger-friend",
+    "goals",
+    "invest",
+    "invest-holdings",
+    "invest-asset",
+    "invest-revenue",
+    "invest-watch",
+    "invest-map",
+    "invest-alerts",
+    "invest-mix"
+  ]
+}

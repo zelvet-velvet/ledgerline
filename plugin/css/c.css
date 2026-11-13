@@ -1,0 +1,1321 @@
+/* ==== Redesign C: bold editorial (approved 2026-11-03). Warm paper by day, charcoal at night, one loud colour, huge display
+   type, pixel icons and pixel charts, flat blocks with thick rules, no shadows or rounded corners. Built on top of app.css. */
+.zl-app, .zl-sheet, .zl-sheet-host, .zl-fchart {
+    --zl-paper: #ECE9E1; --zl-ink: #1C1B19; --zl-mut: #6D6A63; --zl-dim: #D5D1C7; --zl-loud: #E8461F; --zl-on-loud: #F6F3EC;
+    /* split-flap cards: the same in light and dark mode (owner, 2026-11-06), the dark-mode cards; only the page around them changes */
+    --zl-tile: #121214; --zl-tile-fg: #E6E3DC; --zl-tile-hot: #FF5C38; --zl-tile-mut: #96969B; --zl-tile-seam: #3A3A40;
+    --zl-tile-lt: #3E3E45; --zl-tile-lt-fg: #E6E3DC; --zl-tile-lt-hot: #FF6E4D; --zl-tile-lt-seam: #57575F;   /* light tiles: your return */
+    --zl-mb: #A86A00; --zl-ma60: #2D6C8C;   /* chart lines MB 20 and MA60: their own colours, never loud (owner, 2026-11-05) */
+    /* market mode's chart-only colours (owner picked Malachite / Coral, 2026-11-09): up, down, mark; tiles get a brighter pair */
+    --zl-up: #126B55; --zl-down: #C9503B; --zl-mark: #2E5E73; --zl-tile-up: #45D6AC; --zl-tile-down: #FF8068;
+    --zl-spark: #2B2B30;   /* K effects' sparks: steel, never an up or down colour */
+    --zl-ui: "ZL IBM Plex Mono", ui-monospace, Menlo, monospace;
+    --zl-pixel: "ZL Silkscreen", ui-monospace, monospace;
+    --zl-disp: "ZL Anton", Impact, "Arial Narrow", sans-serif;
+}
+.theme-dark .zl-app, .theme-dark .zl-sheet, .theme-dark .zl-sheet-host, .zl-app.theme-dark, .theme-dark .zl-fchart, .zl-fchart.theme-dark {
+    --zl-paper: #1F1F22; --zl-ink: #E6E3DC; --zl-mut: #96969B; --zl-dim: #36363B; --zl-loud: #FF5C38; --zl-on-loud: #1F1F22;
+    --zl-mb: #F5B83D; --zl-ma60: #7DB3C9;
+    --zl-up: #3FC29C; --zl-down: #FF7A63; --zl-mark: #7FBCD6; --zl-spark: #F4F1EA;
+}
+/* 台股 colours (Settings: red up, green down; owner 2026-11-10, the default): up crimson, kept apart from the loud orange;
+   down the Malachite of the green-up set */
+body.zl-red-up :is(.zl-app, .zl-sheet, .zl-sheet-host, .zl-fchart) { --zl-up: #B8263A; --zl-down: #126B55; --zl-tile-up: #FF5C70; --zl-tile-down: #45D6AC; }
+body.zl-red-up.theme-dark :is(.zl-app, .zl-sheet, .zl-sheet-host, .zl-fchart), body.zl-red-up :is(.zl-app, .zl-fchart).theme-dark { --zl-up: #FF5F6F; --zl-down: #3FC29C; }
+.zl-app, .zl-sheet, .zl-sheet-host {
+    --zl-bg: var(--zl-paper); --zl-surface: var(--zl-paper); --zl-text: var(--zl-ink); --zl-muted: var(--zl-mut); --zl-faint: var(--zl-mut);
+    --zl-accent: var(--zl-loud); --zl-line: var(--zl-dim); --zl-press: var(--zl-dim); --zl-radius: 0px;
+    --zl-pos: var(--zl-ink); --zl-neg: var(--zl-loud); --zl-info: var(--zl-mut); --zl-warn: var(--zl-loud);
+    --zl-s1: var(--zl-ink); --zl-s2: var(--zl-loud); --zl-s3: var(--zl-mut); --zl-s4: #8C8578; --zl-s5: #B5532F; --zl-s6: #4A4843; --zl-s7: #A8A296;
+}
+.zl-app { font-family: var(--zl-ui); }
+.zl-sheet { font-family: var(--zl-ui); }
+.zl-px { display: block; shape-rendering: crispEdges; }
+/* Obsidian's phone button look (rounded corners, a shadow) wins over app.css's reset on iOS: cleared for every app button */
+body :is(.zl-app, .zl-sheet-host) button:not(.clickable-icon):not(.zl-pill) { border-radius: 0; box-shadow: none; -webkit-appearance: none; appearance: none; }
+
+/* ---- masthead: always there, title in display type over a 4 px rule */
+.zl-app .zl-top {
+    position: relative; display: flex; align-items: center; gap: 8px; margin: 0 16px; min-height: 40px;
+    padding: calc(var(--zl-safe-top) + 6px) 0 8px; background: var(--zl-bg); border-bottom: 4px solid var(--zl-text); pointer-events: auto;
+}
+.zl-app .zl-top.is-scrolled { border-bottom-color: var(--zl-text); }
+.zl-app.has-bar .zl-scroll, .zl-app .zl-scroll { padding-top: 0; }
+.zl-app .zl-back { display: none; }
+.zl-app .zl-top.has-back .zl-back { display: grid; place-items: center; width: 40px; height: 40px; margin: -4px 0 -4px -10px; padding: 0; color: var(--zl-text); }
+.zl-app .zl-top-title { flex: 1; min-width: 0; max-width: none; opacity: 1; font: 400 30px/0.92 var(--zl-disp); text-transform: uppercase; letter-spacing: .005em; }
+.zl-app .zl-top.is-first .zl-acts, .zl-app .zl-acts { opacity: 1; pointer-events: auto; display: flex; gap: 0; }
+.zl-app .zl-acts .zl-btn { color: var(--zl-text); width: 44px; height: 44px; justify-content: center; padding: 0; margin: -6px -10px -6px 0; }
+.zl-app .zl-acts .zl-btn .zl-ic svg { width: 24px; height: 24px; }
+.zl-app .zl-top .zl-px { width: 24px; height: 24px; }
+.zl-app:not(.zl-embed) .zl-title-row { display: none; }
+
+/* ---- page area: groups spread evenly down the room left (one screen); a page switch is a pixel wipe */
+.zl-app .zl-page { padding: 8px 16px 16px; }
+.zl-page.zl-c-stack { min-height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-evenly; gap: 16px; }
+.zl-grow rect { animation: zl-blk .01s both; animation-delay: var(--d, 0ms); }
+@keyframes zl-blk { from { opacity: 0; } }
+/* waffle blocks turn over on their axis like the flip-dot discs */
+.zl-waffle .zl-grow rect { transform-box: fill-box; transform-origin: center; animation: zl-disc .14s both; animation-delay: var(--d, 0ms); }
+@keyframes zl-disc { from { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) { .zl-grow rect, .zl-waffle .zl-grow rect { animation: none; } }
+
+/* ---- docked main action: full width above the tab bar, calm frame, only the + is loud; inverts while pressed */
+.zl-app .zl-fab {
+    position: static; flex: none; display: none; align-items: center; gap: 10px; width: auto; height: 48px; margin: 8px 16px 12px; padding: 0 14px;
+    border: 2px solid var(--zl-text); border-radius: 0; box-shadow: none; background: none; color: var(--zl-text); font: 400 19px var(--zl-disp); letter-spacing: .04em;
+}
+.zl-app .zl-fab.is-on { display: flex; }
+.zl-app .zl-fab:active { opacity: 1; background: var(--zl-text); color: var(--zl-bg); }
+.zl-app .zl-fab .zl-px { width: 16px; height: 16px; color: var(--zl-loud); }
+.zl-dock-h { margin-left: auto; font: 400 11px var(--zl-pixel); letter-spacing: .04em; color: var(--zl-muted); }
+.zl-app.has-fab .zl-page { padding-bottom: 16px; }
+
+/* ---- tab bar: pixel icons, a 4 px rule; the open tab lifts and turns loud */
+.zl-app .zl-tabs { border-top: 4px solid var(--zl-text); background: var(--zl-bg); padding-top: 4px; }
+.zl-app .zl-tab { gap: 6px; padding: 8px 0 6px; color: var(--zl-muted); }
+.zl-tab .zl-px { width: 26px; height: 26px; transition: transform .15s steps(3); }
+.zl-tab-l { font: 400 10px var(--zl-pixel); text-transform: uppercase; }
+.zl-app .zl-tab.is-on { color: var(--zl-text); }
+.zl-app .zl-tab.is-on .zl-px { color: var(--zl-loud); transform: translateY(-3px); }
+
+/* ---- flip-dot board, labels, split-flap readouts */
+.zl-boardwrap { touch-action: pan-y; cursor: grab; }
+.zl-board { display: block; width: 100%; height: auto; }
+.zl-bigl { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 8px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.zl-reads { margin-top: 12px; padding: 4px 0; border-top: 1px solid var(--zl-dim); border-bottom: 1px solid var(--zl-dim); }
+.zl-read { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 0; }
+.zl-read-k { font: 400 12px var(--zl-pixel); color: var(--zl-muted); letter-spacing: .04em; text-transform: uppercase; }
+.zl-flap { display: inline-flex; gap: 3px; }
+.zl-flap .t { position: relative; display: block; perspective: 260px; --r: 4px; }
+/* one card turns as one piece (ui/flap.ts): st / sb the halves at rest (top shows the next character during a turn, bottom the
+   old one until the card lands), lf the leaf (front fr: old top half, back bk: new bottom half) turning about the seam */
+.zl-flap .t i { position: absolute; left: 0; right: 0; height: 50%; overflow: hidden; display: block; font-style: normal; background: var(--zl-tile); color: var(--zl-tile-fg); }
+.zl-flap .t .st, .zl-flap .t .fr { top: 0; border-radius: var(--r) var(--r) 0 0; }
+.zl-flap .t .sb { bottom: 0; border-radius: 0 0 var(--r) var(--r); }
+.zl-flap .t em { position: absolute; left: 0; right: 0; height: 200%; display: grid; place-items: center; font-style: normal; }
+.zl-flap .t .st em, .zl-flap .t .fr em { top: 0; }
+.zl-flap .t .sb em, .zl-flap .t .bk em { bottom: 0; }
+.zl-flap .t u { display: block; text-decoration: none; line-height: 1; text-box: trim-both cap alphabetic; }
+.zl-flap .t u.sym { font-size: .6em; }   /* % smaller than the digits on the big cards */
+.zl-flap.is-md .t u.sym, .zl-flap.is-xs .t u.sym { font-size: .8em; }   /* small tiles: .6 was too small to read */
+.zl-flap .t .lf { position: absolute; left: 0; right: 0; top: 0; height: 50%; transform-origin: 50% 100%; transform-style: preserve-3d; z-index: 2; visibility: hidden; will-change: transform; }
+.zl-flap .t .lf i { top: 0; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.zl-flap .t .bk { transform: rotateX(180deg); border-radius: 0 0 var(--r) var(--r); }
+.zl-flap .t .sh { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; }
+.zl-flap .t .dr { position: absolute; left: 0; right: 0; bottom: 0; height: 50%; z-index: 1; opacity: 0; pointer-events: none; border-radius: 0 0 var(--r) var(--r);
+    background: linear-gradient(to bottom, rgba(0,0,0,.55), rgba(0,0,0,0) 75%); }
+@supports not (text-box: trim-both cap alphabetic) { .zl-flap.is-md u { margin-top: -.1em; } .zl-flap.is-xl u, .zl-flap.is-amt u, .zl-flap.is-lg u { margin-top: -.17em; } }
+.zl-flap .t::after { content: ""; position: absolute; left: 0; right: 0; top: calc(50% - .5px); height: 1px; background: var(--zl-tile-seam); z-index: 3; }   /* the seam: a lighter line (owner, 2026-11-06) */
+.zl-flap .t.sp { width: 10px !important; }
+.zl-flap .t.sp i, .zl-flap .t.sp::after, .zl-flap .t.sp .dr { display: none; }
+.zl-flap .t.c i { background: none; color: var(--zl-text); }
+.zl-flap .t.c::after { display: none; }
+.zl-flap.is-md .t { width: 26px; height: 38px; }
+.zl-flap.is-md i { font: 600 22px var(--zl-ui); }
+.zl-flap.is-md .t.c { width: 10px; }
+.zl-flap.is-xl .t { width: 48px; height: 84px; }
+.zl-flap.is-xl i { font: 400 62px var(--zl-disp); }
+.zl-flap.is-xl .t.c { width: 16px; }
+.zl-flap.is-amt .t { width: 54px; height: 96px; perspective: 160px; }
+.zl-flap.is-amt i { font: 400 72px var(--zl-disp); }
+.zl-flap.is-amt .t.c { width: 18px; }
+
+/* ---- section heads, waffle, budget rows, ruled figures */
+.zl-app .zl-sec { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 8px; padding: 0; text-align: left; font: 400 12px var(--zl-pixel); letter-spacing: .06em; color: var(--zl-text); }
+.zl-sec-go { display: flex; align-items: center; gap: 4px; color: var(--zl-muted); }
+.zl-sec-go .zl-px { width: 12px; height: 12px; transform: scaleX(-1); }
+
+.zl-chart { width: 100%; height: auto; overflow: visible; display: block; }
+.zl-waffle { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: center; }
+.zl-wkey { display: flex; flex-direction: column; gap: 8px; }
+.zl-wkey > div { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--zl-dim); }
+.zl-wkey-k { display: flex; align-items: center; gap: 6px; font: 400 10px var(--zl-pixel); color: var(--zl-muted); }
+.zl-wkey-k i { display: block; width: 10px; height: 10px; }
+.zl-wkey-v { font: 400 22px var(--zl-disp); }
+.zl-app .zl-brow { width: 100%; display: grid; grid-template-columns: 20px 96px minmax(0, 1fr) 64px; align-items: center; gap: 12px; min-height: 44px; padding: 8px 0; border-bottom: 1px solid var(--zl-dim); text-align: left; color: var(--zl-text); }
+.zl-app .zl-brow:active { background: var(--zl-dim); }
+.zl-brow .zl-px { width: 20px; height: 20px; }
+.zl-brow-n { font: 400 19px var(--zl-disp); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zl-brow-v { font: 400 21px var(--zl-disp); text-align: right; }
+.zl-brow-v.is-hot, .zl-fig-v.is-hot { color: var(--zl-loud); }
+/* ruled figures: one per row, 56 px tall (a full touch target with air), label left, number right, a chevron when it opens a page */
+.zl-figs { border-top: 2px solid var(--zl-text); }
+.zl-app .zl-fig { width: 100%; min-height: 56px; display: flex; align-items: center; gap: 12px; padding: 12px 0; border: 0; border-bottom: 1px solid var(--zl-dim); color: var(--zl-text); text-align: left; }
+.zl-app .zl-fig:last-child { border-bottom: 2px solid var(--zl-text); }
+
+.zl-fig-k { flex: 1; min-width: 0; font: 400 12px var(--zl-pixel); letter-spacing: .04em; color: var(--zl-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zl-fig-v { font: 400 28px/1 var(--zl-disp); }
+.zl-fig .zl-px.zl-fig-go { flex: none; width: 12px; height: 12px; color: var(--zl-muted); transform: scaleX(-1); }
+
+/* ==== the older shared parts in the C look (until each page is rebuilt) */
+.zl-app .zl-btn { color: var(--zl-text); }
+.zl-app .zl-gh, .zl-sheet .zl-gh { font: 400 12px var(--zl-pixel); letter-spacing: .06em; color: var(--zl-text); margin: 24px 0 8px; }
+.zl-app .zl-gf, .zl-sheet .zl-gf { font-size: 12px; margin: 6px 0 0; }
+.zl-app .zl-group, .zl-sheet .zl-group { background: none; border-radius: 0; border-top: 2px solid var(--zl-text); }
+.zl-app .zl-row, .zl-sheet .zl-row { min-height: 52px; padding: 12px 0; border-bottom: 1px solid var(--zl-dim); }
+/* colour means something: row icons are neutral (their tint was decoration); values keep their meaning colours */
+.zl-app .zl-row-ic { color: var(--zl-muted) !important; }
+.zl-app .zl-row-ic.is-badge { background: none !important; }
+.zl-app .zl-row-chev { color: var(--zl-muted); }
+.zl-app .zl-row + .zl-row::before, .zl-sheet .zl-row + .zl-row::before { display: none; }
+.zl-row-t { font-size: 15px; }
+.zl-row-s { font-size: 12px; }
+.zl-app .zl-row-v { font: 400 21px var(--zl-disp); color: var(--zl-text); }
+.zl-app .zl-row-ic { color: var(--zl-text); }
+.zl-app .zl-row.is-tap:active { background: var(--zl-dim); }
+/* the number has no rule of its own: the list under it starts with one (two rules stacked under the masthead before) */
+.zl-app .zl-hero { background: none; border-radius: 0; padding: 8px 0 12px; border-bottom: 0; }
+.zl-hero-l, .zl-card-l, .zl-tile-l, .zl-hero-il, .zl-card-il { font-family: var(--zl-pixel); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+.zl-hero-v { font: 400 64px/0.95 var(--zl-disp); letter-spacing: .005em; }
+.zl-hero-u, .zl-card-u { font: 400 12px var(--zl-pixel); }
+.zl-hero-iv, .zl-card-iv, .zl-tile-v { font: 400 22px var(--zl-disp); }
+.zl-prog, .zl-prog-f { border-radius: 0; }
+.zl-prog { height: 8px; background: var(--zl-dim); }
+.zl-app .zl-card, .zl-app .zl-tile { background: none; border-radius: 0; border: 2px solid var(--zl-text); box-shadow: none; }
+.zl-card-v { font: 400 48px/0.95 var(--zl-disp); }
+.zl-app .zl-pill, .zl-sheet .zl-pill { border-radius: 0; background: var(--zl-loud); color: var(--zl-on-loud); font: 400 20px var(--zl-disp); letter-spacing: .04em; box-shadow: 0 4px 0 var(--zl-text); }
+.zl-app .zl-pill:active { transform: translateY(4px); box-shadow: none; }
+.zl-check, .zl-app button.zl-check { border-radius: 0; border: 2px solid var(--zl-text); color: var(--zl-on-loud); }
+.zl-avatar { border-radius: 0; font-family: var(--zl-disp); }
+.zl-app .zl-monthbar { border-radius: 0; background: none; border: 2px solid var(--zl-text); padding: 0; }
+.zl-app .zl-monthbar button { border-radius: 0; height: 44px; padding: 0 4px; font: 400 17px/1 var(--zl-disp); letter-spacing: .04em; text-transform: uppercase; color: var(--zl-text); white-space: nowrap; }
+.zl-app .zl-monthbar .zl-mb-side { color: var(--zl-muted); }
+.zl-app .zl-monthbar .zl-mb-cur { background: var(--zl-text); color: var(--zl-bg); font-size: 20px; }
+/* a page with a date bar: the bar sits right under the masthead line, the rest spreads below it */
+.zl-page.zl-c-stack.zl-has-bar { justify-content: space-between; padding-top: 0; }
+.zl-page.zl-c-stack.zl-has-bar > .zl-monthbar { margin: 0; }
+.zl-skel { border-radius: 0; background: var(--zl-dim); }
+.zl-app .zl-page.is-short { min-height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; }
+.zl-empty-t { font: 400 24px var(--zl-disp); text-transform: uppercase; }
+
+/* sheets: square, ruled, no shadow */
+.modal.zl-sheet, .is-phone .modal.zl-sheet { border-radius: 0; border: 2px solid var(--zl-text); box-shadow: 0 6px 0 var(--zl-text); background: var(--zl-bg); }
+/* phone: the card appears in place with a pixel cut from the top (no glide, no scale); it only moves for the keyboard once open */
+.is-phone .modal.zl-sheet { transition: none; animation: zl-sheet-cut .2s steps(5) both; }
+.is-phone .modal.zl-sheet.is-ready { transition: transform .25s cubic-bezier(.38, .7, .125, 1), padding-bottom .25s cubic-bezier(.38, .7, .125, 1), opacity .15s; }
+.is-phone .modal.zl-sheet.is-leaving { opacity: 0; scale: 1; }
+@keyframes zl-sheet-cut { from { clip-path: inset(0 0 100% 0); } }
+@media (prefers-reduced-motion: reduce) { .is-phone .modal.zl-sheet { animation: none; } }
+.zl-sheet .modal-title { font: 400 26px var(--zl-disp); text-transform: uppercase; text-align: left; }
+.zl-sheet-sub { text-align: left; font: 400 11px var(--zl-pixel); }
+.zl-sheet-btns button { border-radius: 0; font: 400 20px var(--zl-disp); letter-spacing: .04em; }
+.zl-sheet button.zl-tile { border-radius: 0; border: 2px solid var(--zl-dim); background: none; }
+.zl-sheet button.zl-tile.is-on { border-color: var(--zl-text); background: var(--zl-text); color: var(--zl-bg); }
+.zl-sheet input.zl-field-in, .zl-sheet select.zl-field-in { font-family: var(--zl-ui); }
+.zl-app .zl-top.is-first, .zl-app .zl-top.is-first:not(.is-scrolled) { pointer-events: auto; }
+
+/* a one-screen page (redesign C) never scrolls: its groups fit the room between the masthead and the dock */
+.zl-app .zl-scroll.is-fit { overflow-y: hidden; }
+.zl-page.zl-c-stack { height: 100%; min-height: 0; gap: 12px; padding-top: 10px; padding-bottom: 10px; }
+
+
+/* ---- the day page (redesign C): one screen; items as a 3-column tile grid */
+.zl-c-big { font: 400 72px/0.9 var(--zl-disp); }
+.zl-c-big.is-dim { color: var(--zl-muted); }
+.zl-sec-go.is-hot { color: var(--zl-loud); }
+.zl-tgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+:is(.zl-app, .zl-sheet) .zl-tg { display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 4px; min-height: 56px; padding: 8px; border: 2px solid var(--zl-text); text-align: left; color: var(--zl-text); }
+:is(.zl-app, .zl-sheet) .zl-tg:active { background: var(--zl-text); color: var(--zl-bg); }
+.zl-tg-k { font: 400 10px var(--zl-pixel); letter-spacing: .04em; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zl-tg-v { font: 400 22px/1 var(--zl-disp); max-width: 100%; white-space: normal; overflow-wrap: anywhere; }   /* a long value wraps at its spaces (ON THE WATCHLIST in a third of the row), never out of the tile */
+.zl-tgrid:not(.is-span) .zl-tg-v { margin-top: auto; }   /* gravity: the value and its small line sit together at the tile's foot (owner, 2026-11-11) */
+.zl-tgrid:not(.is-span) .zl-tg-v + .zl-tg-s { margin-top: -2px; }
+:is(.zl-app, .zl-sheet) .zl-tg.is-dim { border-color: var(--zl-dim); color: var(--zl-muted); }
+:is(.zl-app, .zl-sheet) .zl-tg.is-hot .zl-tg-v { color: var(--zl-loud); }
+
+
+
+
+/* ---- the bottom bar as a dock of up to two buttons: ‹ BACK · <where> (deeper pages, daily note) and the page's action */
+.zl-app .zl-fab { padding: 0; gap: 8px; border: 0; height: auto; }
+.zl-app .zl-fab:active { background: none; color: inherit; }
+.zl-app .zl-dock-b { flex: 1; min-width: 0; height: 48px; display: flex; align-items: center; gap: 8px; padding: 0 16px; border: 2px solid var(--zl-text); color: var(--zl-text); font: 400 19px var(--zl-disp); letter-spacing: .04em; white-space: nowrap; overflow: hidden; }
+.zl-app .zl-dock-b:active { background: var(--zl-text); color: var(--zl-bg); }
+.zl-dock-b .zl-dock-t { overflow: hidden; text-overflow: ellipsis; }
+.zl-app .zl-dock-b .zl-px { flex: none; width: 16px; height: 16px; color: var(--zl-loud); }
+.zl-app .zl-fab.is-split .zl-dock-back { flex: 0 1 auto; max-width: 48%; }
+/* Back: wipes in from the left in pixel steps; pressed, the arrow steps left; tapped, the bar wipes out to the left */
+.zl-dock-back .zl-px { transition: transform .12s steps(3); }
+.zl-dock-back:active .zl-px { transform: translateX(-5px); }
+
+/* ---- moving between pages (view.ts move): the page area only, the masthead, dock and tab bar stay put.
+   Push: the new page slides in from the right over the old one, which eases a quarter to the left and dims.
+   Back: the page slides out to the right, uncovering the page below as it eases back in. Tab: the new page rises in.
+   The moving page carries a 2 px rule on its left edge (no shadows in C). */
+.zl-app { overflow: hidden; }
+.zl-app .zl-scroll { position: relative; z-index: 1; background: var(--zl-bg); }
+.zl-app .zl-ghost { position: absolute; left: 0; right: 0; margin: 0; box-sizing: border-box; overflow: hidden !important; pointer-events: none; background: var(--zl-bg); }
+.zl-app .zl-ghost.is-under { z-index: 0; animation: zl-under .32s cubic-bezier(.2, .8, .2, 1) forwards; }
+.zl-app .zl-ghost.is-over { z-index: 2; box-shadow: -2px 0 0 var(--zl-text); animation: zl-out-right .3s cubic-bezier(.4, 0, .6, 1) forwards; }
+.zl-app .zl-scroll.is-push { box-shadow: -2px 0 0 var(--zl-text); animation: zl-in-right .3s cubic-bezier(.2, .8, .2, 1) both; }
+.zl-app .zl-scroll.is-pop { animation: zl-back-in .3s cubic-bezier(.2, .8, .2, 1) both; }
+.zl-app .zl-scroll.is-rise { animation: zl-rise .24s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes zl-in-right { from { transform: translateX(100%); } }
+@keyframes zl-under { to { transform: translateX(-25%); opacity: .4; } }
+@keyframes zl-out-right { to { transform: translateX(100%); } }
+@keyframes zl-back-in { from { transform: translateX(-25%); opacity: .4; } }
+@keyframes zl-rise { from { transform: translateY(16px); opacity: 0; } }
+/* Settings › Page move (owner, 2026-11-05: the slide was not ideal, try these and keep one). "slide" is the rules above.
+   push: both pages move the whole width together, no dim. wipe: the new page is uncovered from the right in 8 hard steps
+   (like the dock's Back wipe), the old page stays still. fade: a short cross-fade with a 2 % scale. cascade: no copy of the old
+   page, the new page's rows come in one after another from the side it opens from. */
+body[data-zl-move="push"] .zl-app .zl-ghost.is-under { animation: zl-out-left .3s cubic-bezier(.3, .7, .2, 1) forwards; }
+body[data-zl-move="push"] .zl-app .zl-ghost.is-over { box-shadow: none; animation: zl-out-right .3s cubic-bezier(.3, .7, .2, 1) forwards; }
+body[data-zl-move="push"] .zl-app .zl-scroll.is-push { box-shadow: -2px 0 0 var(--zl-text); animation: zl-in-right .3s cubic-bezier(.3, .7, .2, 1) both; }
+body[data-zl-move="push"] .zl-app .zl-scroll.is-pop { box-shadow: 2px 0 0 var(--zl-text); animation: zl-in-left .3s cubic-bezier(.3, .7, .2, 1) both; }
+body[data-zl-move="wipe"] .zl-app .zl-ghost.is-under { animation: none; }
+body[data-zl-move="wipe"] .zl-app .zl-ghost.is-over { box-shadow: none; animation: zl-wipe-off .24s steps(8, end) forwards; }
+body[data-zl-move="wipe"] .zl-app .zl-scroll.is-push { box-shadow: none; animation: zl-wipe-on .24s steps(8, end) both; }
+body[data-zl-move="wipe"] .zl-app .zl-scroll.is-pop { animation: none; }
+body[data-zl-move="fade"] .zl-app .zl-ghost.is-under { animation: zl-fade-out .2s ease-out forwards; }
+body[data-zl-move="fade"] .zl-app .zl-ghost.is-over { box-shadow: none; animation: zl-fade-out .2s ease-out forwards; }
+body[data-zl-move="fade"] .zl-app .zl-scroll.is-push { box-shadow: none; animation: zl-fade-up .2s ease-out both; }
+body[data-zl-move="fade"] .zl-app .zl-scroll.is-pop { animation: zl-fade-down .2s ease-out both; }
+body[data-zl-move="cascade"] .zl-page.zl-enter[data-enter="push"] > :not(.zl-title-row),
+body[data-zl-move="cascade"] .zl-page.zl-enter[data-enter="pop"] > :not(.zl-title-row) { --ey: 0px; animation: zl-enter .22s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--e, 0) * 35ms); }
+body[data-zl-move="cascade"] .zl-page.zl-enter[data-enter="push"] > :not(.zl-title-row) { --ex: 32px; }
+body[data-zl-move="cascade"] .zl-page.zl-enter[data-enter="pop"] > :not(.zl-title-row) { --ex: -32px; }
+@keyframes zl-out-left { to { transform: translateX(-100%); } }
+@keyframes zl-in-left { from { transform: translateX(-100%); } }
+@keyframes zl-wipe-on { from { clip-path: inset(0 0 0 100%); } to { clip-path: inset(0); } }
+@keyframes zl-wipe-off { from { clip-path: inset(0); } to { clip-path: inset(0 0 0 100%); } }
+@keyframes zl-fade-out { to { opacity: 0; } }
+@keyframes zl-fade-up { from { opacity: 0; scale: .98; } }
+@keyframes zl-fade-down { from { opacity: 0; scale: 1.02; } }
+/* Back is never in the masthead now */
+.zl-app .zl-top.has-back .zl-back { display: none; }
+@media (prefers-reduced-motion: reduce) { .zl-app .zl-scroll.is-push, .zl-app .zl-scroll.is-pop, .zl-app .zl-scroll.is-rise { animation: none; } }
+/* a list that starts the page sits on the masthead's rule: no second rule of its own */
+.zl-app .zl-page > .zl-title-row + .zl-group { border-top: 0; margin-top: 0; }
+
+/* ---- C home / detail parts shared by every tab (Design Rules, "C pages") */
+.zl-sum { display: flex; flex-direction: column; gap: 4px; }
+.zl-sum-l { font: 400 12px var(--zl-pixel); letter-spacing: .04em; color: var(--zl-muted); }
+.zl-c-big.is-hot { color: var(--zl-loud); }
+.zl-sum-items { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--zl-dim); }
+.zl-sum-items > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.zl-sum-k { font: 400 10px var(--zl-pixel); letter-spacing: .04em; color: var(--zl-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zl-sum-v { font: 400 24px/1 var(--zl-disp); }
+.zl-sum-v.is-hot { color: var(--zl-loud); }
+.zl-stairs-l { display: flex; justify-content: space-between; margin-top: 8px; font: 400 10px var(--zl-pixel); letter-spacing: .04em; color: var(--zl-muted); }
+.zl-towers { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 12px; }
+.zl-app .zl-tower { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 0; text-align: left; color: var(--zl-text); min-width: 0; }
+.zl-tower-c { width: 100%; height: 112px; }
+.zl-tower-k { font: 400 10px var(--zl-pixel); letter-spacing: .04em; color: var(--zl-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zl-tower-v { font: 400 22px/1 var(--zl-disp); }
+.zl-app .zl-tower:active { opacity: .6; }
+/* figure rows may carry a small line under the label (a date, a count) */
+.zl-fig-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.zl-fig-main .zl-fig-k { flex: none; }
+.zl-fig-s { font: 400 13px var(--zl-ui); color: var(--zl-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* a list page (history, payments): figure rows scroll under the summary; the page starts at the top, never centred */
+.zl-app .zl-page.zl-c-list.is-short { justify-content: flex-start; }
+.zl-fig.is-dim .zl-fig-v { color: var(--zl-muted); }
+.zl-c-danger .zl-sec { color: var(--zl-loud); justify-content: center; min-height: 44px; }
+/* a figure row with a line under its label is a thing (a person, a goal): its name is ink, not a muted category */
+.zl-fig-main .zl-fig-k { color: var(--zl-text); font-size: 13px; }
+/* C home pages: the number sits right under the masthead (weight at the top); groups follow at equal gaps; spare room
+   collects at the bottom, above the action bar, never as a hole between groups */
+.zl-page.zl-c-stack:not(.zl-has-bar) { justify-content: flex-start; gap: 20px; }
+/* C list pages: summary and groups 28 px apart, from the top */
+.zl-page.zl-c-list { display: flex; flex-direction: column; gap: 20px; }
+.zl-c-danger .zl-sec-go { display: none; }
+
+/* ---- C2 amount page: split-flap amount, SET / ADD words, a 3 × 4 pad; SAVE is the one loud filled button */
+.zl-amt-now { min-height: 14px; margin-top: 4px; font: 400 11px var(--zl-pixel); letter-spacing: .04em; color: var(--zl-muted); }
+.zl-amt-flap { display: flex; justify-content: flex-end; margin-top: 12px; min-height: 96px; }
+.zl-amt-res { margin-top: 8px; text-align: right; font: 400 12px var(--zl-pixel); letter-spacing: .04em; color: var(--zl-muted); }
+.zl-words { display: flex; gap: 24px; min-height: 0; }
+.zl-app .zl-word { padding: 8px 0 6px; min-height: 44px; font: 400 20px var(--zl-disp); letter-spacing: .04em; color: var(--zl-muted); border-bottom: 3px solid transparent; }
+.zl-app .zl-word.is-on { color: var(--zl-text); border-bottom-color: var(--zl-loud); }
+.zl-pad { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.zl-app .zl-key { height: 60px; border: 2px solid var(--zl-text); font: 400 30px var(--zl-disp); color: var(--zl-text); }
+.zl-app .zl-key.is-fn { border-color: var(--zl-dim); color: var(--zl-muted); font-size: 24px; }
+.zl-app .zl-key:active { background: var(--zl-text); color: var(--zl-bg); }
+.zl-app .zl-dock-b.is-loud { justify-content: center; background: var(--zl-loud); border-color: var(--zl-loud); color: var(--zl-on-loud); }
+.zl-app .zl-dock-b.is-loud:active { background: var(--zl-text); border-color: var(--zl-text); color: var(--zl-bg); }
+.zl-amt-rm .zl-sec { min-height: 32px; }
+/* the flap's characters sit in <em>: themes colour em (Minimal: pink italics); the tiles keep their own ink */
+.zl-flap .t em { color: inherit; font-style: normal; font-weight: inherit; }
+/* the pad sits low, by the thumb and the SAVE button (Gravity: hands at the bottom) */
+.zl-page.zl-c-stack.zl-amt { justify-content: space-between; }
+.zl-spark { margin-top: 4px; }
+/* a list page with no summary: its first rows sit on the masthead rule (one rule, not two) */
+.zl-page.zl-c-list > .zl-title-row + .zl-c-group > .zl-figs:first-child { border-top: 0; }
+.zl-c-note { font: 400 13px/1.5 var(--zl-ui); color: var(--zl-muted); }
+/* a one-screen page that still does not fit (a small phone, many budget groups) scrolls instead of cutting its last rows */
+.zl-app .zl-scroll.is-fit { overflow-y: auto; }
+/* Settings › Big number: split-flap tiles instead of the flip-dot board */
+.zl-flapboard { display: flex; justify-content: center; align-items: center; min-height: 112px; touch-action: pan-y; }
+/* Settings › Calm motion: the same as the system's reduce motion */
+body.zl-calm .zl-grow rect, body.zl-calm .zl-waffle .zl-grow rect, body.zl-calm .zl-app .zl-scroll.is-push, body.zl-calm .zl-app .zl-scroll.is-pop,
+body.zl-calm .zl-app .zl-scroll.is-rise, body.zl-calm.is-phone .modal.zl-sheet { animation: none; }
+
+/* ---- the older list pages in the C type (Design Rules, C pages): every page starts at the top under the masthead;
+   rows read like figure rows (pixel name, display number, pixel arrow); no decoration icons in rows */
+.zl-app .zl-page.is-short { justify-content: flex-start; }
+.zl-app .zl-page:not(.zl-c-stack):not(.zl-c-list) .zl-hero { padding-top: 4px; }
+.zl-app .zl-row { min-height: 56px; gap: 12px; }
+.zl-app .zl-row-t { font: 400 13px var(--zl-pixel); letter-spacing: .04em; text-transform: uppercase; color: var(--zl-text); }
+.zl-app .zl-row.is-muted .zl-row-t { color: var(--zl-muted); }
+.zl-app .zl-row-s { font: 400 13px var(--zl-ui); color: var(--zl-muted); margin-top: 4px; }
+.zl-app .zl-row-v { font: 400 28px/1 var(--zl-disp); }
+.zl-app .zl-row-ic, .zl-app .zl-avatar { display: none; }
+.zl-app .zl-row .zl-px.zl-fig-go { flex: none; width: 12px; height: 12px; color: var(--zl-muted); transform: scaleX(-1); }
+.zl-app .zl-gf { font: 400 13px/1.5 var(--zl-ui); color: var(--zl-muted); }
+
+/* ---- Phase 6 desktop (and any wide pane, e.g. an iPad): when the app is wider than 820 px, a C page becomes two columns:
+   its top (the board or the summary) on the left, staying in view, the charts and rows on the right. Narrower: the phone column. */
+.zl-host { container-type: inline-size; container-name: zlpage; }
+@container zlpage (min-width: 820px) {
+    .zl-app .zl-page.zl-c-stack, .zl-app .zl-page.zl-c-list {
+        max-width: 1120px; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); column-gap: 48px; row-gap: 28px; align-content: start; padding-top: 24px;
+    }
+    .zl-app .zl-page.zl-c-stack > .zl-c-top, .zl-app .zl-page.zl-c-list > .zl-c-top { grid-column: 1; grid-row: 1 / span 20; align-self: start; position: sticky; top: 24px; }
+    .zl-app .zl-page.zl-c-stack > :not(.zl-c-top):not(.zl-title-row), .zl-app .zl-page.zl-c-list > :not(.zl-c-top):not(.zl-title-row) { grid-column: 2; }
+    .zl-app .zl-page.zl-c-stack.zl-amt { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    /* Invest home: the marquee under the board on the left; the market card takes the right column down to the links */
+    .zl-app .zl-page.zl-c-stack.zl-mm { grid-template-rows: auto auto minmax(0, 1fr) auto; }
+    .zl-app .zl-page.zl-c-stack.zl-mm > .zl-c-top { grid-row: 1; position: static; }
+    .zl-app .zl-page.zl-c-stack.zl-mm > .zl-wstrip { grid-column: 1; grid-row: 2; align-self: start; }
+    .zl-app .zl-page.zl-c-stack.zl-mm > .zl-mkt { grid-row: 1 / span 3; }
+    .zl-app .zl-page.zl-c-stack.zl-mm > .zl-mlinks { grid-row: 4; }
+    .zl-app .zl-page.zl-c-stack.zl-amt > .zl-c-group:first-of-type { grid-column: 1; grid-row: 1 / span 3; }
+    .zl-app .zl-page:not(.zl-c-stack):not(.zl-c-list) { max-width: 760px; }
+    /* the masthead, the bottom bar and the tabs line up with the page instead of running edge to edge */
+    .zl-app .zl-top { width: calc(100% - 32px); max-width: 1088px; margin-left: auto; margin-right: auto; }
+    .zl-app .zl-fab { width: calc(100% - 32px); max-width: 1088px; margin-left: auto; margin-right: auto; }
+    .zl-app .zl-fab .zl-dock-b { max-width: 420px; margin-left: auto; }
+    .zl-app .zl-fab.is-split .zl-dock-back { margin-left: 0; margin-right: auto; }
+    .zl-app .zl-tabs > .zl-tab { max-width: 160px; }
+    .zl-app .zl-tabs { justify-content: center; }
+}
+/* the board never grows past a readable size in a wide pane */
+.zl-board { max-width: 640px; margin: 0 auto; }
+
+/* ==== Motion (round 2, 2026-11-03). One set of moves, reused everywhere:
+   1. page change: deeper / Back slide (view.ts ghostOf), a tab change fades;
+   2. charts: dark grid at once, lit blocks turn over on top (disc turn, like the flip-dot board);
+   3. rows: reveal left to right in 4 pixel steps, one after another (--i);
+   4. numbers: split-flap (readouts, summaries, the pad) or the flip-dot board. */
+.zl-app .zl-scroll.is-rise { animation: none; box-shadow: none; }   /* the slides for deeper / Back are on again (owner, 2026-11-05), see "moving between pages" */
+.zl-wipe { position: absolute; z-index: 40; pointer-events: none; }
+.zl-grow rect { transform-box: fill-box; transform-origin: center; animation: zl-disc .14s both; animation-delay: var(--d, 0ms); }
+.zl-in { animation: zl-reveal .2s steps(4) both; animation-delay: calc(var(--i, 0) * 35ms + 60ms); }
+@keyframes zl-reveal { from { clip-path: inset(0 100% 0 0); } }
+@media (prefers-reduced-motion: reduce) { .zl-in, .zl-grow rect { animation: none; } }
+body.zl-calm .zl-in, body.zl-calm .zl-grow rect { animation: none; }
+/* every row carries a pixel icon: 20 px, ink, at the start */
+.zl-app .zl-fig .zl-fig-ic, .zl-app .zl-row .zl-fig-ic { flex: none; width: 20px; height: 20px; color: var(--zl-text); }
+.zl-app .zl-fig.is-dim .zl-fig-ic { color: var(--zl-muted); }
+/* the summary number of a detail page: split-flap tiles (xl, lg for 7 characters, md beyond); loud tiles when it costs you */
+.zl-sum-flap { display: flex; margin: 4px 0 0; }
+.zl-flap.is-lg .t { width: 42px; height: 72px; }
+.zl-flap.is-lg i { font: 400 52px var(--zl-disp); }
+.zl-flap.is-lg .t.c { width: 14px; }
+.zl-sum-flap.is-hot .zl-flap .t i { color: var(--zl-tile-hot); }
+.zl-sum-flap.is-dim .zl-flap .t i { color: var(--zl-tile-mut); }
+.zl-amt-note { margin-top: 12px; }
+/* sheets (text, dates, several fields): the label sits above a full-width input on a 2 px rule, like the mock's note field */
+.zl-sheet .zl-field { flex-direction: column; align-items: stretch; gap: 6px; padding: 12px 0; }
+.zl-sheet .zl-field-l { width: auto; font: 400 11px var(--zl-pixel); letter-spacing: .04em; text-transform: uppercase; color: var(--zl-muted); }
+.zl-sheet .zl-field-x { font: inherit; }
+.zl-sheet input.zl-field-in, .zl-sheet select.zl-field-in { width: 100%; text-align: left; font: 400 17px var(--zl-ui); padding: 6px 0; border: 0; border-bottom: 2px solid var(--zl-text); border-radius: 0; background: none; color: var(--zl-text); }
+/* focused: the rule stays (app.css clears the border on focus), loud */
+.zl-sheet input.zl-field-in:focus, .zl-sheet input.zl-field-in:focus-visible { border: 0; border-bottom: 2px solid var(--zl-loud); }
+.zl-sheet input.zl-field-in::-webkit-date-and-time-value { text-align: left; }
+.zl-sheet .zl-row.zl-field::before { display: none; }
+.zl-sheet select.zl-field-in { text-align-last: left; -webkit-appearance: none; appearance: none; }
+.zl-sheet button.zl-tile { font-family: var(--zl-ui); color: var(--zl-text); }
+.zl-sheet .zl-tile-t { font: 400 18px var(--zl-disp); text-transform: uppercase; letter-spacing: .02em; }
+.zl-sheet .zl-tile-s { font: 400 12px var(--zl-ui); color: var(--zl-muted); }
+.zl-sheet .zl-tile .zl-tile-ic { width: 18px; height: 18px; color: var(--zl-text); }
+.zl-sheet button.zl-tile.is-on .zl-tile-ic { color: var(--zl-loud); }
+.zl-sheet button.zl-tile.is-on .zl-tile-s { color: var(--zl-bg); opacity: .75; }
+.zl-sheet .zl-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.zl-sheet button.zl-tile { min-width: 0; overflow: hidden; }
+.zl-sheet .zl-tile-t, .zl-sheet .zl-tile-s { overflow-wrap: anywhere; }
+/* ---- sheet kit K (owner picked 2026-11-05): a bottom sheet in thumb reach (--zl-lift raises it over a keyboard); words and
+   chips instead of dropdowns, dial rows for numbers (hold and drag, tap = pad), date chips, a folded line, a live total */
+.is-phone .modal.zl-sheet { top: auto; bottom: 0; left: 0; right: 0; width: auto; max-height: 88vh; border-width: 4px 0 0; box-shadow: none;
+    padding: 18px 16px calc(14px + max(env(safe-area-inset-bottom), var(--zl-kb, 0px))); transform: none; overscroll-behavior: contain;
+    transition: padding-bottom .25s cubic-bezier(.38, .7, .125, 1); }
+.is-phone .modal.zl-sheet::before { content: ""; position: absolute; left: calc(50% - 20px); top: 6px; width: 40px; height: 4px; background: var(--zl-dim); }
+.is-phone .modal.zl-sheet.is-drag { transition: none; }
+@keyframes zl-sheet-cut { from { clip-path: inset(100% 0 0 0); } }
+/* upright: the sheet slides up as fast as it slides down on a tap on the dim (sheet.ts slideClose: .22 s), the dim fades in with it */
+@media (orientation: portrait) {
+    .is-phone .modal.zl-sheet { animation: zl-sheet-up .22s cubic-bezier(0, 0, .6, 1) backwards;   /* backwards: a drag's translate is not held by the fill */ }
+    .is-phone .modal-container:has(> .zl-sheet) > .modal-bg { animation: zl-dim-in .22s ease-out both; }
+}
+@keyframes zl-sheet-up { from { translate: 0 calc(100% + 40px); } }
+@keyframes zl-dim-in { from { opacity: 0; } }
+body.zl-calm.is-phone .modal.zl-sheet, body.zl-calm .modal-container:has(> .zl-sheet) > .modal-bg { animation: none; }
+@media (prefers-reduced-motion: reduce) { .is-phone .modal.zl-sheet, .modal-container:has(> .zl-sheet) > .modal-bg { animation: none !important; } }
+.zl-sheet .zl-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.zl-sheet .zl-words { display: flex; }
+.zl-sheet .zl-words .zl-chip { flex: 1; }
+.zl-sheet .zl-words .zl-chip + .zl-chip { margin-left: -2px; }
+.zl-sheet button.zl-chip { height: 40px; min-width: 44px; padding: 0 12px; border: 2px solid var(--zl-dim); border-radius: 0; background: none; box-shadow: none; color: var(--zl-text); font: 400 17px var(--zl-disp); letter-spacing: .04em; }
+.zl-sheet button.zl-chip.is-on { position: relative; background: var(--zl-text); border-color: var(--zl-text); color: var(--zl-bg); }
+.zl-sheet button.zl-chip:active { opacity: .6; }
+.zl-sheet .zl-dates button.zl-chip-arw { width: 40px; padding: 0; font-family: var(--zl-ui); }
+.zl-sheet .zl-dates button.zl-chip-day { min-width: 92px; }
+.zl-sheet .zl-dates button.zl-chip-day.is-scrub { background: var(--zl-loud); border-color: var(--zl-loud); color: var(--zl-bg); }
+.zl-sheet input.zl-date-pick { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; opacity: 0; font-size: 16px; -webkit-appearance: none; appearance: none; background: none; color: transparent; cursor: pointer; }
+.zl-sheet .zl-field.zl-datek { position: relative; }
+.zl-sheet .zl-field.zl-dial { flex-direction: row; align-items: center; justify-content: space-between; min-height: 60px; padding: 8px 0; cursor: ns-resize; }
+.zl-sheet .zl-field.zl-dial.is-scrub { background: var(--zl-loud); color: var(--zl-bg); }
+.zl-sheet .zl-field.zl-dial.is-scrub .zl-field-l { color: var(--zl-bg); }
+.zl-dial-r { display: flex; align-items: baseline; gap: 8px; }
+.zl-dial-v { font: 400 30px var(--zl-disp); font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.zl-dial-v.is-empty { color: var(--zl-muted); }
+.zl-dial-tag { font: 400 11px var(--zl-pixel); letter-spacing: .06em; color: var(--zl-loud); }
+.zl-sheet .zl-fold-body { border-top: 0; }
+.zl-fold:not(.is-open) .zl-fold-body { display: none; }
+.zl-sheet button.zl-fold-line { display: block; width: 100%; height: auto; min-height: 44px; padding: 10px 0; border: 0; border-bottom: 1px solid var(--zl-dim); border-radius: 0; background: none; box-shadow: none; color: var(--zl-muted); font: 400 14px var(--zl-ui); text-align: left; white-space: normal; }
+.zl-fold.is-open .zl-fold-line { color: var(--zl-text); }
+.zl-sheet-total { margin-top: 12px; font: 600 15px var(--zl-ui); }
+.zl-sheet-total.is-hidden { display: none; }
+.zl-field-note { margin: -4px 0 8px; font: 400 12px var(--zl-ui); color: var(--zl-muted); }
+.zl-field-note.is-hidden { display: none; }
+.zl-sheet-total.is-bad { color: var(--zl-loud); }
+.zl-sheet-host .zl-sheet-msg { display: block; position: fixed; left: 16px; right: 16px; top: calc(env(safe-area-inset-top) + 8px); z-index: 80; margin: 0; padding: 10px 12px;
+    background: var(--zl-loud); color: var(--zl-on-loud); box-shadow: 0 4px 0 var(--zl-text); font: 700 16px/1.3 var(--zl-ui); text-align: center; pointer-events: none; opacity: 0; transform: translateY(-6px); transition: opacity .15s, transform .15s; }
+.zl-sheet-host .zl-sheet-msg.is-on { opacity: 1; transform: none; }
+.zl-sheet .zl-field.zl-text { cursor: text; }
+.zl-text-v { font: 400 17px var(--zl-ui); padding: 6px 0; border-bottom: 2px solid var(--zl-text); overflow-wrap: anywhere; }
+.zl-text-v.is-empty { color: var(--zl-muted); }
+/* the writing window: a card at the top over the dimmed sheet (the keyboard rises below it) */
+.zl-txt { position: fixed; inset: 0; z-index: 70; color: var(--zl-text); font-family: var(--zl-ui); }
+.zl-txt-scrim { position: absolute; inset: 0; background: rgba(0, 0, 0, .55); }
+.zl-txt-card { position: absolute; left: 16px; right: 16px; top: 30%; display: flex; flex-direction: column; gap: 10px; box-sizing: border-box;
+    padding: 14px 14px 12px; background: var(--zl-bg); border: 2px solid var(--zl-text); box-shadow: 0 6px 0 var(--zl-text); animation: zl-txt-in .18s cubic-bezier(.2, .8, .2, 1) both; }
+.zl-txt-card.is-set { transition: top .25s cubic-bezier(.38, .7, .125, 1); }
+.zl-txt-scrim { animation: zl-fade-in .18s ease-out both; }
+@keyframes zl-fade-in { from { opacity: 0; } }
+@keyframes zl-txt-in { from { opacity: 0; transform: translateY(10px) scale(.98); } }
+.zl-txt.is-out { opacity: 0; transition: opacity .15s; }
+.zl-txt-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.zl-txt-h { min-width: 0; }
+.zl-txt-t { font: 400 22px var(--zl-disp); text-transform: uppercase; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zl-txt-s { font: 400 11px var(--zl-pixel); letter-spacing: .04em; color: var(--zl-muted); text-transform: uppercase; }
+.zl-sheet-host button.zl-txt-b { height: 44px; padding: 0 12px; border: 2px solid var(--zl-text); border-radius: 0; background: none; box-shadow: none; color: var(--zl-text); font: 400 17px var(--zl-disp); letter-spacing: .04em; }
+.zl-sheet-host button.zl-txt-b.is-loud { background: var(--zl-loud); border-color: var(--zl-loud); color: var(--zl-on-loud); }
+.zl-sheet-host textarea.zl-txt-in { width: 100%; min-height: 0; padding: 6px 0; border: 0; border-bottom: 2px solid var(--zl-loud); border-radius: 0; background: none; box-shadow: none; color: var(--zl-text); font: 400 20px/1.4 var(--zl-ui); resize: none; outline: none; caret-color: var(--zl-loud); }
+.zl-sheet .zl-tgrid { margin-top: 2px; }
+.zl-sheet button.zl-tg { height: auto; box-shadow: none; border-radius: 0; background: none; color: var(--zl-text); }
+.zl-sheet button.zl-tg.is-on, .zl-sheet button.zl-tg.is-on.is-dim { background: var(--zl-text); border-color: var(--zl-text); color: var(--zl-bg); }
+.zl-sheet button.zl-tg.is-on .zl-tg-v { color: var(--zl-loud); }
+/* a date: one block, swipe left / right for the day after / before, tap for the calendar */
+.zl-sheet .zl-dateblk { position: relative; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; justify-content: space-between; width: 100%; height: 56px; padding: 0 4px; border: 2px solid var(--zl-text); border-radius: 0; background: none; box-shadow: none; color: var(--zl-text); touch-action: pan-y; }
+.zl-sheet .zl-dateblk.is-swipe { border-color: var(--zl-loud); }
+.zl-dateblk-a { width: 32px; text-align: center; font: 400 20px var(--zl-ui); color: var(--zl-muted); }
+.zl-dateblk-m { display: flex; align-items: baseline; gap: 10px; transition: transform .12s ease-out; }
+.zl-dateblk.is-swipe .zl-dateblk-m { transition: none; }
+.zl-dateblk-r { font: 400 22px var(--zl-disp); letter-spacing: .04em; }
+.zl-dateblk-d { font: 400 15px var(--zl-ui); color: var(--zl-muted); }
+.zl-sheet .zl-mpick-y { margin: 8px 0; }
+.zl-sheet .zl-mpick { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.zl-sheet .zl-mpick button.zl-chip { height: 56px; }
+.zl-sheet .zl-mpick button.zl-chip.is-now:not(.is-on) { border-color: var(--zl-loud); }
+/* a one-line link at the end of a full first page (Log › NET WORTH): a full-height touch target, the arrow loud */
+.zl-c-link .zl-sec { min-height: 44px; margin: 0; border-top: 2px solid var(--zl-text); border-bottom: 1px solid var(--zl-dim); }
+.zl-c-link .zl-sec-go .zl-px { color: var(--zl-loud); }
+.zl-reads { margin-top: 8px; }
+
+/* ==== Round 3 (2026-11-03, owner: "stunning version"; the pixel wipe was annoying) ==== */
+/* page change: the new page's groups come in one after another (30 ms apart, 220 ms each, a small move and a fade);
+   nothing covers the page, the old page is gone at once */
+.zl-page.zl-enter > :not(.zl-title-row) { animation: zl-enter .16s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--e, 0) * 20ms); }
+.zl-page.zl-enter[data-enter="push"] > :not(.zl-title-row), .zl-page.zl-enter[data-enter="pop"] > :not(.zl-title-row) { animation: none; }   /* deeper / Back: the page slide is the show */
+.zl-page.zl-enter[data-enter="tab"] > :not(.zl-title-row) { --ex: 0px; --ey: 0px; animation-delay: 0ms; }   /* a tab change: the page just fades in, the board sweep is the one show */
+@keyframes zl-enter { from { opacity: 0; transform: translate(var(--ex, 0), var(--ey, 10px)); } }
+@media (prefers-reduced-motion: reduce) { .zl-page.zl-enter > * { animation: none; } }
+body.zl-calm .zl-page.zl-enter > * { animation: none; }
+/* rows inside an entering group do not run their own reveal on top of it */
+.zl-page.zl-enter .zl-in { animation: none; }
+
+/* charts light up: every block is a dark square until its turn, then it lights in one stepped beat (no growing from
+   the middle); towers and the staircase light row by row from the bottom */
+.zl-grow rect { transform: none; animation: zl-light .12s steps(2, end) both; animation-delay: var(--d, 0ms); }
+.zl-waffle .zl-grow rect { animation: zl-light .12s steps(2, end) both; animation-delay: var(--d, 0ms); }
+@keyframes zl-light { from { fill: var(--zl-dim); } }
+@media (prefers-reduced-motion: reduce) { .zl-grow rect, .zl-waffle .zl-grow rect { animation: none; } }
+body.zl-calm .zl-grow rect, body.zl-calm .zl-waffle .zl-grow rect { animation: none; }
+
+/* the main action is filled (loud, ink shadow, it presses down); Back beside it stays outlined (secondary) */
+.zl-app .zl-fab { margin: 10px 16px 14px; }
+.zl-app .zl-dock-b { height: 52px; }
+.zl-app .zl-dock-act { justify-content: center; background: var(--zl-loud); border-color: var(--zl-loud); color: var(--zl-on-loud); box-shadow: 0 4px 0 var(--zl-text); }
+.zl-app .zl-dock-act .zl-px { color: var(--zl-on-loud); }
+.zl-app .zl-dock-act .zl-dock-h { color: var(--zl-on-loud); opacity: .75; }
+.zl-app .zl-dock-act:active { transform: translateY(4px); box-shadow: none; background: var(--zl-loud); color: var(--zl-on-loud); }
+.zl-app .zl-dock-back { justify-content: center; }
+.zl-app .zl-dock-b.zl-dock-ico { flex: none; width: 52px; padding: 0; justify-content: center; }   /* the scope beside + TRADE */
+.zl-app .zl-dock-ico .zl-px { width: 20px; height: 20px; color: var(--zl-text); }
+.zl-app .zl-dock-ico:active .zl-px { color: var(--zl-bg); }
+.zl-app .zl-fab .zl-dock-b.zl-dock-ico { max-width: none; margin-left: 0; }
+.zl-app .zl-fab:not(.is-split) .zl-dock-act { padding: 0 20px; }
+.zl-app .zl-fab:not(.is-split) .zl-dock-act .zl-dock-h { margin-left: auto; }
+
+/* readability: no pixel type under 11 px */
+.zl-tower-k, .zl-stairs-l, .zl-wkey-k, .zl-sum-k, .zl-tg-k { font-size: 11px; }
+.zl-bigl { font-size: 12px; }
+
+/* balance: on a first page the chart takes the room that is left (it grows taller instead of leaving a hole) */
+.zl-page.zl-c-stack > .zl-c-fill { flex: 1 1 0; min-height: 132px; max-height: 300px; display: flex; flex-direction: column; }
+.zl-c-fill > .zl-stairs, .zl-c-fill > .zl-towers { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.zl-c-fill > .zl-stairs > svg { flex: 1; min-height: 0; height: 100%; }
+.zl-c-fill > .zl-towers { display: grid; grid-template-rows: minmax(0, 1fr); }
+.zl-c-fill .zl-tower { min-height: 0; height: 100%; }
+.zl-c-fill .zl-tower-c { flex: 1; min-height: 0; height: auto; }
+.zl-beam { display: flex; flex-direction: column; gap: 10px; }
+.zl-app .zl-beam-r { display: grid; grid-template-columns: 64px minmax(0, 1fr); align-items: center; gap: 12px; min-height: 28px; padding: 0; color: var(--zl-text); text-align: left; }
+.zl-app .zl-beam-r:active { opacity: .6; }
+.zl-beam-k { font: 400 11px var(--zl-pixel); letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zl-app .zl-brow { padding: 6px 0; }
+/* the day page: date bar, then groups at the same 20 px gaps as every page (no holes); tiles carry a pixel icon */
+.zl-page.zl-c-stack.zl-has-bar { justify-content: flex-start; gap: 20px; }
+.zl-tg-top { display: flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; }
+.zl-tg-ic { flex: none; width: 14px; height: 14px; }
+:is(.zl-app, .zl-sheet) .zl-tg { min-height: 64px; }
+/* fitting a one-screen page (view.ts fit): it never scrolls; when it is a few px taller than the room it tightens */
+.zl-app .zl-scroll.is-fit { overflow-y: hidden; }
+.zl-page.zl-c-stack.is-tight, .zl-page.zl-c-stack.is-tight.zl-has-bar { gap: 12px; }
+.zl-page.zl-c-stack.is-tighter, .zl-page.zl-c-stack.is-tighter.zl-has-bar { gap: 8px; padding-top: 4px; padding-bottom: 4px; }
+.zl-page.is-tighter .zl-reads { margin-top: 4px; }
+.zl-page.is-tighter .zl-read { padding: 2px 0; }
+.zl-app .zl-page.is-tighter .zl-brow { padding: 3px 0; min-height: 40px; }
+.zl-app .zl-page.is-tighter .zl-fig { min-height: 48px; padding: 8px 0; }
+
+/* ---- readable rows: a name (person, thing, sentence) in display type; the beam strip under a person's row */
+.zl-app .zl-fig.is-name .zl-fig-k { font: 400 20px/1.1 var(--zl-disp); letter-spacing: .02em; color: var(--zl-text); }
+.zl-app .zl-fig.is-name .zl-fig-s { font-size: 14px; color: var(--zl-text); opacity: .72; }
+.zl-app .zl-fig.is-name.is-dim .zl-fig-k { color: var(--zl-muted); }
+.zl-app .zl-fig.is-beam { flex-wrap: wrap; row-gap: 10px; }
+.zl-fig-beam { flex: 0 0 calc(100% - 32px); width: calc(100% - 32px); margin-left: 32px; height: 6px; display: block; }
+
+/* ---- hold and drag (scrub.ts): the held tile goes loud, the amount rides in a bubble above the finger */
+.zl-scrubbable { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.zl-app .zl-tg.is-scrub, .zl-app .zl-fig.is-scrub { background: var(--zl-loud); border-color: var(--zl-loud); color: var(--zl-bg); }
+.zl-app .zl-fig.is-scrub .zl-fig-v, .zl-app .zl-fig.is-scrub .zl-fig-k, .zl-app .zl-fig.is-scrub .zl-fig-s { color: var(--zl-bg); }
+.zl-bubble { position: fixed; z-index: 1000; transform: translate(-50%, -100%); min-width: 150px; padding: 10px 14px 8px; background: var(--zl-text); color: var(--zl-bg);
+    box-shadow: 0 4px 0 var(--zl-loud); text-align: center; pointer-events: none; animation: zl-bubble-in .14s ease-out; }
+.zl-bubble > div { display: block !important; }
+.zl-bubble-k { font: 400 11px var(--zl-pixel); letter-spacing: .06em; opacity: .8; }
+.zl-bubble-v { font: 400 44px/1.05 var(--zl-disp); }
+.zl-bubble-v.is-tick { animation: zl-tick .12s ease-out; }
+.zl-bubble-d { font: 400 12px var(--zl-pixel); letter-spacing: .04em; }
+.zl-bubble.is-up .zl-bubble-d { color: var(--zl-loud); }
+@keyframes zl-bubble-in { from { opacity: 0; transform: translate(-50%, -90%); } }
+@keyframes zl-tick { from { transform: translateY(-3px); } }
+body.zl-calm .zl-bubble, body.zl-calm .zl-bubble-v.is-tick { animation: none; }
+.zl-scrub-hint { text-align: center; }
+
+/* the allocation check on Log: one loud line under the board when the plan does not add up to the income */
+.zl-c-warn .zl-sec { margin: 8px 0 0; min-height: 32px; color: var(--zl-loud); }
+.zl-c-warn .zl-sec-go { color: var(--zl-loud); }
+
+/* ---- readability redesign (2026-11-04): Plex labels in sentence case, blank tiles, sign bars, groups spread to the bottom bar */
+.zl-bigl { margin-top: 8px; font: 400 14px var(--zl-ui); letter-spacing: 0; text-transform: none; color: var(--zl-muted); }
+.zl-bigl > span:first-child { font-weight: 600; color: var(--zl-text); }
+.zl-reads { margin-top: 8px; padding: 0; }
+.zl-read { min-height: 48px; padding: 0; }
+.zl-read + .zl-read { border-top: 1px solid var(--zl-dim); }
+.zl-read-k { font: 400 14px var(--zl-ui); letter-spacing: 0; text-transform: none; color: var(--zl-muted); }
+.zl-fig-k { font: 400 14px var(--zl-ui); letter-spacing: 0; }
+.zl-fig-main .zl-fig-k { font-size: 15px; }
+.zl-flap .t.bl em { visibility: hidden; }
+/* a leading + / − sits on a blank tile of its own (owner, 2026-11-09), drawn as loud bars on the seam, never a glyph */
+.zl-flap .t.sg .dr { display: none; }
+.zl-flap:not(.is-xs) .t.sg em { visibility: hidden; }
+.zl-flap:not(.is-xs) .t.sg .st { box-shadow: inset 0 -1px 0 var(--zl-tile-seam); }   /* the seam: ::after draws the plus bar */
+.zl-flap .t.sg { --len: 14px; --bar: 3px; }
+.zl-flap .t.sg::before, .zl-flap .t.sg.is-plus::after { content: ""; position: absolute; left: 50%; top: 50%; right: auto; width: var(--len); height: var(--bar); background: var(--zl-loud); transform: translate(-50%, -50%); z-index: 4; }
+.zl-flap .t.sg::after { display: none; }
+.zl-flap .t.sg.is-plus::after { display: block; width: var(--bar); height: var(--len); }
+.zl-flap.is-lg .t.sg { --len: 24px; --bar: 5px; }
+.zl-flap.is-xl .t.sg { --len: 28px; --bar: 6px; }
+.zl-flap.is-amt .t.sg { --len: 30px; --bar: 6px; }
+.zl-page.zl-c-stack:not(.zl-has-bar) { justify-content: space-between; }
+.zl-app .zl-bline { width: 100%; height: auto; display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 6px 0; border: 0; background: none; color: var(--zl-text); text-align: left; }
+.zl-app .zl-bline:active { background: var(--zl-dim); }
+.zl-bline-t { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font: 400 15px var(--zl-ui); }
+.zl-bline-v strong { font-weight: 600; color: var(--zl-text); }
+.zl-bline-v strong.is-hot, .zl-app .zl-bline-v strong.is-hot { color: var(--zl-loud); }
+.zl-bline-of { color: var(--zl-muted); }
+.zl-chart.zl-bline-bar { display: block; width: 100%; height: 16px; }
+/* This month page */
+.zl-app .zl-tm-sal { width: 100%; height: auto; border: 0; background: none; color: var(--zl-text); }
+.zl-tm-sal .zl-read-k { font-weight: 600; color: var(--zl-text); }
+.zl-tm-bar { display: flex; gap: 2px; height: 20px; margin: 8px 0 4px; }
+.zl-tm-bar span { display: block; min-width: 0; }
+.zl-app .zl-tm-line { width: 100%; height: auto; min-height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0; border: 0; border-bottom: 1px solid var(--zl-dim); background: none; color: var(--zl-text); font: 400 15px var(--zl-ui); text-align: left; }
+.zl-app button.zl-tm-line:active { background: var(--zl-dim); }
+.zl-tm-k { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.zl-tm-k i { flex: none; width: 12px; height: 12px; outline: 1px solid var(--zl-muted); outline-offset: -1px; }
+.zl-tm-d { color: var(--zl-muted); font-size: 13px; }
+.zl-tm-line strong, .zl-tm-bill strong { font-weight: 600; color: var(--zl-text); }
+.zl-tm-line strong.is-hot, .zl-c-note.is-hot { color: var(--zl-loud); }
+.zl-tm-bill { display: flex; align-items: center; gap: 12px; min-height: 48px; border-bottom: 1px solid var(--zl-dim); font: 400 15px var(--zl-ui); }
+.zl-tm-bill.is-off strong { color: var(--zl-muted); font-weight: 400; }
+.zl-app .zl-tick { flex: none; width: 44px; height: 44px; margin-left: -12px; padding: 0; border: 0; background: none; display: grid; place-items: center; }
+.zl-app .zl-tick::before { content: ""; width: 18px; height: 18px; box-sizing: border-box; border: 2px solid var(--zl-text); }
+.zl-app .zl-tick.is-on::before { background: var(--zl-text); box-shadow: inset 0 0 0 3px var(--zl-bg, var(--background-primary)); }
+.zl-app .zl-tm-bn { flex: 1; min-width: 0; height: 44px; display: flex; justify-content: flex-start; align-items: center; padding: 0; border: 0; background: none; color: var(--zl-text); font: inherit; text-align: left; }
+/* amount drawer (readability redesign): over the page, the page dimmed above it */
+.zl-app { position: relative; }
+.zl-drw-wrap { position: absolute; inset: 0; z-index: 60; }
+.zl-drw-scrim { position: absolute; inset: 0; background: rgba(0, 0, 0, .55); opacity: 0; transition: opacity .2s ease; }
+.zl-drw { position: absolute; left: 0; right: 0; bottom: 0; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px;
+    padding: 16px 16px calc(12px + env(safe-area-inset-bottom)); background: var(--zl-bg); color: var(--zl-text); border-top: 4px solid var(--zl-text);
+    transform: translateY(100%); transition: transform .22s cubic-bezier(.2, .8, .2, 1); font-family: var(--zl-ui); }
+.zl-drw-wrap.is-in .zl-drw-scrim { opacity: 1; }
+.zl-drw-wrap.is-in .zl-drw { transform: none; }
+.zl-drw-wrap.is-out .zl-drw-scrim { opacity: 0; }
+.zl-drw-wrap.is-out .zl-drw { transform: translateY(100%); }
+.zl-drw-wrap.is-still .zl-drw, .zl-drw-wrap.is-still .zl-drw-scrim { transition: none; }
+.zl-drw-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 15px; }
+.zl-drw-t { font-weight: 600; }
+.zl-drw-now { color: var(--zl-muted); font-size: 14px; }
+.zl-drw-note { margin: 0; }
+.zl-drw-words { display: grid; grid-template-columns: 1fr 1fr; border: 2px solid var(--zl-text); }
+:is(.zl-app, .zl-sheet-host) .zl-drw-word { height: 40px; border: 0; border-radius: 0; background: none; color: var(--zl-text); font: 400 17px var(--zl-disp); letter-spacing: .04em; box-shadow: none; }
+:is(.zl-app, .zl-sheet-host) .zl-drw-word.is-on { background: var(--zl-text); color: var(--zl-bg); }
+.zl-drw-flap { display: flex; justify-content: flex-end; min-height: 96px; overflow: hidden; }
+.zl-drw-flap .zl-flap { transform-origin: right center; }
+.zl-drw-total { display: flex; justify-content: space-between; font-size: 14px; color: var(--zl-muted); }
+.zl-drw-total strong { color: var(--zl-text); font-weight: 600; }
+.zl-drw-total.is-off { visibility: hidden; height: 0; margin-top: -10px; }
+.zl-drw-chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+:is(.zl-app, .zl-sheet-host) .zl-drw-chip { height: 40px; border: 2px solid var(--zl-dim); border-radius: 0; background: none; color: var(--zl-text); font: 600 15px var(--zl-ui); box-shadow: none; }
+.zl-drw-pad { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 2px solid var(--zl-text); }
+:is(.zl-app, .zl-sheet-host) .zl-drw-key { height: 56px; border: 0; border-bottom: 1px solid var(--zl-dim); border-radius: 0; background: none; color: var(--zl-text); font: 400 30px var(--zl-disp); box-shadow: none; }
+:is(.zl-app, .zl-sheet-host) .zl-drw-key:nth-child(3n + 2) { border-left: 1px solid var(--zl-dim); border-right: 1px solid var(--zl-dim); }
+:is(.zl-app, .zl-sheet-host) .zl-drw-key.is-fn { color: var(--zl-muted); font: 400 13px var(--zl-pixel); letter-spacing: .06em; }
+:is(.zl-app, .zl-sheet-host) .zl-drw-key.is-del { color: var(--zl-muted); font: 400 26px var(--zl-ui); }
+:is(.zl-app, .zl-sheet-host) .zl-drw-key:active, :is(.zl-app, .zl-sheet-host) .zl-drw-chip:active { background: var(--zl-text); color: var(--zl-bg); }
+.zl-drw-acts { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; margin-top: 4px; }
+.zl-drw-acts.has-rm { grid-template-columns: 1fr 1fr 2fr; }
+:is(.zl-app, .zl-sheet-host) .zl-drw-b { background-image: none; height: 52px; border: 2px solid var(--zl-text); border-radius: 0; background: none; color: var(--zl-text); font: 400 19px var(--zl-disp); letter-spacing: .04em; box-shadow: none; }
+:is(.zl-app, .zl-sheet-host) .zl-drw-b.is-rm { border-color: var(--zl-loud); color: var(--zl-loud); }
+:is(.zl-app, .zl-sheet-host) .zl-drw-b.is-loud { border-color: var(--zl-loud); background: var(--zl-loud); background-image: none; color: var(--zl-on-loud); box-shadow: 0 4px 0 var(--zl-text); }
+:is(.zl-app, .zl-sheet-host) .zl-drw-b:active { transform: translateY(4px); box-shadow: none; }
+/* Debt year bricks */
+.zl-c-fill > .zl-years > svg { flex: 1; min-height: 0; height: 100%; }
+.zl-years-l { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 6px; margin-top: 6px; font: 400 12px var(--zl-ui); color: var(--zl-muted); text-align: center; }
+.zl-c-fill > .zl-c-note { margin: 8px 0 0; }
+
+/* holding chart (Design Rules › Charts) */
+.zl-lastp { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.zl-lastp-k { font: 600 14px var(--zl-ui); color: var(--zl-ink); }
+.zl-lastp-s { font: 12px var(--zl-ui); color: var(--zl-mut); }
+.zl-lastp-s.is-hot { color: var(--zl-loud); }
+.zl-ch { display: flex; flex-direction: column; gap: 6px; }
+.zl-ch-top { display: flex; align-items: center; justify-content: space-between; }
+.zl-ch-ranges { display: flex; gap: 16px; }
+.zl-ch button.zl-ch-range { all: unset; cursor: pointer; font: 12px var(--zl-pixel); color: var(--zl-mut); padding: 4px 0 3px; border-bottom: 2px solid transparent; }
+.zl-ch button.zl-ch-range.is-on { color: var(--zl-ink); border-bottom-color: var(--zl-loud); }
+.zl-ch-legend { font: 11px var(--zl-ui); color: var(--zl-mut); }
+.zl-ch-plot { position: relative; width: 100%; }
+.zl-ch-svg { display: block; overflow: visible; }
+.zl-ch-grid { stroke: var(--zl-dim); stroke-width: 1; }
+.zl-ch-vgrid { opacity: .55; }
+.zl-ch-axis { stroke: var(--zl-ink); stroke-width: 1; }
+.zl-ch-yl, .zl-ch-xl { font: 11px var(--zl-ui); fill: var(--zl-mut); }
+.zl-ch-yl, .zl-ch-cur { paint-order: stroke; stroke: var(--zl-paper); stroke-width: 3px; }   /* over the bars: a halo keeps them readable */
+.zl-ch-cur { font: 9px var(--zl-pixel); fill: var(--zl-mut); }
+.zl-ch-up { fill: var(--zl-ink); stroke: var(--zl-ink); }
+.zl-ch-down { fill: var(--zl-loud); stroke: var(--zl-loud); }
+rect.zl-ch-up, rect.zl-ch-down { stroke: none; }
+.zl-ch-wick { stroke-width: 1; }
+.zl-ch-line { fill: none; stroke: var(--zl-ink); stroke-width: 1.5; }
+.zl-ch-ma { fill: none; stroke-width: 1.4; }
+.zl-ch-ma.is-mb { stroke: var(--zl-mb); }
+.zl-ch-ma.is-60 { stroke: var(--zl-ma60); }
+.zl-ch-cost { stroke: var(--zl-ink); stroke-width: 1; stroke-dasharray: 4 3; }
+.zl-ch-tag { fill: var(--zl-loud); }
+.zl-ch-now { stroke: var(--zl-loud); stroke-width: 1; stroke-dasharray: 2 3; }
+.zl-ch-now.is-old { stroke: var(--zl-ink); opacity: .5; }
+.zl-ch-tagt { font: 600 11px var(--zl-ui); fill: var(--zl-on-loud); }
+.zl-ch-in { animation: zl-ch-in .35s ease-out both; }   /* the first bars after LOADING */
+@keyframes zl-ch-in { from { opacity: 0; } }
+body.zl-calm .zl-ch-in { animation: none; }
+.zl-ch-wait { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 10px; align-items: center; justify-content: center; }
+/* loading: 8 dark squares light one after another in steps (Design Rules › Motion: blocks light, they do not grow) */
+.zl-ch-wait-b { display: flex; gap: 4px; }
+.zl-ch-wait-b i { width: 10px; height: 10px; background: var(--zl-dim); animation: zl-ch-blink .8s steps(1, end) infinite; }
+@keyframes zl-ch-blink { 0% { background: var(--zl-loud); } 25% { background: var(--zl-dim); } }
+.zl-ch-wait-t { font: 10px var(--zl-pixel); color: var(--zl-mut); letter-spacing: .04em; }
+.zl-ch-wait-s { font: 14px var(--zl-ui); color: var(--zl-mut); text-align: center; padding: 0 24px; }
+/* the bar line: date first, then O H L C and the move (a close line: the close only); tool hints in its place. One line
+   that keeps its height, so the chart never jumps */
+.zl-ch-note { min-height: 15px; line-height: 15px; font: 11px var(--zl-ui); color: var(--zl-mut); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zl-ch-note, .zl-ch-ohlc { font-variant-numeric: tabular-nums; }
+.zl-ch-plot { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+/* legend strip: three equal toggle cells MB 20 | BB 2σ | MA60, hairlines between */
+.zl-ch-ind { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--zl-dim); border-bottom: 1px solid var(--zl-dim); }
+.zl-ch button.zl-ch-lg { all: unset; cursor: pointer; box-sizing: border-box; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 5px 8px 5px 0; -webkit-tap-highlight-color: transparent; }
+.zl-ch button.zl-ch-lg + button.zl-ch-lg { padding-left: 8px; border-left: 1px solid var(--zl-dim); }
+.zl-ch button.zl-ch-lg:active { background: var(--zl-dim); }
+.zl-ch-lg-t { display: flex; align-items: center; gap: 5px; font: 9px var(--zl-pixel); letter-spacing: .04em; color: var(--zl-mut); white-space: nowrap; }
+.zl-ch-lg-x { margin-left: auto; font: 10px var(--zl-ui); font-variant-numeric: tabular-nums; }
+.zl-ch-lg-v { font: 500 12px var(--zl-ui); color: var(--zl-ink); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: opacity .15s; }
+.zl-ch-lg.is-on .zl-ch-lg-k { color: var(--zl-ink); }
+.zl-ch-lg:not(.is-on) .zl-ch-lg-v { opacity: .4; }
+/* swatch = the line it toggles: MA20 ink, MA60 muted and thicker, BB a filled band with edges; hollow while off */
+.zl-ch-lg-sw { flex: none; width: 12px; height: 2px; background: currentColor; }
+.zl-ch-lg.is-mb { color: var(--zl-mb); }
+.zl-ch-lg.is-ma60 { color: var(--zl-ma60); }
+.zl-ch-lg.is-mb .zl-ch-lg-sw, .zl-ch-lg.is-ma60 .zl-ch-lg-sw { height: 3px; background: var(--zl-mb); }
+.zl-ch-lg.is-ma60 .zl-ch-lg-sw { background: var(--zl-ma60); }
+/* a line switched on: its name and value in the line's colour */
+.zl-ch-lg.is-mb.is-on :is(.zl-ch-lg-k, .zl-ch-lg-v), .zl-ch-lg.is-ma60.is-on :is(.zl-ch-lg-k, .zl-ch-lg-v) { color: currentColor; }
+.zl-ch-lg.is-bb .zl-ch-lg-sw { height: 8px; background: color-mix(in srgb, var(--zl-ink) 14%, transparent); border-top: 1px solid var(--zl-mut); border-bottom: 1px solid var(--zl-mut); box-sizing: border-box; }
+.zl-ch-lg:not(.is-on) .zl-ch-lg-sw { background: transparent; outline: 1px solid var(--zl-dim); outline-offset: 0; }
+.zl-ch-lg.is-bb:not(.is-on) .zl-ch-lg-sw { border-color: var(--zl-dim); }
+/* the bar line's parts */
+.zl-ch-bl-d { color: var(--zl-ink); margin-right: 8px; }
+.zl-ch-bl-k { font: 9px var(--zl-pixel); color: var(--zl-mut); margin: 0 3px 0 6px; }
+.zl-ch-bl-v { color: var(--zl-ink); }
+.zl-ch-bl-m { margin-left: 8px; }
+.zl-ch-bl-m.is-hot { color: var(--zl-loud); }
+.zl-ch button.zl-ch-chip { all: unset; cursor: pointer; display: flex; gap: 5px; align-items: baseline; padding: 3px 7px; border: 1px solid var(--zl-dim); font: 11px var(--zl-ui); color: var(--zl-mut); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.zl-ch button.zl-ch-chip.is-on { border-color: var(--zl-ink); color: var(--zl-ink); }
+.zl-ch-chip-k { font: 10px var(--zl-pixel); }
+.zl-ch-chip-s { font: 9px var(--zl-pixel); color: var(--zl-mut); margin-left: 3px; }
+.zl-ch-bb { fill: none; stroke: var(--zl-mut); stroke-width: 1; }
+.zl-ch-bbf { fill: var(--zl-ink); opacity: .05; stroke: none; }
+.zl-ch button.zl-ch-latest { all: unset; cursor: pointer; position: absolute; top: 2px; right: 2px; padding: 4px 8px; font: 10px var(--zl-pixel); color: var(--zl-on-loud); background: var(--zl-loud); }
+.zl-ch-tag.is-old { fill: var(--zl-paper); stroke: var(--zl-ink); stroke-width: 1; }
+.zl-ch-tagt.is-old { fill: var(--zl-ink); }
+.zl-ch-tools { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; }   /* FIB LINE LEVEL */
+.zl-ch button.zl-ch-tool { all: unset; cursor: pointer; text-align: center; padding: 8px 0; font: 12px var(--zl-pixel); color: var(--zl-ink); border: 1px solid var(--zl-ink); margin-left: -1px; }
+.zl-ch button.zl-ch-tool:first-child { margin-left: 0; }
+.zl-ch button.zl-ch-tool.is-on { background: var(--zl-ink); color: var(--zl-paper); }
+.zl-ch button.zl-ch-tool.is-clear { color: var(--zl-loud); }
+.zl-ch-plot.is-armed { cursor: crosshair; }
+.zl-ch-note.is-hot { color: var(--zl-loud); }
+.zl-ch-level, .zl-ch-tline { stroke: var(--zl-ink); stroke-width: 1.2; }
+.zl-ch-fl { stroke: var(--zl-mut); stroke-width: 1; }
+.zl-ch-fl.is-loud { stroke: var(--zl-loud); }
+.zl-ch-band { fill: var(--zl-loud); opacity: .14; }
+.zl-ch-dl { font: 10px var(--zl-ui); fill: var(--zl-mut); paint-order: stroke; stroke: var(--zl-paper); stroke-width: 3px; }
+.zl-ch-dl.is-loud { fill: var(--zl-loud); }
+.zl-ch-leg { stroke: var(--zl-loud); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.zl-ch-handle { fill: var(--zl-paper); stroke: var(--zl-loud); stroke-width: 1.2; }
+.zl-ch-handle.is-wait { fill: var(--zl-loud); }
+.zl-ch-fib.is-old { opacity: .4; }
+/* drawings sheet */
+.zl-dsheet .zl-sec { margin-top: 14px; }
+.zl-dlist { display: flex; flex-direction: column; }
+.zl-drow { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--zl-dim); }
+.zl-drow-m { flex: 1; min-width: 0; }
+.zl-drow-t { font: 14px var(--zl-ui); color: var(--zl-ink); }
+.zl-drow-s { font: 11px var(--zl-ui); color: var(--zl-mut); }
+.zl-dsheet button.zl-dcheck { all: unset; cursor: pointer; width: 18px; height: 18px; border: 1.5px solid var(--zl-ink); flex: none; }
+.zl-dsheet button.zl-dcheck.is-on { background: var(--zl-loud); border-color: var(--zl-loud); box-shadow: inset 0 0 0 3px var(--zl-loud), inset 0 0 0 5px var(--zl-on-loud); }
+.zl-dsheet button.zl-dx { all: unset; cursor: pointer; font: 16px var(--zl-ui); color: var(--zl-mut); padding: 0 4px; }
+.zl-dchips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 6px 0; }
+.zl-dsheet button.zl-dchip { all: unset; cursor: pointer; text-align: center; padding: 9px 0; font: 12px var(--zl-ui); color: var(--zl-ink); border: 1px solid var(--zl-ink); }
+.zl-dsheet button.zl-dchip.is-on { background: var(--zl-ink); color: var(--zl-paper); }
+.zl-dsheet button.zl-dchip.is-loud { background: var(--zl-loud); border-color: var(--zl-loud); color: var(--zl-on-loud); }
+.zl-dseg { display: flex; gap: 4px; }
+.zl-dsheet .zl-dseg button { all: unset; cursor: pointer; padding: 5px 8px; font: 10px var(--zl-pixel); color: var(--zl-ink); border: 1px solid var(--zl-ink); }
+.zl-dsheet .zl-dseg button.is-on { background: var(--zl-ink); color: var(--zl-paper); }
+/* a masthead action with words (DRAWINGS · N): an outlined pixel box, as wide as its words */
+.zl-app .zl-acts .zl-btn.is-text { width: auto; height: 30px; margin: 0; padding: 0 10px; border: 1.5px solid var(--zl-ink); font: 10px var(--zl-pixel); white-space: nowrap; }
+.zl-dsheet .zl-dsec { font: 10px var(--zl-pixel); color: var(--zl-mut); text-transform: uppercase; letter-spacing: .04em; margin: 14px 0 4px; }
+.zl-dsheet .zl-dbtns { display: flex; flex-direction: row; gap: 10px; margin-top: 16px; }
+.zl-dsheet .zl-dbtns button { flex: none; width: auto; height: 48px; padding: 0 18px; background: transparent; color: var(--zl-ink); border: 1.5px solid var(--zl-ink); box-shadow: none; font: 12px var(--zl-pixel); }
+.zl-dsheet .zl-dbtns button.mod-cta { flex: 1; background: var(--zl-loud); color: var(--zl-on-loud); border-color: var(--zl-loud); font: 400 18px var(--zl-disp); text-transform: uppercase; }
+/* full chart (phone turned) */
+.zl-ch-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.zl-ch button.zl-ch-link { all: unset; cursor: pointer; flex: none; font: 10px var(--zl-pixel); color: var(--zl-ink); }
+.zl-fchart { position: fixed; inset: 0; z-index: 1000; background: var(--zl-paper); padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+.zl-ch.zl-ch-full { flex-direction: row; gap: 0; height: 100%; }
+.zl-ch-rail { flex: none; width: 64px; display: flex; flex-direction: column; border-right: 2px solid var(--zl-ink); }
+.zl-ch-rail button.zl-ch-tool { margin: 0; border: 0; border-bottom: 1px solid var(--zl-dim); padding: 14px 0; font-size: 10px; }
+.zl-ch-rail button.zl-ch-tool.is-back { font: 18px var(--zl-ui); padding: 8px 0; }
+.zl-ch-main { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 6px 10px 4px 8px; gap: 4px; }
+.zl-ch-bar { display: flex; align-items: center; gap: 12px; }
+.zl-ch-tk { font: 400 22px var(--zl-disp); color: var(--zl-ink); }
+.zl-ch-ohlc { flex: 1; min-width: 0; font: 11px var(--zl-ui); color: var(--zl-mut); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zl-ch-ohlc.is-hot { color: var(--zl-loud); }
+.zl-ch-full .zl-ch-plot { flex: 1; min-height: 0; touch-action: none; }
+/* opened from a phone held upright: the layer is drawn sideways (turn the phone left to read it), the notch side on its left */
+.zl-fchart.is-turned { inset: auto; top: 0; left: 100vw; width: 100vh; height: 100vw; transform-origin: top left; transform: rotate(90deg); padding: env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left) env(safe-area-inset-top); }
+.zl-ch-vol { opacity: .7; }
+.zl-ch-vl { font: 10px var(--zl-ui); fill: var(--zl-ink); }
+.zl-ch-vk { font: 9px var(--zl-pixel); fill: var(--zl-mut); }
+.zl-ch-vk.is-5 { fill: var(--zl-ink); } .zl-ch-vk.is-10 { fill: var(--zl-loud); }
+.zl-ch-v5 { fill: none; stroke: var(--zl-ink); stroke-width: 1; }
+.zl-ch-v10 { fill: none; stroke: var(--zl-loud); stroke-width: 1; }
+.zl-ch-dl.is-ext { fill: var(--zl-ink); font-weight: 600; }
+/* the interval row as one segmented strip (portrait): TODAY 1 5 15 30 60 D W M */
+.zl-ch-ranges.is-seg { display: grid; grid-template-columns: repeat(8, 1fr) 1.6fr;   /* M W D 60 30 15 5 1 TODAY */ gap: 0; border: 1px solid var(--zl-ink); }
+.zl-ch-ranges.is-seg button.zl-ch-range { text-align: center; padding: 7px 0 6px; border-bottom: 0; font-size: 11px; }
+.zl-ch-ranges.is-seg button.zl-ch-range.is-on { background: var(--zl-ink); color: var(--zl-paper); }
+.zl-ch-cross { stroke: var(--zl-ink); stroke-width: 1; stroke-dasharray: 2 2; }
+.zl-ch-ctag { fill: var(--zl-ink); }
+.zl-ch-ctagt { font: 600 11px var(--zl-ui); fill: var(--zl-paper); }
+.zl-ch-meas { fill: var(--zl-loud); opacity: .12; stroke: var(--zl-loud); stroke-dasharray: 4 3; }
+
+/* 法人 flows (mock Invest · L): 5 / 20 switch, held day line, stacked daily bars around zero */
+.zl-fl { display: flex; flex-direction: column; gap: 8px; }
+.zl-fl-seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--zl-ink); }
+.zl-app button.zl-fl-segb { all: unset; cursor: pointer; text-align: center; padding: 7px 0 6px; font: 11px var(--zl-pixel); color: var(--zl-mut); }
+.zl-app button.zl-fl-segb.is-on { background: var(--zl-ink); color: var(--zl-paper); }
+.zl-fl-legend { font: 11px var(--zl-ui); color: var(--zl-mut); min-height: 15px; line-height: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.zl-fl-plot { position: relative; width: 100%; flex: 1 1 0; min-height: 120px; touch-action: none; user-select: none; -webkit-user-select: none; }
+.zl-page.zl-c-stack > .zl-c-fill.zl-fl { max-height: none; }
+.zl-fl-down { fill: var(--zl-loud); }
+/* bars light like every chart: a dark block first, then lit in one stepped beat, left to right (--d) */
+.zl-fl-svg.is-light .zl-fl-bar { animation: zl-fl-light .12s steps(2, end) both; animation-delay: var(--d, 0ms); }
+@keyframes zl-fl-light { from { fill: var(--zl-dim); stroke: var(--zl-dim); } }
+@media (prefers-reduced-motion: reduce) { .zl-fl-svg.is-light .zl-fl-bar { animation: none; } }
+body.zl-calm .zl-fl-svg.is-light .zl-fl-bar { animation: none; }
+.zl-fl-f { fill: var(--zl-ink); }
+.zl-fl-t { fill: var(--zl-mut); }
+.zl-fl-d { stroke: var(--zl-ink); stroke-width: 1; }
+.zl-fl-d.is-mut { stroke: var(--zl-mut); }
+.zl-fl-hatch { stroke: var(--zl-ink); stroke-width: 1.5; }
+.zl-fl-hatch.is-mut { stroke: var(--zl-mut); }
+.zl-fl-pick { fill: var(--zl-dim); opacity: .5; }
+.zl-fl-seg.is-3 { grid-template-columns: 1fr 1fr 1fr; }
+.zl-c-group.is-wait { opacity: .45; }
+.zl-fl-src { white-space: normal; padding: 0 0 8px; }
+
+/* one-screen chart pages (2026-11-04): the chart takes the room left, a strip of what you hold, tiles to the rest */
+.zl-page.zl-c-stack > .zl-c-fill.zl-chartg { max-height: none; min-height: 300px; }
+.zl-chartg > .zl-ch.is-fill { flex: 1 1 0; min-height: 0; }
+.zl-ch.is-fill .zl-ch-plot { flex: 1 1 0; min-height: 160px; }
+.zl-c-group.zl-hold .zl-sum-items { margin-top: 0; padding-top: 0; border-top: 0; }
+.zl-tgrid.is-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.zl-tgrid.is-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.zl-tgrid.is-4 .zl-tg-ic { display: none; }   /* four across: the label needs the width */
+.zl-app .zl-tgrid.is-4 .zl-tg-k { white-space: normal; overflow: visible; line-height: 1.3; font-size: 9px; letter-spacing: 0; }   /* four across: a long name wraps at its spaces, never cut */
+.zl-tgrid.is-span > .zl-tg:last-child:nth-child(odd) { grid-column: 1 / -1; }   /* two across: an odd last tile takes the row */
+.zl-app .zl-tgrid.is-span > .zl-tg { justify-content: flex-start; }   /* amounts line up under the names, whatever the row height */
+.zl-tg-s { font: 400 11px/1.2 var(--zl-ui); color: var(--zl-muted); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zl-tgrid.is-4 .zl-app .zl-tg, .zl-app .zl-tgrid.is-4 .zl-tg { padding: 8px 6px; }
+/* compact one-line rows (Invest home's HOLDINGS and WATCHLIST): ticker and its % on one line, the value right */
+.zl-app .zl-figs.is-compact .zl-fig, .zl-app .zl-page.is-tighter .zl-figs.is-compact .zl-fig { min-height: 40px; padding: 6px 0; }
+.zl-figs.is-compact .zl-fig-main { flex-direction: row; align-items: baseline; gap: 10px; }
+.zl-figs.is-compact .zl-fig-v { font-size: 22px; }
+
+/* Invest home: HOLDINGS | WATCHLIST side by side (1 × 2), a compact cell per ticker */
+.zl-two { display: grid; grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr); gap: 12px; align-items: stretch; }
+.zl-two::before { content: ""; grid-column: 2; grid-row: 1; background: var(--zl-text); }   /* the line between HOLDINGS and WATCHLIST */
+.zl-two > .zl-two-c:first-child { grid-column: 1; grid-row: 1; }
+.zl-two > .zl-two-c:last-child { grid-column: 3; grid-row: 1; }
+.zl-two-c { min-width: 0; display: flex; flex-direction: column; }
+.zl-cells { display: flex; flex-direction: column; }
+.zl-app button.zl-cell { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 3px; padding: 7px 0; border-bottom: 1px solid var(--zl-dim); min-width: 0; }
+.zl-app .zl-cells .zl-cell:last-child { border-bottom: 2px solid var(--zl-text); }
+
+/* Invest home: the holdings as a 2 × 2 grid (a thin rule under each row of two, the 2 px rule under the grid) */
+.zl-cells.zl-cells2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 20px; border-bottom: 2px solid var(--zl-text); }
+.zl-app .zl-cells.zl-cells2 .zl-cell, .zl-app .zl-cells.zl-cells2 .zl-cell:last-child { border-bottom: 1px solid var(--zl-dim); padding: 10px 0; }
+.zl-app .zl-cells.zl-cells2 .zl-cell:nth-last-child(-n+2):nth-child(odd), .zl-app .zl-cells.zl-cells2 .zl-cell:last-child { border-bottom: 0; }
+.zl-cells.zl-cells2 .zl-cell.is-none { grid-column: 1 / -1; }
+.zl-cell-t { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.zl-cell-ic { flex: none; width: 13px; height: 13px; color: var(--zl-muted); align-self: center; }
+.zl-app .zl-cell-k, .zl-cell-v { font: 400 20px/1 var(--zl-disp); color: var(--zl-text); white-space: nowrap; letter-spacing: .01em; }
+.zl-app .zl-cell-k { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.zl-cell-v { flex: none; text-align: right; }
+.zl-cell-v.is-hot { color: var(--zl-loud); }
+.zl-cell-s { align-self: flex-end; font: 400 12px var(--zl-ui); color: var(--zl-muted); font-variant-numeric: tabular-nums; }
+.zl-cell-s.is-hot { color: var(--zl-loud); }
+.zl-cell.is-none { font: 400 13px var(--zl-ui); color: var(--zl-muted); padding: 10px 0; }
+.zl-two .zl-sec { white-space: nowrap; }
+
+/* the magnifier as a search bar across the masthead; matches list under it over the page */
+/* search (ui/search.ts, owner 2026-11-05): its own page over the whole screen, the list from the top and never moving, the bar
+   riding the keyboard at its pace (.25 s, the curve the sheets use for the keyboard). Rows: ticker in display type, the name
+   under it, the price / tag on the right. */
+.zl-search { position: absolute; inset: 0; z-index: 60; background: var(--zl-bg); opacity: 0; transition: opacity .15s ease-out; }
+.is-phone .zl-search { position: fixed; }
+.zl-search.is-on { opacity: 1; }
+.zl-search.is-out { opacity: 0; transition: opacity .22s ease-in; pointer-events: none; }
+/* Search: the room over the bar is one list with its head and its own scroll, recent / matches (the watchlist grid that sat on
+   top went, owner 2026-11-13). It ends over the bar (bottom set as the keyboard moves) */
+.zl-shalves { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 14px); left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); bottom: 80px;
+    display: flex; flex-direction: column; gap: 14px; transition: bottom .25s cubic-bezier(.38, .7, .125, 1); }
+.zl-shalf { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+.zl-shalf.is-hidden, .zl-shalf-h.is-hidden { display: none; }
+.zl-slist-h.zl-shalf-h { flex: none; padding-top: 0; }
+.zl-shalf-b { flex: 1 1 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.zl-sbar { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); bottom: max(10px, env(safe-area-inset-bottom, 0px));
+    display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 0 0 12px; border: 2px solid var(--zl-text); background: var(--zl-bg); box-shadow: 0 4px 0 var(--zl-text);
+    transition: transform .25s cubic-bezier(.38, .7, .125, 1), bottom .25s cubic-bezier(.38, .7, .125, 1); will-change: transform; }
+.zl-search.has-kb .zl-sbar { bottom: 10px; }   /* on the keyboard: no home-bar gap under it */
+.zl-sbar-ic { flex: none; width: 18px; height: 18px; color: var(--zl-text); }
+.zl-app input.zl-sbar-in { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; box-shadow: none; padding: 0; font: 400 18px var(--zl-ui); color: var(--zl-text); -webkit-appearance: none; }
+/* no focus ring of Obsidian's (a 3 px accent glow inside the bar, owner: a glitch); the bar is the field's edge */
+.zl-app input.zl-sbar-in:focus, .zl-app input.zl-sbar-in:focus-visible { border: 0; outline: 0; box-shadow: none; }
+.zl-app input.zl-sbar-in::-webkit-search-cancel-button { -webkit-appearance: none; }
+.zl-app button.zl-sbar-x { all: unset; cursor: pointer; flex: none; align-self: stretch; display: grid; place-items: center; padding: 0 16px; font: 400 12px var(--zl-pixel); letter-spacing: .04em; background: var(--zl-text); color: var(--zl-bg); }
+.zl-slist-h { display: flex; justify-content: space-between; align-items: center; padding: 14px 0 6px; border-bottom: 2px solid var(--zl-text); font: 400 11px var(--zl-pixel); letter-spacing: .04em; color: var(--zl-text); }
+.zl-slist > .zl-slist-h:first-child { padding-top: 0; }
+.zl-app button.zl-slist-c { all: unset; cursor: pointer; padding: 4px 0 4px 12px; font: 400 11px var(--zl-pixel); color: var(--zl-muted); }
+.zl-app button.zl-slist-r { all: unset; box-sizing: border-box; cursor: pointer; width: 100%; min-height: 56px; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--zl-dim); }
+.zl-app button.zl-slist-r:active { background: var(--zl-text); color: var(--zl-bg); }
+.zl-slist-tk { grid-column: 1; grid-row: 1; font: 400 22px/1.1 var(--zl-disp); letter-spacing: .02em; color: inherit; }
+.zl-slist-n { grid-column: 1; grid-row: 2; font: 400 13px var(--zl-ui); color: var(--zl-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zl-slist-ex { grid-column: 2; grid-row: 1 / 3; justify-self: end; font: 400 11px var(--zl-pixel); color: var(--zl-muted); }
+.zl-app button.zl-slist-r:active .zl-slist-n, .zl-app button.zl-slist-r:active .zl-slist-ex { color: inherit; }
+.zl-slist-q { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font: 400 16px var(--zl-ui); color: var(--zl-text); font-variant-numeric: tabular-nums; }
+.zl-slist-chg { font-size: 13px; color: var(--zl-muted); }
+.zl-slist-chg.is-hot { color: var(--zl-loud); }
+.zl-slist-none { padding: 14px 0; font: 400 15px var(--zl-ui); color: var(--zl-muted); }
+/* the change line: a tap cycles % → price change → your profit (bigger tap area than the text) */
+.zl-chg { pointer-events: none; display: inline-flex; align-items: center; gap: 6px; }   /* a swipe on the row switches it; a tap opens the row */
+/* its label (TODAY / RETURN / PROFIT); your return sits on light tiles, today's move on the dark ones (owner, 2026-11-05) */
+.zl-chg-k:empty { display: none; }
+/* Live tick (Design Rules › Motion › Live tick): the masthead badge, its dot blinking once per update; changed characters
+   of the label line turning over once; bar blocks going dark from the tip */
+.zl-live { margin-left: 10px; font: 400 10px var(--zl-pixel); letter-spacing: .04em; color: var(--zl-mut); vertical-align: middle; white-space: nowrap; }
+.zl-live.is-on { color: var(--zl-text); }
+.zl-live.is-on::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 5px; background: var(--zl-loud); vertical-align: 1px; animation: zl-live-blink .6s steps(1, end) 1; }
+@keyframes zl-live-blink { 0% { opacity: 0; } 50% { opacity: 1; } 75% { opacity: 0; } 100% { opacity: 1; } }
+.zl-tickc { display: inline-block; animation: zl-tickc .25s ease-out 1; }
+@keyframes zl-tickc { 0% { transform: scaleY(0); } 100% { transform: scaleY(1); } }
+.zl-grow rect.zl-out { animation: zl-blk-out .01s both; animation-delay: var(--d, 0ms); }
+@keyframes zl-blk-out { to { opacity: 0; } }
+body.zl-calm .zl-live.is-on::before, body.zl-calm .zl-tickc { animation: none; }
+.zl-chg-k { font: 400 9px var(--zl-pixel); color: var(--zl-mut); letter-spacing: .04em; text-transform: uppercase; }
+.zl-chg.is-ret .zl-flap .t i { background: var(--zl-tile-lt); color: var(--zl-tile-lt-fg); font-weight: 700; }
+.zl-chg.is-ret.is-hot .zl-flap .t i { color: var(--zl-tile-lt-hot); }
+.zl-chg.is-ret .zl-flap .t::after, .zl-chg.is-ret .zl-flap.is-xs .t.sg::after { background: var(--zl-tile-lt-seam); }
+.zl-qrow, .zl-cell { touch-action: pan-y; }
+/* MANUAL watchlist: the grip drags a row (Settings' tab order); the others slide aside, nothing slides on the drop */
+.zl-app .zl-qrow .zl-qrow-grip { touch-action: none; cursor: grab; color: var(--zl-muted); }
+.zl-qrows.is-reorder .zl-qrow { transition: transform .12s ease; animation: none; }
+.zl-qrows.is-settling .zl-qrow { transition: none; }
+.zl-app .zl-fig.zl-qrow.is-dragging { transition: none; position: relative; z-index: 2; background: var(--zl-paper); box-shadow: 0 0 0 2px var(--zl-ink); }
+.zl-app .zl-qrow.is-dragging .zl-qrow-grip { cursor: grabbing; color: var(--zl-ink); }
+/* Holdings row B (2026-11-05): ticker / shares · last price / today's % · value / return tiles; no icon, no arrow */
+.zl-app .zl-fig.zl-hrow { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(104px, auto); grid-template-rows: auto auto; column-gap: 16px; row-gap: 5px; align-items: center; }
+.zl-hrow-k, .zl-hrow-v { font: 400 22px/1 var(--zl-disp); color: var(--zl-text); white-space: nowrap; letter-spacing: .01em; }
+.zl-hrow-k { grid-column: 1; grid-row: 1; overflow: hidden; text-overflow: ellipsis; }
+.zl-hrow-s { grid-column: 1; grid-row: 2; font: 400 13px var(--zl-ui); color: var(--zl-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zl-hrow-p, .zl-hrow-d { justify-self: end; font: 400 15px var(--zl-ui); color: var(--zl-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.zl-hrow-p { grid-column: 2; grid-row: 1; }
+.zl-hrow-d { grid-column: 2; grid-row: 2; font-size: 13px; color: var(--zl-muted); }
+.zl-hrow-d.is-hot { color: var(--zl-loud); }
+.zl-hrow-v { grid-column: 3; grid-row: 1; justify-self: end; font-variant-numeric: tabular-nums; }
+.zl-hrow-r { grid-column: 3; grid-row: 2; justify-self: end; min-height: 24px; }
+.zl-app .zl-fig.zl-hrow.is-dim .zl-hrow-k, .zl-app .zl-fig.zl-hrow.is-dim .zl-hrow-v { color: var(--zl-muted); }
+/* Invest home: the link row under the holdings grid (Layouts home B) */
+.zl-hold4 .zl-cells.zl-cells2 { border-bottom: 0; }
+.zl-app .zl-fig.zl-qrow { display: grid; grid-template-columns: 18px minmax(56px, max-content) minmax(0, 1fr) auto 12px; grid-template-rows: auto auto; column-gap: 12px; row-gap: 4px; align-items: center; }
+.zl-qrow > .zl-fig-ic { grid-column: 1; grid-row: 1 / span 2; }
+.zl-qrow > .zl-fig-go { grid-column: 5; grid-row: 1 / span 2; }
+.zl-qrow-k, .zl-qrow-v { font: 400 22px/1 var(--zl-disp); color: var(--zl-text); white-space: nowrap; }
+.zl-qrow-k { grid-column: 2; grid-row: 1 / span 2; max-width: 120px; overflow: hidden; text-overflow: ellipsis; letter-spacing: .01em; }
+.zl-qrow-v { grid-column: 4; grid-row: 2; justify-self: end; font-variant-numeric: tabular-nums; }
+.zl-qrow-s { grid-column: 3; grid-row: 1 / span 2; align-self: center; font: 400 13px var(--zl-ui); color: var(--zl-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* the change as a small split-flap right above the value (loud digits when down; flips when the price moves or on a tap) */
+.zl-qrow-c { grid-column: 4; grid-row: 1; justify-self: end; margin: 0; }
+.zl-qrow-c.is-none { min-height: 20px; }
+.zl-app .zl-fig.zl-qrow.is-dim .zl-qrow-k, .zl-app .zl-fig.zl-qrow.is-dim .zl-qrow-v { color: var(--zl-muted); }
+/* xs split-flap: the change line (lists and Invest home cells). Same proportions as the big tiles (about 4 : 7, owner
+   2026-11-04), and the + / − sits on a tile of its own like the digits (no bars) */
+.zl-flap.is-xs { gap: 2px; }
+.zl-flap.is-xs .t { width: 14px; height: 24px; perspective: 120px; }
+.zl-flap.is-xs i { font: 600 14px var(--zl-ui); }
+.zl-flap.is-xs .t { --r: 2px; }
+.zl-flap.is-xs .t.c { width: 7px; }
+.zl-flap.is-xs .t.sg { width: 14px !important; }
+.zl-flap.is-xs .t.sg i { display: block; }
+.zl-flap.is-xs .t.sg::before { display: none; }
+.zl-flap.is-xs .t.sg::after, .zl-flap.is-xs .t.sg.is-plus::after { display: block; left: 0; right: 0; top: calc(50% - .5px); width: auto; height: 1px; background: var(--zl-tile-seam); transform: none; }   /* the seam, as on every tile */
+.zl-chg.is-hot .zl-flap .t i { color: var(--zl-tile-hot); }
+.zl-cell-s.zl-chg { align-self: flex-end; }
+/* the + / − sit just above the tile's seam, so the seam gap does not cut through their bar (owner, 2026-11-04) */
+.zl-flap.is-xs .t.sg u { transform: translateY(-2px); }
+/* Chinese inside a display title: a heavy CJK face, a little smaller and lifted, so its height matches Anton's capitals */
+.zl-cjk { font-family: "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: 900; font-size: .8em; letter-spacing: .02em; position: relative; top: -.04em; text-transform: none; }
+/* one pressed look for everything that opens something (rows, cells, a head's ALL ›): a dim block under it, 4 px past its
+   edges, the text unchanged (owner, 2026-11-04: the ALL head and the rows pressed differently) */
+.zl-app button.zl-sec:active, .zl-app button.zl-fig:active, .zl-app button.zl-cell:active { background: var(--zl-dim); box-shadow: 0 0 0 4px var(--zl-dim); }
+
+/* ---- a phone turned sideways (owner, 2026-11-04): the same pages, the tab bar becomes a column on the right and the page,
+   masthead and dock take the width left of it (nothing under the bar). The notch / home indicator sides get their safe space.
+   On a two-column page the dock sits at the foot of the left column (under the board), so the rows on the right run to the
+   bottom and the page does not scroll for the dock's height. */
+@media (orientation: landscape) and (max-height: 520px) {
+    .is-phone .zl-app {
+        display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto minmax(0, 1fr) auto;
+        /* only the part of the notch's safe space the app does not already start past (view.ts measures --zl-app-x), less the
+           page's own 16 px margin: the page starts at the safe edge, not 16 px and more past it (owner, 2026-11-05) */
+        padding-left: max(0px, calc(env(safe-area-inset-left, 0px) - var(--zl-app-x, 0px) - 16px)); --zl-safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    .is-phone .zl-app > .zl-top { grid-column: 1; grid-row: 1; }
+    .is-phone .zl-app > .zl-scroll { grid-column: 1; grid-row: 2; }
+    .is-phone .zl-app > .zl-fab { grid-column: 1; grid-row: 3; margin-bottom: max(8px, var(--zl-safe-bottom)); }
+    /* the rail: as wide as its longest label, five even rows from top to bottom, a 4 px rule on its left */
+    .is-phone .zl-app > .zl-tabs {
+        grid-column: 2; grid-row: 1 / -1; width: auto; min-width: 84px; justify-content: stretch; align-content: stretch;
+        grid-template-columns: 1fr; grid-template-rows: repeat(var(--n, 5), minmax(0, 1fr));
+        border-top: 0; border-left: 4px solid var(--zl-text);
+        padding: var(--zl-safe-top) calc(env(safe-area-inset-right, 0px) + 10px) var(--zl-safe-bottom) 10px;
+    }
+    .is-phone .zl-app .zl-tabs > .zl-tab { max-width: none; justify-content: center; gap: 4px; padding: 0; }
+    .is-phone .zl-app .zl-tab .zl-px { width: 22px; height: 22px; }
+    .is-phone .zl-app .zl-tab-l { white-space: nowrap; }
+    .is-phone .zl-app .zl-tab.is-on .zl-px { transform: translateX(-3px); }
+    /* two-column pages: the page runs down to the bottom, the dock is pinned to the foot of the left column, edge to edge with
+       it (view.ts measures the column into --zl-dock-x / --zl-dock-w); the left column stays in view, the right one scrolls */
+    .is-phone .zl-app:has(.zl-page.zl-c-stack, .zl-page.zl-c-list) > .zl-scroll { grid-row: 2 / 4; }
+    /* placed by the grid, not measured (a measurement taken mid-turn left it 44 px off, over the rows): the left column's
+       cell, 16 px in, as wide as the page's left column ((track − 2 × 16 margin − 32 gap) / 2) */
+    .is-phone .zl-app:has(.zl-page.zl-c-stack, .zl-page.zl-c-list) > .zl-fab {
+        position: relative; z-index: 2; inset: auto; grid-column: 1; grid-row: 3; align-self: end; justify-self: start;
+        width: calc((100% - 64px) / 2); max-width: none; margin: 0 0 max(10px, var(--zl-safe-bottom)) 16px;
+    }
+    .is-phone .zl-app:has(.zl-page.zl-c-stack, .zl-page.zl-c-list) > .zl-fab .zl-dock-b { max-width: none; margin: 0; }
+    .is-phone .zl-app .zl-page.zl-c-stack, .is-phone .zl-app .zl-page.zl-c-list { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 32px; }
+    .is-phone .zl-app .zl-page.zl-c-stack, .is-phone .zl-app .zl-page.zl-c-list { padding-top: 12px; padding-bottom: 12px; }
+    .is-phone .zl-app .zl-page.zl-c-stack > .zl-c-top, .is-phone .zl-app .zl-page.zl-c-list > .zl-c-top { top: 12px; }
+    .is-phone .zl-app.has-fab .zl-page.zl-c-stack > .zl-c-top, .is-phone .zl-app.has-fab .zl-page.zl-c-list > .zl-c-top { padding-bottom: 76px; }
+    .is-phone .zl-app.has-fab .zl-page.zl-c-stack.zl-mm > .zl-c-top { padding-bottom: 0; }   /* Invest home: the marquee sits under the board, the dock under it */
+    .is-phone .zl-app .zl-page.zl-c-stack.zl-mm > .zl-wstrip > .zl-sec { display: none; }   /* sideways the left column has no room for its head: the cells alone */
+    /* a list page without a top (This month, All activity): its first group takes the left column, the rest go right
+       (owner, 2026-11-05: the left column stood empty) */
+    .is-phone .zl-app .zl-page.zl-c-list:not(:has(> .zl-c-top)) > .zl-title-row + .zl-c-group { grid-column: 1; grid-row: 1 / span 20; align-self: start; position: sticky; top: 12px; }
+    .is-phone .zl-app.has-fab .zl-page.zl-c-list:not(:has(> .zl-c-top)) > .zl-title-row + .zl-c-group { padding-bottom: 76px; }
+    .is-phone .zl-app .zl-page.zl-c-list:not(:has(> .zl-c-top)) > .zl-c-group:not(.zl-title-row + .zl-c-group) { grid-column: 2; }
+    .is-phone .zl-app .zl-page.zl-c-list > .zl-wtop { margin-bottom: 0; }
+    /* the flows chart keeps its height in the right column (its rows ran over it) */
+    .is-phone .zl-app .zl-page.zl-c-stack > .zl-c-fill.zl-fl { flex: none; min-height: 250px; }
+    /* the dock in the left column: Back is its arrow only, so the main button keeps its words */
+    .is-phone .zl-app .zl-fab.is-split .zl-dock-back { flex: none; width: 48px; padding: 0; justify-content: center; }
+    .is-phone .zl-app .zl-fab.is-split .zl-dock-back .zl-dock-t { display: none; }
+    /* sheets: a centred card at most 560 px wide (fields across 800 px read badly), as tall as the screen allows */
+    .is-phone .modal.zl-sheet { top: 50%; bottom: auto; left: 50%; right: auto; width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 16px); border-width: 2px; transform: translate(-50%, calc(-50% - var(--zl-lift, 0px))); }
+    .is-phone .modal.zl-sheet::before { display: none; }
+}
+.zl-fl-seg.zl-wmkt { margin: 2px 0 8px; }
+.zl-page.zl-c-list > .zl-wtop { margin-bottom: -10px; }   /* the sort sits on the rows, as when they were one group */   /* the watchlist's market tabs (Taiwan / US) */
+/* its sort under them: a line of words, not a second bar; the chosen one in ink, underlined, with its order arrow */
+.zl-wsort { display: flex; align-items: center; justify-content: flex-end; gap: 14px; margin: 0 0 10px; font: 11px var(--zl-pixel); }
+.zl-wsort-l { color: var(--zl-mut); margin-right: auto; }
+.zl-app button.zl-wsort-b { all: unset; cursor: pointer; display: inline-flex; align-items: center; padding: 6px 0 4px; color: var(--zl-mut); border-bottom: 2px solid transparent; }
+.zl-app button.zl-wsort-b.is-on { color: var(--zl-ink); border-bottom-color: var(--zl-ink); }
+.zl-app .zl-wsort-b .zl-wsort-dir { width: 9px; height: 9px; margin-left: 5px; }
+
+/* chart pages never move once shown (owner, 2026-11-05): the chips keep two lines while BB is on, the price header's lines
+   stay one line each (no wrap as the source and time come in) and keep their height while empty */
+.zl-ch-src { font: 400 11px var(--zl-pixel); color: var(--zl-mut); margin: 0 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zl-lastp-l { flex: 1 1 0; min-width: 0; }
+.zl-lastp-k, .zl-lastp-s { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zl-lastp-k { min-height: 1.25em; line-height: 1.25; }
+.zl-lastp-s { min-height: 1.4em; line-height: 1.4; }
+.zl-lastp { min-height: 40px; }
+/* loading (no price yet): a light runs across the blank tiles in steps, the label lines are dim bars until the quote comes */
+.zl-lastp.is-loading .zl-flap .t { animation: zl-wait 1.2s steps(1) infinite; }
+.zl-lastp.is-loading .zl-flap .t:nth-child(2) { animation-delay: .1s; }
+.zl-lastp.is-loading .zl-flap .t:nth-child(3) { animation-delay: .2s; }
+.zl-lastp.is-loading .zl-flap .t:nth-child(4) { animation-delay: .3s; }
+.zl-lastp.is-loading .zl-flap .t:nth-child(5) { animation-delay: .4s; }
+.zl-lastp.is-loading .zl-flap .t:nth-child(6) { animation-delay: .5s; }
+@keyframes zl-wait { 0% { filter: brightness(2.2); } 10% { filter: none; } }
+.zl-lastp.is-loading .zl-lastp-s { color: transparent; }
+.zl-lastp.is-loading .zl-lastp-s::before { content: ""; display: inline-block; width: 120px; height: 9px; background: var(--zl-dim); animation: zl-wait-bar 1.2s steps(2) infinite; }
+@keyframes zl-wait-bar { 50% { opacity: .4; } }
+@media (prefers-reduced-motion: reduce) { .zl-lastp.is-loading .zl-flap .t, .zl-lastp.is-loading .zl-lastp-s::before { animation: none; } }
+body.zl-calm .zl-lastp.is-loading .zl-flap .t, body.zl-calm .zl-lastp.is-loading .zl-lastp-s::before { animation: none; }
+.zl-slist-g { padding: 12px 0 2px; font: 400 10px var(--zl-pixel); letter-spacing: .04em; color: var(--zl-mut); }   /* Taiwan / US inside the search page watchlist */
+
+/* the hidden switch the iOS haptic tick taps (ui/haptic.ts) */
+.zl-haptic { position: fixed; left: -100px; top: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; overflow: hidden; }
+/* a sheet with no Save (Add expense: the tiles act on a tap) */
+.zl-sheet .zl-sheet-ok.is-hidden { display: none; }
+.zl-sheet .zl-sheet-ok.is-blocked { opacity: .45; }   /* something missing: a press shows the hint */
+/* Claude sessions test window (claude.ts): folder, state, how long ago */
+.zl-claude-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px; align-items: baseline; padding: 10px 0; border-bottom: 1px solid var(--background-modifier-border); }
+.zl-claude-dir { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zl-claude-st { font-family: var(--font-monospace); letter-spacing: .04em; }
+.zl-claude-st.is-hot { color: #FF5C38; }
+.zl-claude-ago { color: var(--text-muted); font-size: .9em; font-variant-numeric: tabular-nums; }
+.zl-claude-status { color: var(--text-muted); font-size: .85em; margin-top: 10px; }
+
+/* ---- Invest home, market mode (2026-11-10; Vellum "Invest home · market mode"): up / down in the chart-only colours */
+.zl-up { color: var(--zl-up); }
+.zl-down { color: var(--zl-down); }
+.zl-flap.is-up .t i { color: var(--zl-tile-up); }
+.zl-flap.is-down .t i { color: var(--zl-tile-down); }
+.zl-flap.is-up:not(.is-xs) .t.sg::before, .zl-flap.is-up:not(.is-xs) .t.sg.is-plus::after { background: var(--zl-tile-up); }   /* small tiles: the sign is a glyph */
+.zl-flap.is-down:not(.is-xs) .t.sg::before { background: var(--zl-tile-down); }
+.zl-read-kk { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.zl-read-s { font: 400 12px var(--zl-ui); color: var(--zl-muted); }
+/* the market card: index tabs, the index and today's %, then the ticker chart (no tools, no volume) taking the room left */
+.zl-page.zl-c-stack > .zl-c-fill.zl-mkt { min-height: 220px; max-height: none; }   /* stretches into the room left; at least 220 so the marquee always fits under it (2026-11-13) */
+.zl-mkt-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--zl-ink); }
+.zl-app button.zl-mkt-tab { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 30px; font: 400 11px var(--zl-pixel); letter-spacing: .06em; }
+.zl-app button.zl-mkt-tab + button.zl-mkt-tab { border-left: 1px solid var(--zl-ink); }
+.zl-app button.zl-mkt-tab.is-on { background: var(--zl-ink); color: var(--zl-paper); }
+.zl-mkt-dot { display: none; width: 5px; height: 5px; background: var(--zl-up); }   /* its market trades now */
+.zl-mkt-tab.is-live .zl-mkt-dot { display: block; }
+.zl-mkt-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0 6px; }
+.zl-mkt-v { font: 400 26px/1 var(--zl-disp); letter-spacing: .01em; font-variant-numeric: tabular-nums; }
+.zl-mkt-ch { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+.zl-mkt-ch > .zl-ch.is-fill { flex: 1 1 0; min-height: 0; }
+.zl-mkt .zl-ch.is-fill .zl-ch-plot { min-height: 110px; }
+.zl-mkt .zl-ch-ranges.is-seg { grid-template-columns: repeat(4, 1fr) 1.6fr; }   /* D 60 15 5 TODAY */
+/* the watchlist marquee: two copies side by side, moved by a transform from script (invest.ts runWm), dragged by a finger */
+.zl-wstrip .zl-sec { padding-bottom: 6px; margin: 0; border-bottom: 2px solid var(--zl-text); }
+.zl-wm { overflow: hidden; touch-action: pan-y; border-bottom: 1px solid var(--zl-dim); }
+.zl-wm-run { display: flex; width: max-content; will-change: transform; }
+.zl-wm.is-still .zl-wm-run { width: 100%; }
+.zl-app .zl-wm.is-still button.zl-wcell { flex: 1 1 0; min-width: 0; }
+.zl-app button.zl-wcell { all: unset; box-sizing: border-box; cursor: pointer; flex: none; display: flex; flex-direction: column; gap: 5px; padding: 8px 12px; border-right: 1px solid var(--zl-dim); }   /* hugs its content, 12 px each side of it */
+.zl-app .zl-wm.is-still button.zl-wcell:first-child { padding-left: 0; }
+.zl-app .zl-wm.is-still button.zl-wcell:last-child { border-right: 0; padding-right: 0; }
+.zl-wstrip .zl-chg-k { display: none; }   /* no TODAY label in a cell: the cells stay narrow */
+.zl-app button.zl-wcell:active, .zl-app button.zl-mlink:active { background: var(--zl-dim); }
+/* a cell's gravity (owner, 2026-11-10): the ticker top left, the price top right, the change bottom right */
+.zl-wcell-t { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; white-space: nowrap; min-width: 0; }
+.zl-wcell-c { align-self: flex-end; }
+.zl-wcell-k { font: 700 13px var(--zl-ui); color: var(--zl-text); }
+.zl-wcell-p { font: 400 12px var(--zl-ui); color: var(--zl-muted); overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.zl-wstrip .zl-chg.is-up .zl-flap .t i { color: var(--zl-tile-up); }
+.zl-wstrip .zl-chg.is-hot .zl-flap .t i { color: var(--zl-tile-down); }
+.zl-app button.zl-wm-none { all: unset; cursor: pointer; display: block; padding: 12px 0; font: 400 13px var(--zl-ui); color: var(--zl-muted); }
+/* the links at the foot: HOLDINGS · N ›  |  MIX  N WARNINGS › */
+.zl-mlinks { flex: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); min-width: 0; min-height: 43px; overflow: hidden; border-top: 2px solid var(--zl-text); border-bottom: 1px solid var(--zl-dim); }   /* one line of four titles (owner, 2026-11-13; titles only, so the page never goes sideways) */
+.zl-app button.zl-mlink { all: unset; box-sizing: border-box; cursor: pointer; display: flex; justify-content: center; align-items: center; min-width: 0; min-height: 40px; padding: 0 4px; overflow: hidden; font: 400 12px var(--zl-pixel); letter-spacing: .06em; color: var(--zl-text); white-space: nowrap; }
+.zl-app button.zl-mlink + button.zl-mlink { border-left: 1px solid var(--zl-dim); }
+/* the index chart (Invest home): MA20 · BB · MA60 as small toggles right of the bar line; a swipe slides the next index in */
+.zl-ch-nrow { display: flex; align-items: center; gap: 8px; min-height: 22px; }
+.zl-ch-nrow .zl-ch-note { flex: 1; min-width: 0; }
+.zl-ch-ind.is-chips { display: flex; gap: 4px; border: 0; flex: none; }
+.zl-ch button.zl-ch-chip { all: unset; cursor: pointer; position: relative; display: flex; align-items: center; gap: 4px; padding: 3px 6px; border: 1px solid var(--zl-dim); font: 9px var(--zl-pixel); letter-spacing: .04em; color: var(--zl-mut); white-space: nowrap; -webkit-tap-highlight-color: transparent; }
+.zl-ch button.zl-ch-chip::after { content: ""; position: absolute; inset: -11px -2px; }   /* a 44 px tall target */
+.zl-ch button.zl-ch-chip.is-on { border-color: currentColor; color: var(--zl-ink); }
+.zl-ch button.zl-ch-chip.is-mb { color: var(--zl-mb); }
+.zl-ch button.zl-ch-chip.is-ma60 { color: var(--zl-ma60); }
+.zl-ch button.zl-ch-chip:not(.is-on) { color: var(--zl-mut); }
+.zl-ch-chip:not(.is-on) .zl-ch-lg-sw { opacity: .4; }
+.zl-mkt .zl-ch-plot { touch-action: none; }
+.zl-mkt .zl-ch.is-in-r { animation: zl-mkt-in-r .22s ease-out; }
+.zl-mkt .zl-ch.is-in-l { animation: zl-mkt-in-l .22s ease-out; }
+/* every Invest page (view.ts .zl-invest) and the full chart: market mode's up / down (owner, 2026-11-10: "all sub pages align
+   the colour"): candles and volume, today's move, P/L, the change split-flaps; loud stays for warnings, drift and actions */
+:is(.zl-invest, .zl-fchart) .zl-ch-up { fill: var(--zl-up); stroke: var(--zl-up); }
+:is(.zl-invest, .zl-fchart) .zl-ch-down { fill: var(--zl-down); stroke: var(--zl-down); }
+:is(.zl-invest, .zl-fchart) rect.zl-ch-up, :is(.zl-invest, .zl-fchart) rect.zl-ch-down { stroke: none; }
+:is(.zl-invest, .zl-fchart) .zl-ch-bl-m.is-up, .zl-invest :is(.zl-hrow-d, .zl-sum-v, .zl-lastp-s).is-up { color: var(--zl-up); }
+:is(.zl-invest, .zl-fchart) .zl-ch-bl-m.is-hot, .zl-invest :is(.zl-hrow-d, .zl-sum-v, .zl-lastp-s).is-hot { color: var(--zl-down); }
+.zl-invest .zl-chg.is-up .zl-flap .t i, .zl-invest .zl-chg.is-ret.is-up .zl-flap .t i { color: var(--zl-tile-up); }
+.zl-invest .zl-chg.is-hot .zl-flap .t i, .zl-invest .zl-chg.is-ret.is-hot .zl-flap .t i, .zl-invest .zl-sum-flap.is-hot .zl-flap .t i { color: var(--zl-tile-down); }
+.zl-tg.is-mkt.is-up .zl-tg-v { color: var(--zl-up); } .zl-tg.is-mkt.is-hot .zl-tg-v { color: var(--zl-down); }   /* 法人 tile: market colours, not loud */
+.zl-ch-fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+@keyframes zl-mkt-in-r { from { transform: translateX(40px); opacity: 0; } }
+@keyframes zl-mkt-in-l { from { transform: translateX(-40px); opacity: 0; } }
+
+/* Market mode step 2 (2026-11-10): CANDLE · FOOTPRINT · HEAT on Taiwan charts, the market map (pages/invest-flow.ts) */
+.zl-flow-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 6px; min-width: 0; }
+.zl-flow-top > .zl-ch-src { margin: 0; flex: 1 1 auto; min-width: 0; }
+.zl-fmode { display: inline-flex; flex: none; border: 1.5px solid var(--zl-ink); }
+.zl-app button.zl-fmode-b { all: unset; box-sizing: border-box; cursor: pointer; font: 400 10px var(--zl-pixel); letter-spacing: .06em; text-transform: uppercase; padding: 3px 7px; color: var(--zl-ink); }
+.zl-app button.zl-fmode-b + button.zl-fmode-b { border-left: 1.5px solid var(--zl-ink); }
+.zl-app button.zl-fmode-b.is-on { background: var(--zl-ink); color: var(--zl-paper); }
+.zl-hide { display: none !important; }
+.zl-flow { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+.zl-flow-plot { position: relative; flex: 1 1 0; min-height: 200px; }
+.zl-flow-plot > canvas, .zl-orders-plot > canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.zl-app button.zl-flow-hint { all: unset; box-sizing: border-box; cursor: pointer; position: absolute; right: 6px; top: 6px; font: 400 10px var(--zl-pixel); letter-spacing: .06em; background: var(--zl-loud); color: var(--zl-on-loud); padding: 3px 6px; opacity: 0; transition: opacity .3s; pointer-events: none; }
+.zl-app button.zl-flow-hint.is-on { opacity: 1; pointer-events: auto; }
+.zl-flow-ps { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-top: 1px solid var(--zl-dim); }
+.zl-flow-ps > canvas { flex: 1 1 auto; min-width: 0; height: 14px; display: block; }
+.zl-flow-k { font: 400 10px var(--zl-pixel); letter-spacing: .06em; color: var(--zl-mut); white-space: nowrap; }
+.zl-flow-k.is-up { color: var(--zl-up); } .zl-flow-k.is-hot { color: var(--zl-down); }
+.zl-flow-read { display: flex; flex-direction: column; gap: 2px; padding-top: 5px; border-top: 2px solid var(--zl-ink); font: 400 11px var(--zl-ui); color: var(--zl-ink); }
+.zl-flow-r2 { color: var(--zl-mut); font-size: 10px; }
+.zl-page.zl-c-stack > .zl-c-fill.zl-map { max-height: none; min-height: 260px; display: flex; flex-direction: column; }
+.zl-orders-plot { position: relative; height: 58px; margin-top: 6px; }
+.zl-flow-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 4px; }
+.zl-fmode.is-sm .zl-fmode-b { padding: 2px 6px; font-size: 9px; }
+.zl-app button.zl-flow-latest { all: unset; cursor: pointer; font: 400 10px var(--zl-pixel); letter-spacing: .06em; color: var(--zl-loud); visibility: hidden; }
+.zl-app button.zl-flow-latest.is-on { visibility: visible; }
+.zl-flow-plot { touch-action: none; user-select: none; -webkit-user-select: none; }
+.zl-flow-plot > canvas { transition: opacity .25s ease; }
+.zl-flow-plot.is-out > canvas, .zl-flow-plot.is-loading > canvas { opacity: 0; }
+.zl-flow-load { position: absolute; inset: 0; display: none; place-items: center; font: 400 11px var(--zl-pixel); letter-spacing: .1em; color: var(--zl-mut); overflow: hidden; }
+.zl-flow-plot.is-loading > .zl-flow-load { display: grid; }
+.zl-flow-load::before { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--zl-ink) 9%, transparent) 50%, transparent 70%); background-size: 250% 100%; animation: zl-flow-run 1.3s linear infinite; }
+@keyframes zl-flow-run { from { background-position: 125% 0; } to { background-position: -125% 0; } }
+.zl-flow-read > span.is-cross { font-weight: 700; }
+.zl-fade-in { animation: zl-flow-in .3s ease both; }
+@keyframes zl-flow-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .zl-flow-load::before, .zl-fade-in { animation: none; } .zl-flow-plot > canvas { transition: none; } }
+.zl-lastp-x { display: flex; flex-wrap: nowrap; overflow: hidden; min-height: 1.4em; line-height: 1.4; gap: 2px 10px; font: 400 10px var(--zl-pixel); letter-spacing: .04em; color: var(--zl-mut); margin-top: 2px; }
+.zl-lastp-x > span { display: inline-flex; gap: 4px; white-space: nowrap; }
+.zl-lastp-x .is-up { color: var(--zl-up); } .zl-lastp-x .is-hot { color: var(--zl-down); }
+/* Space rule (owner, 2026-11-10): what loads late keeps its room; what passes floats over the page */
+.zl-flow-read > span { display: block; min-height: 1.4em; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zl-flow-why { position: absolute; left: 6px; right: 6px; bottom: 6px; padding: 8px 10px; background: var(--zl-paper); color: var(--zl-ink); border: 2px solid var(--zl-loud); font: 400 11.5px/1.45 var(--zl-ui); opacity: 0; transform: translateY(6px); transition: opacity .2s, transform .2s; pointer-events: none; }
+.zl-flow-why.is-on { opacity: 1; transform: none; pointer-events: auto; }
+.zl-flow-top { min-height: 22px; }
+.zl-orders .zl-flow-read { border-top-width: 2px; }
+
+/* long-term tools (2026-11-10, Vellum "Invest · chart page with thesis", "rules check before a buy", "monthly revenue", "alerts") */
+.zl-thesis .zl-sec { border-bottom: 2px solid var(--zl-text); padding-bottom: 6px; margin-bottom: 0; }
+.zl-th-row { display: flex; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--zl-dim); align-items: baseline; }
+.zl-th-k { flex: none; width: 76px; font: 400 10px var(--zl-pixel); letter-spacing: .04em; color: var(--zl-muted); text-transform: uppercase; }
+.zl-th-v { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font: 400 13px/1.3 var(--zl-ui); color: var(--zl-text); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.zl-th-row.is-soon .zl-th-v, .zl-th-row.is-due .zl-th-v { display: flex; -webkit-line-clamp: unset; }
+.zl-th-line { display: flex; justify-content: space-between; gap: 8px; }
+.zl-th-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zl-th-d { flex: none; font-weight: 700; font-variant-numeric: tabular-nums; }
+.zl-th-row.is-soon .zl-th-d, .zl-th-row.is-due .zl-th-q { color: var(--zl-loud); }
+.zl-th-s { font-size: 12px; color: var(--zl-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zl-th-q { font-weight: 700; }
+.zl-th-yn { flex: none; display: flex; gap: 6px; align-self: center; }
+.zl-th-vs { border-bottom: 0; }
+.zl-th-vs .zl-th-k { width: auto; flex: 1; }
+.zl-th-n { flex: none; font: 700 14px var(--zl-ui); font-variant-numeric: tabular-nums; min-width: 4ch; text-align: right; }
+.zl-th-n.is-up { color: var(--zl-up); } .zl-th-n.is-hot { color: var(--zl-down); }
+.zl-app button.zl-th-write { width: 100%; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0; border: 0; border-top: 2px solid var(--zl-text); border-bottom: 2px solid var(--zl-text); font: 400 12px var(--zl-pixel); letter-spacing: .06em; color: var(--zl-loud); text-align: left; }
+.zl-th-write .zl-px { width: 20px; height: 20px; }
+.zl-th-write .zl-th-go { margin-left: auto; width: 12px; height: 12px; transform: scaleX(-1); }
+/* the full chart: the thesis line beside the MA chips; a tap floats the card over the chart */
+.zl-ch-indrow { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.zl-ch-indrow .zl-ch-ind { flex: none; }
+.zl-ch-line { flex: 1; min-width: 0; }
+.zl-fchart button.zl-th-strip { width: 100%; display: flex; align-items: center; gap: 10px; height: 24px; margin: 0; padding: 0 8px; border: 2px solid var(--zl-text); background: none; font: 400 11px var(--zl-ui); color: var(--zl-text); white-space: nowrap; overflow: hidden; }
+.zl-th-strip.is-loud { border-color: var(--zl-loud); color: var(--zl-loud); }
+.zl-th-strip-k { flex: none; font: 400 10px var(--zl-pixel); letter-spacing: .06em; }
+.zl-th-strip-c { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+.zl-th-strip-c.is-loud { color: var(--zl-loud); }
+.zl-th-strip-n { flex: none; font-weight: 700; font-variant-numeric: tabular-nums; }
+.zl-th-strip-n.is-up { color: var(--zl-up); } .zl-th-strip-n.is-hot { color: var(--zl-down); }
+.zl-th-float { position: absolute; z-index: 5; top: 72px; left: 50%; width: min(420px, calc(100% - 32px)); transform: translateX(-50%); padding: 12px 16px; background: var(--zl-bg); border: 2px solid var(--zl-text); animation: zl-fade-in .16s ease-out; }
+@keyframes zl-fade-in { from { opacity: 0; } to { opacity: 1; } }
+/* the rules check: rows with their state, a line, the buttons */
+.zl-bc-met { margin: -4px 0 8px; font: 400 11px var(--zl-pixel); letter-spacing: .04em; color: var(--zl-muted); text-transform: uppercase; }
+.zl-sheet .zl-bc-rows .zl-fig { width: 100%; min-height: 48px; display: flex; align-items: center; gap: 12px; padding: 6px 0; border: 0; border-bottom: 1px solid var(--zl-dim); background: none; color: var(--zl-text); text-align: left; }
+.zl-sheet .zl-bc-rows .zl-fig-v { font: 700 14px var(--zl-ui); white-space: nowrap; }
+.zl-sheet .zl-bc-rows .zl-fig-v.is-hot { color: var(--zl-loud); }
+.zl-sheet .zl-bc-rows .zl-fig-v.is-up { color: var(--zl-up); }
+.zl-sheet .zl-bc-rows .zl-fig-go { width: 12px; height: 12px; transform: scaleX(-1); color: var(--zl-muted); }
+.zl-sheet .zl-bc-rows .zl-fig-ic { width: 20px; height: 20px; flex: none; }
+.zl-sheet .zl-bc-rows .zl-fig.is-not .zl-fig-ic { color: var(--zl-loud); }
+/* revenue: the tile's NEW, the picked month's line, the bars */
+.zl-tg.is-new .zl-tg-k::after { content: "NEW"; margin-left: 6px; padding: 0 3px; background: var(--zl-text); color: var(--zl-bg); }
+.zl-rev-pick { min-height: 16px; margin: 0 0 8px; font: 700 13px var(--zl-ui); font-variant-numeric: tabular-nums; }
+.zl-pickbars { touch-action: none; user-select: none; }
+.zl-pickbars svg { width: 100%; height: 100%; min-height: 120px; }
+.zl-rev { min-height: 180px; }
+.zl-rev-src { margin-top: 4px; }
+/* alerts: ALL · PRICES · DATES and the ntfy state */
+.zl-al-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.zl-app button.zl-al-push { margin: 0; padding: 0; border: 0; background: none; font: 700 11px var(--zl-ui); letter-spacing: .04em; color: var(--zl-muted); }
+
+/* no page scrolls sideways (owner, 2026-11-11: Invest home slid left under a finger); the marquee moves by transform inside its own clip */
+.zl-app .zl-page { overflow-x: clip; } .zl-app .zl-scroll { overflow-x: hidden; }

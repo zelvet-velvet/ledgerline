@@ -1,0 +1,59 @@
+/* ==== Obsidian in Ledgerline's look (Settings › Obsidian in Ledgerline's look, body.zl-skin; owner, 2026-11-04: the settings
+   window looked nothing like the plugin). Only variables are set (no layout rules): Obsidian's own, Minimal's, and the vault's
+   ze-tokens (its snippets point Obsidian at --ze-*). `.zl-skin.zl-skin` outranks the snippets' body.theme-dark:not(.ze-off).
+   Warm paper / charcoal, the one loud colour, square corners, no shadows, IBM Plex Mono for the interface, Anton headings. */
+body.zl-skin.zl-skin {
+    --zs-paper: #ECE9E1; --zs-paper-2: #E3DFD5; --zs-ink: #1C1B19; --zs-mut: #6D6A63; --zs-dim: #D5D1C7; --zs-loud: #E8461F; --zs-on-loud: #F6F3EC;
+    --accent-h: 13; --accent-s: 81%; --accent-l: 52%;
+}
+body.zl-skin.zl-skin.theme-dark {
+    --zs-paper: #1F1F22; --zs-paper-2: #18181B; --zs-ink: #E6E3DC; --zs-mut: #96969B; --zs-dim: #36363B; --zs-loud: #FF5C38; --zs-on-loud: #1F1F22;
+    --accent-h: 11; --accent-s: 100%; --accent-l: 61%;
+}
+body.zl-skin.zl-skin, body.zl-skin.zl-skin.theme-dark, body.zl-skin.zl-skin.theme-light {
+    /* the vault's tokens (ze-tokens.css): everything its snippets draw follows */
+    --ze-bg: var(--zs-paper); --ze-surface: var(--zs-paper); --ze-surface-2: var(--zs-paper-2); --ze-sunken: var(--zs-paper-2); --ze-sidebar: var(--zs-paper-2);
+    --ze-glass: var(--zs-paper); --ze-glass-edge: var(--zs-dim); --ze-glass-line: var(--zs-dim);
+    --ze-text: var(--zs-ink); --ze-text-2: var(--zs-mut); --ze-text-3: var(--zs-mut); --ze-text-on-accent: var(--zs-on-loud);
+    --ze-heading: var(--zs-ink); --ze-bold: var(--zs-ink); --ze-italic: var(--zs-ink);
+    --ze-accent: var(--zs-loud); --ze-line: var(--zs-dim); --ze-line-strong: var(--zs-ink);
+    --ze-hover: color-mix(in srgb, var(--zs-ink) 8%, transparent); --ze-pressed: color-mix(in srgb, var(--zs-ink) 14%, transparent);
+    --ze-highlight: color-mix(in srgb, var(--zs-loud) 25%, transparent);
+    --ze-shadow-s: none; --ze-shadow-m: none; --ze-shadow-l: none;
+    --ze-radius-xs: 0px; --ze-radius-s: 0px; --ze-radius-m: 0px; --ze-radius-l: 0px; --ze-radius-xl: 0px;
+    --ze-font-ui: "ZL IBM Plex Mono", ui-monospace, Menlo, monospace; --ze-font-display: "ZL Anton", Impact, sans-serif;
+    --ze-font-mono: "ZL IBM Plex Mono", ui-monospace, Menlo, monospace;
+    /* Obsidian's and Minimal's own (for a vault without those snippets) */
+    --background-primary: var(--zs-paper); --background-primary-alt: var(--zs-paper-2);
+    --background-secondary: var(--zs-paper); --background-secondary-alt: var(--zs-paper-2);
+    --background-modifier-border: var(--zs-dim); --background-modifier-border-hover: var(--zs-mut); --background-modifier-border-focus: var(--zs-ink);
+    --background-modifier-form-field: var(--zs-paper);
+    --bg1: var(--zs-paper); --bg2: var(--zs-paper-2); --bg3: var(--zs-dim); --tx1: var(--zs-ink); --tx2: var(--zs-mut); --tx3: var(--zs-mut);
+    --text-normal: var(--zs-ink); --text-muted: var(--zs-mut); --text-faint: var(--zs-mut); --text-on-accent: var(--zs-on-loud);
+    --interactive-accent: var(--zs-loud); --interactive-accent-hover: var(--zs-loud); --text-accent: var(--zs-loud);
+    --titlebar-background: var(--zs-paper-2); --titlebar-background-focused: var(--zs-paper-2); --divider-color: var(--zs-dim);
+    --font-interface-theme: "ZL IBM Plex Mono", ui-monospace, Menlo, monospace; --font-interface: var(--font-interface-theme);
+    --font-monospace-theme: "ZL IBM Plex Mono", ui-monospace, Menlo, monospace;
+    --h1-font: "ZL Anton", Impact, sans-serif; --h2-font: "ZL Anton", Impact, sans-serif;
+    --radius-s: 0px; --radius-m: 0px; --radius-l: 0px; --radius-xl: 0px;
+    --input-radius: 0px; --button-radius: 0px; --checkbox-radius: 0px; --toggle-radius: 0px; --toggle-thumb-radius: 0px;
+    --modal-radius: 0px; --tab-radius: 0px; --tab-radius-active: 0px; --callout-radius: 0px; --embed-border-radius: 0px;
+    --shadow-s: none; --shadow-l: none; --input-shadow: none; --input-shadow-hover: none;
+    --toggle-thumb-color: var(--zs-paper); --checkbox-border-color: var(--zs-ink);
+    --modal-border-color: var(--zs-ink); --modal-border-width: 2px;
+    /* settings on the phone: flat rows on the paper, split by hairlines (no rounded cards) */
+    --setting-items-radius: 0px; --setting-items-background: transparent; --setting-items-border-width: 0;
+}
+/* settings: section headings and the open settings tab in Ledgerline's type */
+body.zl-skin .setting-item-heading .setting-item-name { font-family: "ZL Anton", Impact, sans-serif; font-weight: 400; font-size: 20px; text-transform: uppercase; letter-spacing: .01em; }
+body.zl-skin .vertical-tab-nav-item.is-active { background: var(--zs-ink); color: var(--zs-paper); }
+body.zl-skin .vertical-tab-content .setting-item:not(.setting-item-heading) { border-bottom: 1px solid var(--zs-dim); }
+/* descriptions at Ledgerline's secondary size (the vault's large base font made them bigger than the names) */
+body.zl-skin .setting-item-name { font-size: 15px; }
+body.zl-skin .setting-item-description { font-size: 13px; line-height: 1.4; color: var(--zs-mut); }
+/* Settings › Tabs: drag rows by the grip to reorder (always on, with or without the skin) */
+.zl-set-drag { transition: transform .12s ease; }
+.zl-set-drag.is-settling { transition: none; }
+.zl-set-drag.is-dragging { transition: none; position: relative; z-index: 2; background: var(--background-primary); box-shadow: 0 0 0 2px var(--text-normal); }
+.zl-set-grip { flex: none; display: grid; place-items: center; width: 32px; align-self: stretch; margin-right: 8px; color: var(--text-muted); cursor: grab; touch-action: none; }
+.zl-set-drag.is-dragging .zl-set-grip { cursor: grabbing; color: var(--text-normal); }

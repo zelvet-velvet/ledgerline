@@ -1,0 +1,33 @@
+{
+  "folder": "Docs/Design/Screens",
+  "colors": {
+    "paper": "var(--ze-bg, var(--background-secondary))",
+    "text": "var(--ze-text, var(--text-normal))",
+    "dim": "var(--ze-text-2, var(--text-muted))",
+    "line": "var(--ze-line, var(--background-modifier-border))",
+    "tile": "color-mix(in srgb, var(--ze-bg, var(--background-secondary)) 55%, black)",
+    "loud": "var(--ze-accent, var(--color-red))",
+    "accent": "var(--interactive-accent)"
+  },
+  "ui": {},
+  "fonts": {
+    "ui": "var(--ze-font-ui, \"ZL IBM Plex Mono\", ui-monospace, monospace)",
+    "display": "var(--ze-font-display, \"ZL Anton\", Impact, sans-serif)",
+    "mono": "var(--font-monospace)"
+  },
+  "snap": {
+    "on": false,
+    "dist": 6,
+    "grid": 4,
+    "margins": [
+      16
+    ],
+    "frame": true,
+    "others": true,
+    "guides": true
+  },
+  "edit": {
+    "arrow": 1,
+    "hold": true
+  }
+}

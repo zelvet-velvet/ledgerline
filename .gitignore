@@ -1,0 +1,20 @@
+# plugin build tools
+node_modules/
+plugin/node_modules/
+
+# each device's own Obsidian state (never shared)
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/workspaces.json
+.obsidian/graph.json
+.obsidian/plugins/obsidian-git/data.json
+.trash/
+.ledgerline/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# build outputs (the copy in .obsidian/plugins/ledgerline/ is the one committed)
+plugin/main.js
+plugin/styles.css

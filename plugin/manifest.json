@@ -1,0 +1,9 @@
+{
+  "id": "ledgerline",
+  "name": "Ledgerline",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "A personal finance app inside your vault: daily log and budget, debt, goals, a friends ledger and investments, all stored as plain notes.",
+  "author": "Zaviel",
+  "isDesktopOnly": false
+}
