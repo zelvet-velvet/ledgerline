@@ -2,7 +2,7 @@
 
 Thanks for helping. This repo is the plugin source (`plugin/`) **and** a demo vault (the repo root, made-up data), so a phone can open any branch and run exactly that branch's build.
 
-New here? Start with the guide **[Start developing Ledgerline](Docs/Guide/Start%20developing.md)** (also as a PDF in the same folder): it walks through the phone setup with Obsidian Git step by step, then the PC.
+New here? Start with the guide **[開始開發 Ledgerline (繁體中文)](Docs/Guide/Start%20developing%20ZH.md)** or **[Start developing Ledgerline (English)](Docs/Guide/Start%20developing.md)** (each also as a PDF in the same folder): it walks through the phone setup with Obsidian Git step by step, then the PC.
 
 ## The flow
 1. **Branch** from `main`: `feat/<topic>` for something new, `fix/<topic>` for a bug. Never commit to `main`.

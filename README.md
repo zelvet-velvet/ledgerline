@@ -25,7 +25,7 @@ Ledgerline is an [Obsidian](https://obsidian.md) plugin that turns plain notes i
 ## Try it
 This repository **is** a vault. Clone it and open the folder in Obsidian (*Open folder as vault*), turn on community plugins, and the app opens on the demo data.
 
-On a phone, open it with the Obsidian Git plugin: [Start developing Ledgerline](Docs/Guide/Start%20developing.md) walks through every tap.
+On a phone, open it with the Obsidian Git plugin: [Start developing Ledgerline](Docs/Guide/Start%20developing.md) ([繁體中文](Docs/Guide/Start%20developing%20ZH.md)) walks through every tap.
 
 ## Use it with your own money
 Copy `.obsidian/plugins/ledgerline/` into your vault's `.obsidian/plugins/`, and copy the `Config/` notes from the demo as a starting point: each one explains its fields. Keep your vault private; sync it between devices however you like (Git, Obsidian Sync).
