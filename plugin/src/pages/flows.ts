@@ -82,6 +82,7 @@ export const flowsPage = (ctx: PageCtx, arg: string, codes: string[], trade: (tk
     const [tk, w0] = arg.split(":"), who = (w0 === "f" || w0 === "t" || w0 === "d" ? w0 : null) as W | null;
     const title = who ? `${tk} ${t(EN[who])}` : t("fTitle", { tk });
     const el = page(title);
+    el.addClass("zl-tone");   // a net sale is a move down, not a warning: down colour, never loud
     el.addClass("zl-c-stack");
     const fab = { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => trade(tk) };
     const flows = ctx.plugin.flows, code = Flows.code(ctx.plugin.prices.symbol(tk));
@@ -273,6 +274,7 @@ export const brokersPage = (ctx: PageCtx, arg: string, trade: (tk: string) => vo
     let foreign = f0 === "foreign";
     const title = t("bTitle", { tk });
     const el = page(title);
+    el.addClass("zl-tone");
     el.addClass("zl-c-list");
     const fab = { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => trade(tk) };
     const B = ctx.plugin.brokers, code = Flows.code(ctx.plugin.prices.symbol(tk));

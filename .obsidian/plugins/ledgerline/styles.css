@@ -1549,6 +1549,10 @@ body.zl-calm .zl-lastp.is-loading .zl-flap .t, body.zl-calm .zl-lastp.is-loading
 :is(.zl-invest, .zl-fchart) rect.zl-ch-up, :is(.zl-invest, .zl-fchart) rect.zl-ch-down { stroke: none; }
 :is(.zl-invest, .zl-fchart) .zl-ch-bl-m.is-up, .zl-invest :is(.zl-hrow-d, .zl-sum-v, .zl-lastp-s).is-up { color: var(--zl-up); }
 :is(.zl-invest, .zl-fchart) .zl-ch-bl-m.is-hot, .zl-invest :is(.zl-hrow-d, .zl-sum-v, .zl-lastp-s).is-hot { color: var(--zl-down); }
+/* pages where every red-ish number is a move (flows, brokers, revenue: page class zl-tone): sold / fell = down, bought / rose = up,
+   in the summary, the tiles and the rows alike (review 2026-11: the summary was down, the rows loud) */
+.zl-tone :is(.zl-fig-v, .zl-sum-v).is-hot, .zl-tone .zl-tg.is-hot .zl-tg-v { color: var(--zl-down); }
+.zl-tone .zl-tg.is-up .zl-tg-v { color: var(--zl-up); }
 .zl-invest .zl-chg.is-up .zl-flap .t i, .zl-invest .zl-chg.is-ret.is-up .zl-flap .t i { color: var(--zl-tile-up); }
 .zl-invest .zl-chg.is-hot .zl-flap .t i, .zl-invest .zl-chg.is-ret.is-hot .zl-flap .t i, .zl-invest .zl-sum-flap.is-hot .zl-flap .t i { color: var(--zl-tile-down); }
 .zl-tg.is-mkt.is-up .zl-tg-v { color: var(--zl-up); } .zl-tg.is-mkt.is-hot .zl-tg-v { color: var(--zl-down); }   /* 法人 tile: market colours, not loud */

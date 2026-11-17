@@ -8071,6 +8071,7 @@ var flowsPage = (ctx, arg, codes, trade) => {
   const [tk, w0] = arg.split(":"), who = w0 === "f" || w0 === "t" || w0 === "d" ? w0 : null;
   const title = who ? `${tk} ${t(EN[who])}` : t("fTitle", { tk });
   const el2 = page(title);
+  el2.addClass("zl-tone");
   el2.addClass("zl-c-stack");
   const fab = { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => trade(tk) };
   const flows = ctx.plugin.flows, code = Flows.code(ctx.plugin.prices.symbol(tk));
@@ -8294,6 +8295,7 @@ var brokersPage = (ctx, arg, trade) => {
   let foreign = f0 === "foreign";
   const title = t("bTitle", { tk });
   const el2 = page(title);
+  el2.addClass("zl-tone");
   el2.addClass("zl-c-list");
   const fab = { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => trade(tk) };
   const B = ctx.plugin.brokers, code = Flows.code(ctx.plugin.prices.symbol(tk));
@@ -9970,6 +9972,7 @@ var revenueTile = (x, tk) => {
 var revenuePage = (x, tk) => {
   const title = t("rvTitle", { tk });
   const el2 = page(title);
+  el2.addClass("zl-tone");
   el2.addClass("zl-c-stack");
   const code = revCode(x, tk), rv = x.ctx.plugin.revenue;
   if (code) rv.ensure(code);
