@@ -70,7 +70,9 @@ export const alertsPage = (x: X): PageOut => {
     if (FILTER !== "date") for (const a of A.alerts) {
         const q = prices.price(a.ticker), now = q === null ? null : Math.round(q * 100);
         rows.push({ at: "", icon: a.kind === "below" ? "down" : "up", k: t("alPriceK", { tk: a.ticker, k: a.kind === "below" ? "≤" : "≥", p: p2(a.price) }),
-            s: now === null ? t("alNoPrice") : t("alAway", { now: p2(now), n: Math.max(0, away(a, now)).toFixed(1) }), v: p2(a.price), onTap: () => alertSheet(x, a) });
+            // the alert's price is in its name; the value is how far away it is (review 2026-11, F: the price was said twice)
+            s: now === null ? t("alNoPrice") : t("alNow", { now: p2(now) }), v: now === null ? "-" : t("alAwayV", { n: Math.max(0, away(a, now)).toFixed(1) }),
+            hot: now !== null && away(a, now) <= 0, onTap: () => alertSheet(x, a) });
     }
     if (FILTER !== "price") for (const d of alerts.coming(day)) {
         const n = daysBetween(day, d.date), when = n <= 0 ? t("alToday") : shortDate(d.date);

@@ -2912,6 +2912,7 @@ var en = {
   iNoneHeld: "Nothing held yet",
   sPlaceholder: "Ticker or name",
   sTradeWhat: "Which ticker to trade?",
+  sWatchWhat: "Which ticker to watch?",
   sCancel: "CANCEL",
   sRecent: "RECENT",
   sClear: "CLEAR",
@@ -3240,7 +3241,8 @@ var en = {
   alRemoveQ: "Remove the alert for {tk} at {p}?",
   alPriceK: "{tk} {k} {p}",
   alNoPrice: "No price yet",
-  alAway: "Now {now} \xB7 {n}% away",
+  alNow: "Now {now}",
+  alAwayV: "{n}% away",
   alToday: "Today",
   alRevK: "Revenue out \xB7 {tk}",
   alRevS: "Last month's revenue, by the 10th",
@@ -10312,8 +10314,10 @@ var alertsPage = (x) => {
       at: "",
       icon: a.kind === "below" ? "down" : "up",
       k: t("alPriceK", { tk: a.ticker, k: a.kind === "below" ? "\u2264" : "\u2265", p: p22(a.price) }),
-      s: now === null ? t("alNoPrice") : t("alAway", { now: p22(now), n: Math.max(0, away(a, now)).toFixed(1) }),
-      v: p22(a.price),
+      // the alert's price is in its name; the value is how far away it is (review 2026-11, F: the price was said twice)
+      s: now === null ? t("alNoPrice") : t("alNow", { now: p22(now) }),
+      v: now === null ? "-" : t("alAwayV", { n: Math.max(0, away(a, now)).toFixed(1) }),
+      hot: now !== null && away(a, now) <= 0,
       onTap: () => alertSheet(x, a)
     });
   }
@@ -10509,7 +10513,7 @@ var watchPage = (x) => {
       r.addClass("zl-kept");
     });
   }
-  return { title, el, actions: [findAct(x, el)], fab: { icon: "plus", text: t("iWatchAdd").toUpperCase(), label: t("iWatchAdd"), onTap: x.addWatch } };
+  return { title, el, actions: [findAct(x, el)], fab: { icon: "plus", text: t("iWatchAdd").toUpperCase(), label: t("iWatchAdd"), onTap: () => x.addWatch(el) } };
 };
 
 // src/pages/invest.ts
@@ -10621,8 +10625,13 @@ var investPage = {
             required: true,
             dec: 4,
             step: (v) => curOf(v) === "TWD" && parseNum(v.shares) >= 1e3 ? 1e3 : 1,
+            // your last trade of that kind; a first SELL starts from all you hold (it was empty, with no sign of what is held)
             auto: (v) => {
-              const last = posOf(v)?.trades.filter((x2) => x2.type === (v.type === "SELL" ? "SELL" : "BUY")).at(-1);
+              const p = posOf(v), last = p?.trades.filter((x2) => x2.type === (v.type === "SELL" ? "SELL" : "BUY")).at(-1);
+              if (v.type === "SELL") {
+                const held2 = p?.shares ?? 0;
+                return held2 > 0 ? String(last && last.shares <= held2 ? last.shares : held2) : "";
+              }
               return last ? String(last.shares) : "";
             }
           },
@@ -10844,24 +10853,22 @@ var investPage = {
         new import_obsidian17.Notice(t("iUpdated", { tk: p.ticker }));
       }
     }).open();
-    const addWatch = () => new FormSheet(ctx.app, {
-      title: t("iWatchAdd"),
-      submitText: t("add"),
-      fields: [{ key: "tk", label: t("iTicker"), type: "text", required: true }],
-      validate: (v) => P.watch.includes(v.tk.trim().toUpperCase()) ? t("iExists") : null,
-      onSubmit: async (v) => {
-        await store.update(CFG, (f) => {
-          f.watchlist = [...list3(f.watchlist), { ticker: v.tk.trim().toUpperCase() }];
-        });
+    const addWatch = (from) => search(from, (tk) => {
+      if (xs.P.watch.includes(tk)) {
+        new import_obsidian17.Notice(t("iExists"));
+        return;
       }
-    }).open();
+      void store.update(CFG, (f) => {
+        f.watchlist = [...list3(f.watchlist), { ticker: tk }];
+      });
+    }, t("sWatchWhat"));
     const dropWatch = async (tk) => {
       if (!await confirmSheet(ctx.app, t("iWatchRemove"), t("iWatchRemoveQ", { tk }), t("remove"))) return;
       await store.update(CFG, (f) => {
         f.watchlist = list3(f.watchlist).filter((w) => String(w.ticker ?? "").toUpperCase() !== tk);
       });
     };
-    const search = (from, pick) => {
+    const search = (from, pick, ask) => {
       const src = ctx.plugin.search, held2 = () => xs.P.positions.filter((p) => p.shares > 0).map((p) => p.ticker);
       openSearch(from, src, {
         mine: (q) => {
@@ -10869,7 +10876,7 @@ var investPage = {
           return [...held2().filter(hit2).map((tk) => ({ tk, name: src.nameOf(tk), ex: "", mine: "held" })), ...xs.P.watch.filter((tk) => hit2(tk) && !held2().includes(tk)).map((tk) => ({ tk, name: src.nameOf(tk), ex: "", mine: "watch" }))];
         },
         pick: pick ?? ((tk) => xs.ctx.push(held2().includes(tk) ? { key: "asset:" + tk, title: tk } : { key: "chart:" + tk, title: tk })),
-        texts: { placeholder: pick ? t("sTradeWhat") : t("sPlaceholder"), cancel: t("sCancel"), recent: t("sRecent"), clear: t("sClear"), none: t("sNone"), held: t("sHeld"), watch: t("sWatch") }
+        texts: { placeholder: ask ?? t("sPlaceholder"), cancel: t("sCancel"), recent: t("sRecent"), clear: t("sClear"), none: t("sNone"), held: t("sHeld"), watch: t("sWatch") }
       });
     };
     const moveWatch = async (order) => {
@@ -10888,7 +10895,7 @@ var investPage = {
     const buy = (tk, from) => {
       const check = (k) => buyCheck(xs, k, (o) => trade(k, o));
       if (tk) check(tk);
-      else if (from) search(from, check);
+      else if (from) search(from, check, t("sTradeWhat"));
       else trade();
     };
     const x = { ctx, P, cur, cash, links, warns, cap: cap3, fx: (c) => prices.fx(c, cur, fb), trade, buy, editThesis: (tk) => editThesis(x, tk), editTrade, editPlan, addThought, journal, addWatch, dropWatch, moveWatch, search, watchOn };

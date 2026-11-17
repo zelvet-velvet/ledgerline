@@ -19,7 +19,7 @@ export const qty = (n: number) => n.toLocaleString(undefined, { maximumFractionD
 
 export interface X {
     ctx: PageCtx; P: Portfolio; cur: string; cash: number; warns: Warning[]; cap: number; fx(c: string): number; links: Map<string, { booked: number; diff: number }>;
-    trade(preset?: string, o?: { price?: number; type?: "BUY" | "SELL" }): void; buy(tk?: string, from?: HTMLElement): void; editThesis(tk: string): void; editTrade(p: Position, tr: Trade): void; editPlan(p: Position): void; addThought(tk: string): void; journal(tk: string): Thought[]; addWatch(): void; dropWatch(tk: string): Promise<void>; moveWatch(order: string[]): Promise<void>; search(from: HTMLElement): void; watchOn(tk: string): Promise<void>;
+    trade(preset?: string, o?: { price?: number; type?: "BUY" | "SELL" }): void; buy(tk?: string, from?: HTMLElement): void; editThesis(tk: string): void; editTrade(p: Position, tr: Trade): void; editPlan(p: Position): void; addThought(tk: string): void; journal(tk: string): Thought[]; addWatch(from: HTMLElement): void; dropWatch(tk: string): Promise<void>; moveWatch(order: string[]): Promise<void>; search(from: HTMLElement, pick?: (tk: string) => void, ask?: string): void; watchOn(tk: string): Promise<void>;
 }
 
 // the masthead badge (owner, 2026-11-05): which market trades now (TW TRADING, US TRADING), else when the next one opens

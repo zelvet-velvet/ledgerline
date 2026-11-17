@@ -110,7 +110,12 @@ export const investPage: PageDef = {
                     ] as Field[])),
                     { key: "shares", label: t("iShares"), type: "number", required: true, dec: 4,
                         step: (v) => (curOf(v) === "TWD" && parseNum(v.shares) >= 1000 ? 1000 : 1),
-                        auto: (v) => { const last = posOf(v)?.trades.filter((x) => x.type === (v.type === "SELL" ? "SELL" : "BUY")).at(-1); return last ? String(last.shares) : ""; } },
+                        // your last trade of that kind; a first SELL starts from all you hold (it was empty, with no sign of what is held)
+                        auto: (v) => {
+                            const p = posOf(v), last = p?.trades.filter((x) => x.type === (v.type === "SELL" ? "SELL" : "BUY")).at(-1);
+                            if (v.type === "SELL") { const held = p?.shares ?? 0; return held > 0 ? String(last && last.shares <= held ? last.shares : held) : ""; }
+                            return last ? String(last.shares) : "";
+                        } },
                     { key: "price", label: t("iPrice"), type: "number", required: true, dec: 2, ...(pre.price ? { value: pre.price } : {}),
                         step: (v) => tickOf(toP(v.price), curOf(v), tkOf(v)) / 100,
                         auto: (v) => { const q = live(v); return q === null ? "" : String(q); },
@@ -233,12 +238,11 @@ export const investPage: PageDef = {
             },
         }).open();
 
-        const addWatch = () => new FormSheet(ctx.app, {
-            title: t("iWatchAdd"), submitText: t("add"),
-            fields: [{ key: "tk", label: t("iTicker"), type: "text", required: true }],
-            validate: (v) => (P.watch.includes(v.tk.trim().toUpperCase()) ? t("iExists") : null),
-            onSubmit: async (v) => { await store.update(CFG, (f) => { f.watchlist = [...list(f.watchlist), { ticker: v.tk.trim().toUpperCase() }]; }); },
-        }).open();
+        // + WATCH: the ticker from the search (it knows every listing; a typed one could be a typo with no price)
+        const addWatch = (from: HTMLElement) => search(from, (tk) => {
+            if (xs.P.watch.includes(tk)) { new Notice(t("iExists")); return; }
+            void store.update(CFG, (f) => { f.watchlist = [...list(f.watchlist), { ticker: tk }]; });
+        }, t("sWatchWhat"));
         const dropWatch = async (tk: string) => {
             if (!(await confirmSheet(ctx.app, t("iWatchRemove"), t("iWatchRemoveQ", { tk }), t("remove")))) return;
             await store.update(CFG, (f) => { f.watchlist = list(f.watchlist).filter((w) => String(w.ticker ?? "").toUpperCase() !== tk); });
@@ -247,7 +251,7 @@ export const investPage: PageDef = {
         // the scope: a search bar across the top line (ui/search.ts); a pick opens the ticker's chart (a holding: its page)
         // the search reads the newest page context (xs, set on every render): it stays open through live redraws
         // pick (+ TRADE): the ticker goes to the rules check instead
-        const search = (from: HTMLElement, pick?: (tk: string) => void) => {
+        const search = (from: HTMLElement, pick?: (tk: string) => void, ask?: string) => {
             const src = ctx.plugin.search, held = () => xs.P.positions.filter((p) => p.shares > 0).map((p) => p.ticker);
             openSearch(from, src, {
                 mine: (q) => {
@@ -255,7 +259,7 @@ export const investPage: PageDef = {
                     return [...held().filter(hit).map((tk) => ({ tk, name: src.nameOf(tk), ex: "", mine: "held" as const })), ...xs.P.watch.filter((tk) => hit(tk) && !held().includes(tk)).map((tk) => ({ tk, name: src.nameOf(tk), ex: "", mine: "watch" as const }))];   // a held ticker is listed once
                 },
                 pick: pick ?? ((tk) => xs.ctx.push(held().includes(tk) ? { key: "asset:" + tk, title: tk } : { key: "chart:" + tk, title: tk })),
-                texts: { placeholder: pick ? t("sTradeWhat") : t("sPlaceholder"), cancel: t("sCancel"), recent: t("sRecent"), clear: t("sClear"), none: t("sNone"), held: t("sHeld"), watch: t("sWatch") },
+                texts: { placeholder: ask ?? t("sPlaceholder"), cancel: t("sCancel"), recent: t("sRecent"), clear: t("sClear"), none: t("sNone"), held: t("sHeld"), watch: t("sWatch") },
             });
         };
         // a new order for some watched tickers (a drag in MANUAL): they take the places they held, in the given order, so the
@@ -274,7 +278,7 @@ export const investPage: PageDef = {
         // sheet. The check is where the rules are kept, so no way to buy skips it (review 2026-11, F)
         const buy = (tk?: string, from?: HTMLElement) => {
             const check = (k: string) => buyCheck(xs, k, (o) => trade(k, o));
-            if (tk) check(tk); else if (from) search(from, check); else trade();
+            if (tk) check(tk); else if (from) search(from, check, t("sTradeWhat")); else trade();
         };
         const x: X = { ctx, P, cur, cash, links, warns, cap, fx: (c: string) => prices.fx(c, cur, fb), trade, buy, editThesis: (tk: string) => editThesis(x, tk), editTrade, editPlan, addThought, journal, addWatch, dropWatch, moveWatch, search, watchOn };
         xs = x;
