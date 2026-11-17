@@ -66,7 +66,7 @@ export const flowModes = (x: X, top: HTMLElement, cg: HTMLElement, tk: string, c
         const v = drawPress(pcv, tp?.press ?? [], P);
         pv.setText(v === null ? "-" : `${v >= 0 ? t("fBids") : t("fAsks")} ${Math.round(Math.abs(v) * 100)}%`);
         pv.toggleClass("is-up", v !== null && v > 0); pv.toggleClass("is-hot", v !== null && v < 0);
-        const th = thin(), src = (!tp ? "" : tp.src === "fugle" ? t("fSrcFugle") : t("fSrcMis", { t: hm(tp.since) })) + (th ? ` \u00b7 ${th}` : "");
+        const th = thin(), src = (!tp ? "" : tp.src === "fugle" ? t("fSrcFugle") : t(x.ctx.plugin.prices.fugleRefused() ? "fSrcMisRefused" : "fSrcMis", { t: hm(tp.since) })) + (th ? ` \u00b7 ${th}` : "");
         const why = r?.why && whyUntil > Date.now() && !cross ? r.why : "";
         if (why) whyEl.setText(why);
         whyEl.toggleClass("is-on", !!why);

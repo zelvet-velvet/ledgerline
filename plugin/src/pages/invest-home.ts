@@ -25,9 +25,9 @@ export const home = (x: X): PageOut => {
     const tone = (n: number) => (n > 0 ? "up" as const : n < 0 ? "down" as const : undefined);
     homeTop(el, {
         key: "invest", value: num(P.value), label: t("iHoldings"),
-        right: !held.length ? undefined : !P.priced ? t("iPricing") : day ? t("iTodayChg", { v: signed(day.ch), p: pctS(day.pct) }) : undefined,
+        right: !held.length ? undefined : !P.priced ? missingText(x) : day ? t("iTodayChg", { v: signed(day.ch), p: pctS(day.pct) }) : undefined,
         tone: P.priced && day ? tone(day.ch) : undefined,
-        reads: held.length && P.priced
+        reads: held.length && (P.priced || held.some((p) => p.price !== null && !p.fxMissing))   // one holding without a price does not take the read-out away
             ? [[t("iGainLoss"), signed(P.pl), { sub: [`${r1 > 0 ? "+" : r1 < 0 ? MINUS : ""}${Math.abs(r1).toFixed(1)}%`, t("iSinceBought")], tone: tone(P.pl) }]]
             : [[t("iCashWait"), num(x.cash)]],
     });
@@ -46,6 +46,16 @@ export const home = (x: X): PageOut => {
     link(t("alLink").toUpperCase(), () => ctx.push({ key: "alerts", title: t("alTitle") }));
     link(t("iMixLink").toUpperCase(), () => ctx.push({ key: "mix", title: t("iMixT") }));
     return { title, el, fab, actions: [findAct(x, el)], badge: liveBadge(x) };
+};
+
+// what keeps the board from being whole: "Prices…" while the first quotes are on their way, then the tickers no source
+// answered for ("No price: 00679B") or the currency without a rate
+const missingText = (x: X): string => {
+    const pr = x.ctx.plugin.prices, ps = x.P.positions.filter((p) => x.P.missing.includes(p.ticker));
+    const fx = [...new Set(ps.filter((p) => p.fxMissing).map((p) => p.currency))];
+    if (fx.length) return t("iNoFx", { tk: fx.slice(0, 2).join(", ") });
+    const gone = ps.filter((p) => p.price === null && pr.failed(p.ticker)).map((p) => p.ticker);
+    return gone.length ? t("iNoPrice", { tk: gone.slice(0, 2).join(", ") + (gone.length > 2 ? ` +${gone.length - 2}` : "") }) : t("iPricing");
 };
 
 // today's move of what you hold, in the base currency: each holding's shares × today's price change × its FX rate; % of the

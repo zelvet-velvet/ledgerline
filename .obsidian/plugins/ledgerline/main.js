@@ -1261,6 +1261,8 @@ var fiveSecBars = (json, day) => {
 
 // src/prices/stream.ts
 var URL = "wss://api.fugle.tw/marketdata/v1.0/stock/streaming";
+var FUGLE_KEY = { refused: "" };
+var fugleRefused = (key) => !!key && FUGLE_KEY.refused === key;
 var FugleStream = class {
   constructor(key, onTrade) {
     this.key = key;
@@ -1278,7 +1280,7 @@ var FugleStream = class {
     return this.authed && this.ids.has(code);
   }
   watch(code) {
-    if (!this.key()) return;
+    if (!this.key() || fugleRefused(this.key())) return;
     if (!this.want.has(code)) {
       this.want.add(code);
       if (this.authed) this.sub(code);
@@ -1314,7 +1316,7 @@ var FugleStream = class {
     this.send({ event: "subscribe", data: { channel: "trades", symbol: code } });
   }
   open() {
-    if (this.ws || !this.want.size || !this.key()) return;
+    if (this.ws || !this.want.size || !this.key() || fugleRefused(this.key())) return;
     let ws;
     try {
       ws = new WebSocket(URL);
@@ -1347,7 +1349,13 @@ var FugleStream = class {
         if (price > 0) this.onTrade(d.symbol, price, us > 0 ? Math.round(us / 1e3) : Date.now(), d);
         return;
       }
-      if (m.event === "error") console.warn("Ledgerline: Fugle stream", d.message ?? d);
+      if (m.event === "error") {
+        console.warn("Ledgerline: Fugle stream", d.message ?? d);
+        if (!this.authed) {
+          FUGLE_KEY.refused = this.key();
+          this.close();
+        }
+      }
     };
     ws.onclose = () => {
       this.ws = null;
@@ -1536,8 +1544,9 @@ var fugleCode = (symbol) => /^(\d{4,6}[A-Z]?)\.TWO?$/.exec(symbol)?.[1] ?? null;
 var fugle = (key) => ({
   async quote(symbol) {
     const code = fugleCode(symbol), k = key();
-    if (!code || !k) return null;
+    if (!code || !k || fugleRefused(k)) return null;
     const r = await (0, import_obsidian4.requestUrl)({ url: `${FUGLE}/quote/${code}`, headers: { "X-API-KEY": k }, throw: false });
+    if (r.status === 401 || r.status === 403) FUGLE_KEY.refused = k;
     const q = r.status === 200 ? parseFugleQuote(r.json) : null;
     const pc = Number(r.status === 200 ? r.json?.previousClose : 0);
     if (pc > 0) fuglePc[code] = { day: (/* @__PURE__ */ new Date()).toDateString(), pc };
@@ -1545,7 +1554,7 @@ var fugle = (key) => ({
   },
   async bars(symbol, range) {
     const m = /^(\d{4,6}[A-Z]?)\.TWO?$/.exec(symbol), k = key();
-    if (range !== "I" || !m || !k) return null;
+    if (range !== "I" || !m || !k || fugleRefused(k)) return null;
     const headers = { "X-API-KEY": k }, day = (/* @__PURE__ */ new Date()).toDateString();
     if (fuglePc[m[1]]?.day !== day) {
       const q = await (0, import_obsidian4.requestUrl)({ url: `${FUGLE}/quote/${m[1]}`, headers, throw: false }).catch(() => null);
@@ -1553,6 +1562,7 @@ var fugle = (key) => ({
       if (pc > 0) fuglePc[m[1]] = { day, pc };
     }
     const r = await (0, import_obsidian4.requestUrl)({ url: `${FUGLE}/candles/${m[1]}?timeframe=1`, headers, throw: false });
+    if (r.status === 401 || r.status === 403) FUGLE_KEY.refused = k;
     return r.status === 200 ? fromFugle(r.json, fuglePc[m[1]]?.pc) : null;
   }
 });
@@ -1617,6 +1627,10 @@ var Prices = class {
     this.taiwan = taiwan;
     this.q = {};
     this.busy = /* @__PURE__ */ new Set();
+    this.otc = null;
+    // sources that did not answer: symbol (or series key) → when and how often in a row. A failed one is asked again after a
+    // minute at the earliest (it was asked on every redraw), and the pages can say it failed instead of "loading"
+    this.bad = /* @__PURE__ */ new Map();
     // Background (owner, 2026-11-05), called every 5 s (main.ts): while their market trades, the tickers the Invest pages asked
     // for (holdings, watchlist), on any page. Taiwan: with a Fugle key every one streams its trades; the rest (no key, or
     // past the plan's subscription limit) one TWSE request for all every 5 s. Others: Yahoo, one request each every 15 s.
@@ -1656,9 +1670,49 @@ var Prices = class {
     }
   }
   // a ticker as the provider wants it: 4–6 digit tickers are Taiwan listings with the Taiwan option on ("2330" → "2330.TW")
+  // A code that only answers as a TPEx (OTC) listing is remembered (otc) and becomes "00679B.TWO" from then on.
   symbol(ticker) {
     const t2 = ticker.trim().toUpperCase();
-    return this.taiwan() && /^\d{4,6}[A-Z]?$/.test(t2) ? `${t2}.TW` : t2;
+    return this.taiwan() && /^\d{4,6}[A-Z]?$/.test(t2) ? `${t2}.${this.otcSet().has(t2) ? "TWO" : "TW"}` : t2;
+  }
+  otcSet() {
+    if (!this.otc) {
+      try {
+        const v = this.loadOtc?.();
+        this.otc = new Set(Array.isArray(v) ? v : []);
+      } catch {
+        this.otc = /* @__PURE__ */ new Set();
+      }
+    }
+    return this.otc;
+  }
+  // one quote; a Taiwan code never priced that no source has as a TWSE listing is tried once as a TPEx one. [symbol that answered, quote]
+  async ask(s2) {
+    const x = await this.provider.quote(s2).catch(() => null);
+    const m = /^(\d{4,6}[A-Z]?)\.TW$/.exec(s2);
+    if (x || !m || this.q[s2]) return [s2, x];
+    const o = `${m[1]}.TWO`, y = await this.provider.quote(o).catch(() => null);
+    if (!y) return [s2, null];
+    this.otcSet().add(m[1]);
+    try {
+      this.saveOtc?.([...this.otcSet()]);
+    } catch {
+    }
+    if (this.tracked.delete(s2)) this.tracked.add(o);
+    return [o, y];
+  }
+  miss(k) {
+    this.bad.set(k, { t: Date.now(), n: (this.bad.get(k)?.n ?? 0) + 1 });
+  }
+  resting(k) {
+    const b = this.bad.get(k);
+    return !!b && Date.now() - b.t < 60 * 1e3;
+  }
+  failed(ticker) {
+    return this.bad.has(this.symbol(ticker));
+  }
+  seriesFailed(ticker, range) {
+    return this.bad.has(this.sKey(ticker, range));
   }
   get(ticker) {
     return this.q[this.symbol(ticker)] ?? null;
@@ -1676,20 +1730,27 @@ var Prices = class {
   }
   // fetch what is missing or old, in the background; one redraw when anything changed
   refresh(symbols, force = false) {
-    const due = [...new Set(symbols)].filter((s2) => s2 && !this.busy.has(s2) && (force || !this.q[s2] || Date.now() - this.q[s2].time > TTL || isTwSym(s2) && !this.q[s2].prev));
+    const due = [...new Set(symbols)].filter((s2) => s2 && !this.busy.has(s2) && (force || !this.resting(s2)) && (force || !this.q[s2] || Date.now() - this.q[s2].time > TTL || isTwSym(s2) && !this.q[s2].prev));
     if (!due.length) return;
     due.forEach((s2) => this.busy.add(s2));
-    void Promise.all(due.map((s2) => this.provider.quote(s2).then((x) => {
-      if (x) this.q[s2] = { ...x, closes: x.closes?.length ? x.closes : this.q[s2]?.closes };
-      return !!x;
-    }).catch(() => false).finally(() => this.busy.delete(s2)))).then((ok) => {
-      if (ok.some(Boolean)) {
+    void Promise.all(due.map((s2) => this.ask(s2).then(([k, x]) => {
+      if (x) {
+        this.q[k] = { ...x, closes: x.closes?.length ? x.closes : this.q[k]?.closes };
+        this.bad.delete(s2);
+        this.bad.delete(k);
+        return 1;
+      }
+      const first2 = !this.bad.has(s2);
+      this.miss(s2);
+      return first2 ? 2 : 0;
+    }).catch(() => 0).finally(() => this.busy.delete(s2)))).then((ok) => {
+      if (ok.includes(1)) {
         try {
           this.save(this.q);
         } catch {
         }
-        this.onFresh();
       }
+      if (ok.some(Boolean)) this.onFresh();
     });
   }
   track(symbols) {
@@ -1814,7 +1875,11 @@ var Prices = class {
     });
   }
   hasFugle() {
-    return !!this.fkey();
+    return !!this.fkey() && !fugleRefused(this.fkey());
+  }
+  // a key is set but Fugle turned it away: the pages say so instead of "no key"
+  fugleRefused() {
+    return fugleRefused(this.fkey());
   }
   watch(ticker) {
     const s2 = this.symbol(ticker), c = fugleCode(s2);
@@ -1860,6 +1925,8 @@ var Prices = class {
     this.busy.add(k);
     try {
       const x = await this.provider.quote(s2);
+      if (x) this.bad.delete(s2);
+      else this.miss(s2);
       return x ? this.apply(s2, x) : false;
     } catch {
       return false;
@@ -1886,10 +1953,18 @@ var Prices = class {
   }
   refreshSeries(ticker, range, force = false) {
     const k = this.sKey(ticker, range), have = this.series(ticker, range);
-    if (this.busy.has(k) || !force && have && Date.now() - have.time < (isMinutes(range) ? TTL_MIN : TTL) || !this.provider.bars) return;
+    if (this.busy.has(k) || !force && have && Date.now() - have.time < (isMinutes(range) ? TTL_MIN : TTL) || !force && this.resting(k) || !this.provider.bars) return;
     this.busy.add(k);
     void this.provider.bars(this.symbol(ticker), range).then((b) => {
-      if (!b) return;
+      if (!b) {
+        const first2 = !this.bad.has(k);
+        this.miss(k);
+        if (first2 && !have) {
+          for (const f of [...this.subs]) if (!f(k)) this.subs.delete(f);
+        }
+        return;
+      }
+      this.bad.delete(k);
       this.s[k] = { bars: b, time: Date.now(), source: b.ohlc ? "" : "line" };
       try {
         this.saveSeries?.(Object.fromEntries(Object.entries(this.s).filter(([key]) => !isMinutes(key.split("|")[1]))));
@@ -1900,6 +1975,7 @@ var Prices = class {
     }).catch(() => void 0).finally(() => this.busy.delete(k));
   }
 };
+Prices.OTC_KEY = "ledgerline-otc";
 Prices.KEY = KEY;
 Prices.SERIES_KEY = "ledgerline-bars";
 
@@ -1940,6 +2016,7 @@ var parseT86 = (json, codes) => {
   }
   return out;
 };
+var t86NoTrading = (json) => /沒有符合條件|查無/.test(String(json?.stat ?? ""));
 var flowSeries = (days, code) => Object.keys(days).sort().filter((k) => days[k]).map((date) => {
   const x = { ...ZERO, ...days[date][code] }, d = x.ds + x.dh;
   return { date, ...x, d, total: x.f + x.t + d };
@@ -2039,7 +2116,9 @@ var Flows = class {
           break;
         }
         const rows = parseT86(json, this.st.codes);
-        if (rows || date !== today3) this.st.days[date] = rows;
+        if (rows) this.st.days[date] = rows;
+        else if (date !== today3 && t86NoTrading(json)) this.st.days[date] = null;
+        else if (date !== today3) break;
         if (++got % 5 === 0) this.tell();
         await new Promise((ok) => setTimeout(ok, GAP));
       }
@@ -2111,11 +2190,16 @@ var Revenue = class {
     this.m = {};
     this.busy = /* @__PURE__ */ new Set();
     this.subs = /* @__PURE__ */ new Set();
+    this.fail = /* @__PURE__ */ new Map();
     try {
       this.m = this.load() ?? {};
     } catch {
       this.m = {};
     }
+  }
+  // code → when FinMind last did not answer (asked again after 10 minutes)
+  failed(code) {
+    return this.fail.has(code);
   }
   get(code) {
     return this.m[code]?.months ?? [];
@@ -2133,7 +2217,7 @@ var Revenue = class {
     this.subs.add(fn);
   }
   ensure(code) {
-    if (!/^\d{4,6}$/.test(code) || this.busy.has(code)) return;
+    if (!/^\d{4,6}$/.test(code) || this.busy.has(code) || Date.now() - (this.fail.get(code) ?? 0) < 10 * 60 * 1e3) return;
     const k = this.m[code];
     if (k && (this.isOut(code) || Date.now() - k.at < AGAIN_MS)) return;
     void this.fetch(code);
@@ -2144,6 +2228,8 @@ var Revenue = class {
       const from = `${ymAdd(today().slice(0, 7), -26)}-01`;
       const r = await (0, import_obsidian6.requestUrl)({ url: `https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockMonthRevenue&data_id=${code}&start_date=${from}`, throw: false });
       const rows = r.status === 200 ? r.json?.data : null;
+      if (!Array.isArray(rows)) throw new Error(`finmind ${r.status}`);
+      this.fail.delete(code);
       const months = fromFinMind(rows).sort((a, b) => a.ym.localeCompare(b.ym));
       const before = this.latest(code);
       this.m[code] = { months: months.length ? months : this.get(code), at: Date.now() };
@@ -2154,6 +2240,11 @@ var Revenue = class {
       });
       return fresh;
     } catch {
+      const first2 = !this.fail.has(code);
+      this.fail.set(code, Date.now());
+      if (first2) this.subs.forEach((fn) => {
+        if (!fn(code)) this.subs.delete(fn);
+      });
       return false;
     } finally {
       this.busy.delete(code);
@@ -2769,6 +2860,7 @@ var en = {
   fAsks: "ASKS",
   fSrcFugle: "FUGLE TAPE",
   fSrcMis: "MIS 5 S FROM {t} (no Fugle key)",
+  fSrcMisRefused: "MIS 5 S FROM {t} (Fugle key refused)",
   fWait: "Waiting for trades",
   fClosed: "Market closed: the tape fills from 09:00",
   fSectors: "SECTORS",
@@ -2804,6 +2896,9 @@ var en = {
   sHeld: "HELD",
   sWatch: "WATCHING",
   iPricing: "Prices\u2026",
+  iNoPrice: "No price: {tk}",
+  iNoFx: "No FX rate: {tk}",
+  iNoSource: "NO SOURCE HAS A PRICE",
   iPL: "Net profit",
   iCash: "Cash to invest",
   iNone: "No holdings yet",
@@ -3097,6 +3192,8 @@ var en = {
   rvNextS: "{m} \xB7 by the 10th",
   rvNone: "No revenue yet",
   rvNoneS: "Loading from FinMind. Taiwan stocks only.",
+  rvFailed: "Revenue did not load",
+  rvFailedS: "FinMind did not answer. It is asked again in 10 minutes.",
   rvSrc: "FinMind monthly revenue \xB7 NT$ \xB7 consolidated",
   alTitle: "Alerts",
   alLink: "Alerts",
@@ -4753,7 +4850,10 @@ var holdingChart = (parent, o) => {
       const row2 = h(wait, "div", "zl-ch-wait-b");
       for (let i = 0; i < 8; i++) h(row2, "i").style.animationDelay = `${i * 0.1}s`;
       waited = true;
-      h(wait, "div", "zl-ch-wait-t", `LOADING ${IV_LABEL[range]}${isMinutes(range) && range !== "I" ? " MIN" : ""}`);
+      const failed = o.prices.seriesFailed(o.ticker, range);
+      if (failed) wait.addClass("is-failed");
+      h(wait, "div", "zl-ch-wait-t", failed ? `NO ${IV_LABEL[range]} BARS FROM ANY SOURCE` : `LOADING ${IV_LABEL[range]}${isMinutes(range) && range !== "I" ? " MIN" : ""}`);
+      if (failed) h(wait, "div", "zl-ch-wait-s", "Asked again in a minute. Check the ticker and the connection.");
       note.setText(tool ? HINT[tool.type] : "\xA0");
       return;
     }
@@ -4764,7 +4864,7 @@ var holdingChart = (parent, o) => {
       indicators(ind, o, { ma60: [], bb: { mb: [], ub: [], lb: [], sd: [] } }, 0, setShow);
       const wait = h(plot, "div", "zl-ch-wait");
       h(wait, "div", "zl-ch-wait-t", "TODAY STARTS WITH THE NEXT TRADE");
-      if (!o.prices.hasFugle() && !o.ticker.startsWith("^")) h(wait, "div", "zl-ch-wait-s", "For the whole day live, add a Fugle API key in Settings.");
+      if (!o.prices.hasFugle() && !o.ticker.startsWith("^")) h(wait, "div", "zl-ch-wait-s", o.prices.fugleRefused() ? "Fugle turned the API key away: check it in Settings." : "For the whole day live, add a Fugle API key in Settings.");
       note.setText("\xA0");
       return;
     }
@@ -8368,9 +8468,9 @@ var home = (x) => {
     key: "invest",
     value: num(P.value),
     label: t("iHoldings"),
-    right: !held.length ? void 0 : !P.priced ? t("iPricing") : day ? t("iTodayChg", { v: signed3(day.ch), p: pctS(day.pct) }) : void 0,
+    right: !held.length ? void 0 : !P.priced ? missingText(x) : day ? t("iTodayChg", { v: signed3(day.ch), p: pctS(day.pct) }) : void 0,
     tone: P.priced && day ? tone(day.ch) : void 0,
-    reads: held.length && P.priced ? [[t("iGainLoss"), signed3(P.pl), { sub: [`${r12 > 0 ? "+" : r12 < 0 ? MINUS : ""}${Math.abs(r12).toFixed(1)}%`, t("iSinceBought")], tone: tone(P.pl) }]] : [[t("iCashWait"), num(x.cash)]]
+    reads: held.length && (P.priced || held.some((p) => p.price !== null && !p.fxMissing)) ? [[t("iGainLoss"), signed3(P.pl), { sub: [`${r12 > 0 ? "+" : r12 < 0 ? MINUS : ""}${Math.abs(r12).toFixed(1)}%`, t("iSinceBought")], tone: tone(P.pl) }]] : [[t("iCashWait"), num(x.cash)]]
   });
   marketCard(el, { prices: ctx.plugin.prices, app: ctx.app, cal: () => ctx.plugin.prices.calendar?.cal, chg: (tk) => todayOf(ctx.plugin.prices, tk) });
   watchStrip(x, el);
@@ -8388,6 +8488,13 @@ var home = (x) => {
   link(t("alLink").toUpperCase(), () => ctx.push({ key: "alerts", title: t("alTitle") }));
   link(t("iMixLink").toUpperCase(), () => ctx.push({ key: "mix", title: t("iMixT") }));
   return { title, el, fab, actions: [findAct(x, el)], badge: liveBadge(x) };
+};
+var missingText = (x) => {
+  const pr = x.ctx.plugin.prices, ps = x.P.positions.filter((p) => x.P.missing.includes(p.ticker));
+  const fx = [...new Set(ps.filter((p) => p.fxMissing).map((p) => p.currency))];
+  if (fx.length) return t("iNoFx", { tk: fx.slice(0, 2).join(", ") });
+  const gone = ps.filter((p) => p.price === null && pr.failed(p.ticker)).map((p) => p.ticker);
+  return gone.length ? t("iNoPrice", { tk: gone.slice(0, 2).join(", ") + (gone.length > 2 ? ` +${gone.length - 2}` : "") }) : t("iPricing");
 };
 var todayHeld = (x, held) => {
   const pr = x.ctx.plugin.prices;
@@ -9161,7 +9268,7 @@ var flowModes = (x, top, cg, tk, chart) => {
     pv.setText(v === null ? "-" : `${v >= 0 ? t("fBids") : t("fAsks")} ${Math.round(Math.abs(v) * 100)}%`);
     pv.toggleClass("is-up", v !== null && v > 0);
     pv.toggleClass("is-hot", v !== null && v < 0);
-    const th = thin(), src = (!tp ? "" : tp.src === "fugle" ? t("fSrcFugle") : t("fSrcMis", { t: hm(tp.since) })) + (th ? ` \xB7 ${th}` : "");
+    const th = thin(), src = (!tp ? "" : tp.src === "fugle" ? t("fSrcFugle") : t(x.ctx.plugin.prices.fugleRefused() ? "fSrcMisRefused" : "fSrcMis", { t: hm(tp.since) })) + (th ? ` \xB7 ${th}` : "");
     const why = r?.why && whyUntil > Date.now() && !cross ? r.why : "";
     if (why) whyEl.setText(why);
     whyEl.toggleClass("is-on", !!why);
@@ -9790,8 +9897,9 @@ var revenuePage = (x, tk) => {
   if (code) rv.ensure(code);
   const s2 = code ? statsOf(x, code) : null;
   if (!code || !s2) {
-    summary(el, { key: "rev-" + tk, label: t("rvNone"), value: "-", dim: true });
-    h(el, "div", "zl-field-note", t("rvNoneS"));
+    const failed = !!code && rv.failed(code);
+    summary(el, { key: "rev-" + tk, label: t(failed ? "rvFailed" : "rvNone"), value: "-", dim: true });
+    h(el, "div", "zl-field-note", t(failed ? "rvFailedS" : "rvNoneS"));
     if (code) rv.onChange((c) => {
       if (!el.isConnected) return false;
       if (c === code) x.ctx.redraw();
@@ -9946,7 +10054,11 @@ var chartBlock = (x, el, tk, currency, cost) => {
   };
   if (loading) {
     top.addClass("is-loading");
-    window.setTimeout(() => loaded("-"), 15e3);
+    window.setTimeout(() => {
+      if (!loading) return;
+      loaded("-");
+      if (prices.failed(tk)) srcEl.setText(t("iNoSource"));
+    }, 15e3);
   }
   prices.onQuote((sym) => {
     if (!el.isConnected) return false;
@@ -13606,7 +13718,7 @@ function registerDiagramIcons(plugin) {
 }
 
 // src/main.ts
-var FUGLE_KEY = "ledgerline-fugle-key";
+var FUGLE_KEY2 = "ledgerline-fugle-key";
 var LedgerlinePlugin = class extends import_obsidian28.Plugin {
   constructor() {
     super(...arguments);
@@ -13627,6 +13739,8 @@ var LedgerlinePlugin = class extends import_obsidian28.Plugin {
     this.prices.calendar = new MarketCalendar(() => this.app.loadLocalStorage(MarketCalendar.KEY), (v) => this.app.saveLocalStorage(MarketCalendar.KEY, v), () => this.prices.onLive?.(false));
     this.registerInterval(window.setInterval(() => this.prices.background(), 5 * 1e3));
     this.prices.onLive = (opening) => this.views().forEach((v) => v.pricesMoved(opening));
+    this.prices.loadOtc = () => this.app.loadLocalStorage(Prices.OTC_KEY);
+    this.prices.saveOtc = (v) => this.app.saveLocalStorage(Prices.OTC_KEY, v);
     this.prices.loadSeries = () => this.app.loadLocalStorage(Prices.SERIES_KEY);
     this.prices.saveSeries = (v) => this.app.saveLocalStorage(Prices.SERIES_KEY, v);
     this.search = new TickerSearch(() => this.app.loadLocalStorage(TickerSearch.KEY), (v) => this.app.saveLocalStorage(TickerSearch.KEY, v), () => this.settings.taiwan);
@@ -13723,10 +13837,10 @@ var LedgerlinePlugin = class extends import_obsidian28.Plugin {
   }
   // the Fugle key lives in this device's local storage only (data.json is in git: the vault backup commits it)
   fugleKey() {
-    return String(this.app.loadLocalStorage(FUGLE_KEY) ?? "");
+    return String(this.app.loadLocalStorage(FUGLE_KEY2) ?? "");
   }
   setFugleKey(v) {
-    this.app.saveLocalStorage(FUGLE_KEY, v.trim() || null);
+    this.app.saveLocalStorage(FUGLE_KEY2, v.trim() || null);
   }
   enabledTabs() {
     const on = tabOrderOf(this.settings.tabOrder).filter((id) => this.settings.tabs[id]);

@@ -121,7 +121,7 @@ export const chartBlock = (x: X, el: HTMLElement, tk: string, currency: string, 
     if (loading) {
         top.addClass("is-loading");
         // nothing after 15 s (no source has it): the dash, as before
-        window.setTimeout(() => loaded("-"), 15000);
+        window.setTimeout(() => { if (!loading) return; loaded("-"); if (prices.failed(tk)) srcEl.setText(t("iNoSource")); }, 15000);
     }
     // live: a quote every 5 s while this page is on screen and its market trades (the exchanges publish about every 5 s;
     // faster only repeats the same number and risks being turned away), every 60 s while it is shut. The split-flap

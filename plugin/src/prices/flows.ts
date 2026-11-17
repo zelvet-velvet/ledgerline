@@ -1,5 +1,5 @@
 import { requestUrl } from "obsidian";
-import { FlowDay, FlowDays, flowDue, flowSeries, flowTrim, parseT86 } from "../calc/flows";
+import { FlowDay, FlowDays, flowDue, flowSeries, flowTrim, parseT86, t86NoTrading } from "../calc/flows";
 
 // 法人 flows from TWSE T86 (listed stocks only; TPEx has its own report, not read yet). One request per trading day answers
 // every stock (warrants left out: ~190 KB); only our tickers' rows are kept, for the last 35 calendar days, in local
@@ -48,7 +48,9 @@ export class Flows {
                 let json: unknown = null;
                 try { json = r.json; } catch { break; }
                 const rows = parseT86(json, this.st.codes);
-                if (rows || date !== today) this.st.days[date] = rows;   // today without a report: not out yet, not a holiday
+                if (rows) this.st.days[date] = rows;
+                else if (date !== today && t86NoTrading(json)) this.st.days[date] = null;   // a holiday; today without a report: not out yet
+                else if (date !== today) break;   // an answer that is neither rows nor "no data" (turned away): the rest next time
                 if (++got % 5 === 0) this.tell();
                 await new Promise((ok) => setTimeout(ok, GAP));
             }

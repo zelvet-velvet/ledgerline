@@ -1,6 +1,6 @@
 import { requestUrl } from "obsidian";
 import { fiveSecBars, parseMisIndex } from "../calc/market";
-import { FugleStream } from "./stream";
+import { FUGLE_KEY, fugleRefused, FugleStream } from "./stream";
 import type { MarketCalendar } from "./calendar";
 import type { Why } from "../calc/calendar";
 import { addTick, Bars, fromFugle, fromTwseMonth, fromYahoo, isMinutes, joinBars, lastSession, Range } from "../calc/chart";
@@ -99,8 +99,9 @@ export const fugleCode = (symbol: string) => /^(\d{4,6}[A-Z]?)\.TWO?$/.exec(symb
 export const fugle = (key: () => string): PriceProvider => ({
     async quote(symbol) {
         const code = fugleCode(symbol), k = key();
-        if (!code || !k) return null;
+        if (!code || !k || fugleRefused(k)) return null;
         const r = await requestUrl({ url: `${FUGLE}/quote/${code}`, headers: { "X-API-KEY": k }, throw: false });
+        if (r.status === 401 || r.status === 403) FUGLE_KEY.refused = k;
         const q = r.status === 200 ? parseFugleQuote(r.json) : null;
         const pc = Number(r.status === 200 ? r.json?.previousClose : 0);
         if (pc > 0) fuglePc[code] = { day: new Date().toDateString(), pc };
@@ -108,7 +109,7 @@ export const fugle = (key: () => string): PriceProvider => ({
     },
     async bars(symbol, range) {
         const m = /^(\d{4,6}[A-Z]?)\.TWO?$/.exec(symbol), k = key();
-        if (range !== "I" || !m || !k) return null;
+        if (range !== "I" || !m || !k || fugleRefused(k)) return null;
         const headers = { "X-API-KEY": k }, day = new Date().toDateString();
         if (fuglePc[m[1]]?.day !== day) {
             const q = await requestUrl({ url: `${FUGLE}/quote/${m[1]}`, headers, throw: false }).catch(() => null);
@@ -116,6 +117,7 @@ export const fugle = (key: () => string): PriceProvider => ({
             if (pc > 0) fuglePc[m[1]] = { day, pc };
         }
         const r = await requestUrl({ url: `${FUGLE}/candles/${m[1]}?timeframe=1`, headers, throw: false });
+        if (r.status === 401 || r.status === 403) FUGLE_KEY.refused = k;
         return r.status === 200 ? fromFugle(r.json, fuglePc[m[1]]?.pc) : null;
     },
 });
@@ -176,7 +178,32 @@ export class Prices {
         try { this.q = (this.load() as Record<string, Quote>) ?? {}; } catch { this.q = {}; }
     }
     // a ticker as the provider wants it: 4–6 digit tickers are Taiwan listings with the Taiwan option on ("2330" → "2330.TW")
-    symbol(ticker: string): string { const t = ticker.trim().toUpperCase(); return this.taiwan() && /^\d{4,6}[A-Z]?$/.test(t) ? `${t}.TW` : t; }
+    // A code that only answers as a TPEx (OTC) listing is remembered (otc) and becomes "00679B.TWO" from then on.
+    symbol(ticker: string): string { const t = ticker.trim().toUpperCase(); return this.taiwan() && /^\d{4,6}[A-Z]?$/.test(t) ? `${t}.${this.otcSet().has(t) ? "TWO" : "TW"}` : t; }
+    private otc: Set<string> | null = null;
+    private otcSet(): Set<string> { if (!this.otc) { try { const v = this.loadOtc?.(); this.otc = new Set(Array.isArray(v) ? (v as string[]) : []); } catch { this.otc = new Set(); } } return this.otc; }
+    loadOtc?: () => unknown;
+    saveOtc?: (v: unknown) => void;
+    static OTC_KEY = "ledgerline-otc";
+    // one quote; a Taiwan code never priced that no source has as a TWSE listing is tried once as a TPEx one. [symbol that answered, quote]
+    private async ask(s: string): Promise<[string, Quote | null]> {
+        const x = await this.provider.quote(s).catch(() => null);
+        const m = /^(\d{4,6}[A-Z]?)\.TW$/.exec(s);
+        if (x || !m || this.q[s]) return [s, x];
+        const o = `${m[1]}.TWO`, y = await this.provider.quote(o).catch(() => null);
+        if (!y) return [s, null];
+        this.otcSet().add(m[1]);
+        try { this.saveOtc?.([...this.otcSet()]); } catch { /* kept in memory */ }
+        if (this.tracked.delete(s)) this.tracked.add(o);
+        return [o, y];
+    }
+    // sources that did not answer: symbol (or series key) → when and how often in a row. A failed one is asked again after a
+    // minute at the earliest (it was asked on every redraw), and the pages can say it failed instead of "loading"
+    private bad = new Map<string, { t: number; n: number }>();
+    private miss(k: string): void { this.bad.set(k, { t: Date.now(), n: (this.bad.get(k)?.n ?? 0) + 1 }); }
+    private resting(k: string): boolean { const b = this.bad.get(k); return !!b && Date.now() - b.t < 60 * 1000; }
+    failed(ticker: string): boolean { return this.bad.has(this.symbol(ticker)); }
+    seriesFailed(ticker: string, range: Range): boolean { return this.bad.has(this.sKey(ticker, range)); }
     get(ticker: string): Quote | null { return this.q[this.symbol(ticker)] ?? null; }
     price(ticker: string): number | null { return this.get(ticker)?.price ?? null; }
     // base-currency units per 1 unit of `cur` (fallback: the config's fx_fallback); 0 = not known (never guessed as 1)
@@ -188,11 +215,16 @@ export class Prices {
     // fetch what is missing or old, in the background; one redraw when anything changed
     refresh(symbols: string[], force = false): void {
         // a Taiwan quote saved without its reference price (before 2026-11-05) is old at once: today's change is measured from it
-        const due = [...new Set(symbols)].filter((s) => s && !this.busy.has(s) && (force || !this.q[s] || Date.now() - this.q[s].time > TTL || (isTwSym(s) && !this.q[s].prev)));
+        const due = [...new Set(symbols)].filter((s) => s && !this.busy.has(s) && (force || !this.resting(s)) && (force || !this.q[s] || Date.now() - this.q[s].time > TTL || (isTwSym(s) && !this.q[s].prev)));
         if (!due.length) return;
         due.forEach((s) => this.busy.add(s));
-        void Promise.all(due.map((s) => this.provider.quote(s).then((x) => { if (x) this.q[s] = { ...x, closes: x.closes?.length ? x.closes : this.q[s]?.closes }; return !!x; }).catch(() => false).finally(() => this.busy.delete(s))))
-            .then((ok) => { if (ok.some(Boolean)) { try { this.save(this.q); } catch { /* ignore */ } this.onFresh(); } });
+        void Promise.all(due.map((s) => this.ask(s).then(([k, x]) => {
+            if (x) { this.q[k] = { ...x, closes: x.closes?.length ? x.closes : this.q[k]?.closes }; this.bad.delete(s); this.bad.delete(k); return 1; }
+            const first = !this.bad.has(s);
+            this.miss(s);
+            return first ? 2 : 0;   // a first failure redraws once too: the page stops saying "loading"
+        }).catch(() => 0).finally(() => this.busy.delete(s))))
+            .then((ok) => { if (ok.includes(1)) { try { this.save(this.q); } catch { /* ignore */ } } if (ok.some(Boolean)) this.onFresh(); });
     }
     // Background (owner, 2026-11-05), called every 5 s (main.ts): while their market trades, the tickers the Invest pages asked
     // for (holdings, watchlist), on any page. Taiwan: with a Fugle key every one streams its trades; the rest (no key, or
@@ -296,7 +328,9 @@ export class Prices {
     useFugle(key: () => string): void { this.fkey = key; this.stream = new FugleStream(key, (code, price, ms, raw) => { this.trade(code, price, ms); const sym = this.codes.get(code); if (sym) this.onTrade?.(sym, raw); }); }
     // every streamed trade as Fugle sent it (the footprint's tape: prices/flow.ts)
     onTrade?: (symbol: string, raw: Record<string, unknown>) => void;
-    hasFugle(): boolean { return !!this.fkey(); }
+    hasFugle(): boolean { return !!this.fkey() && !fugleRefused(this.fkey()); }
+    // a key is set but Fugle turned it away: the pages say so instead of "no key"
+    fugleRefused(): boolean { return fugleRefused(this.fkey()); }
     // counted: a page redraw builds the new page (watch) before the old one lets go (unwatch), the stream stays up
     private watchers = new Map<string, number>();
     watch(ticker: string): void { const s = this.symbol(ticker), c = fugleCode(s); if (c && this.stream) { this.codes.set(c, s); this.watchers.set(c, (this.watchers.get(c) ?? 0) + 1); this.stream.watch(c); } }
@@ -327,6 +361,7 @@ export class Prices {
         this.busy.add(k);
         try {
             const x = await this.provider.quote(s);
+            if (x) this.bad.delete(s); else this.miss(s);
             return x ? this.apply(s, x) : false;
         } catch { return false; /* offline: the next tick tries again */ } finally { this.busy.delete(k); }
     }
@@ -347,10 +382,16 @@ export class Prices {
     onSeries(fn: (key: string) => boolean): void { this.subs.add(fn); }
     refreshSeries(ticker: string, range: Range, force = false): void {
         const k = this.sKey(ticker, range), have = this.series(ticker, range);
-        if (this.busy.has(k) || (!force && have && Date.now() - have.time < (isMinutes(range) ? TTL_MIN : TTL)) || !this.provider.bars) return;
+        if (this.busy.has(k) || (!force && have && Date.now() - have.time < (isMinutes(range) ? TTL_MIN : TTL)) || (!force && this.resting(k)) || !this.provider.bars) return;
         this.busy.add(k);
         void this.provider.bars(this.symbol(ticker), range).then((b) => {
-            if (!b) return;
+            if (!b) {   // no source has these bars: a chart still waiting hears it and says so
+                const first = !this.bad.has(k);
+                this.miss(k);
+                if (first && !have) for (const f of [...this.subs]) if (!f(k)) this.subs.delete(f);
+                return;
+            }
+            this.bad.delete(k);
             this.s[k] = { bars: b, time: Date.now(), source: b.ohlc ? "" : "line" };
             // only day / week / month bars are stored (minute bars go stale in a minute and would fill the storage)
             try { this.saveSeries?.(Object.fromEntries(Object.entries(this.s).filter(([key]) => !isMinutes(key.split("|")[1] as Range)))); } catch { /* full storage: kept in memory */ }

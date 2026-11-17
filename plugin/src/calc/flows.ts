@@ -31,6 +31,10 @@ export const parseT86 = (json: unknown, codes: string[]): Record<string, Flow> |
     return out;
 };
 
+// the exchange's own answer for a day without trading (a holiday); any other answer without rows (turned away, a changed page)
+// is not known yet and is asked again
+export const t86NoTrading = (json: unknown): boolean => /沒有符合條件|查無/.test(String((json as { stat?: unknown } | null)?.stat ?? ""));
+
 // one code's trading days, oldest first (days the stock had no row count as zero: no institution traded it)
 export const flowSeries = (days: FlowDays, code: string): FlowDay[] =>
     Object.keys(days).sort().filter((k) => days[k]).map((date) => {

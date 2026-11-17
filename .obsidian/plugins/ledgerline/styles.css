@@ -1072,6 +1072,7 @@ body.zl-calm .zl-ch-in { animation: none; }
 /* loading: 8 dark squares light one after another in steps (Design Rules › Motion: blocks light, they do not grow) */
 .zl-ch-wait-b { display: flex; gap: 4px; }
 .zl-ch-wait-b i { width: 10px; height: 10px; background: var(--zl-dim); animation: zl-ch-blink .8s steps(1, end) infinite; }
+.zl-ch-wait.is-failed .zl-ch-wait-b i { animation: none; }   /* no source answered: the lights stand still */
 @keyframes zl-ch-blink { 0% { background: var(--zl-loud); } 25% { background: var(--zl-dim); } }
 .zl-ch-wait-t { font: 10px var(--zl-pixel); color: var(--zl-mut); letter-spacing: .04em; }
 .zl-ch-wait-s { font: 14px var(--zl-ui); color: var(--zl-mut); text-align: center; padding: 0 24px; }
