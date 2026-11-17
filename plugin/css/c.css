@@ -464,6 +464,10 @@ body.zl-calm.is-phone .modal.zl-sheet, body.zl-calm .modal-container:has(> .zl-s
 .zl-sheet .zl-words { display: flex; }
 .zl-sheet .zl-words .zl-chip { flex: 1; }
 .zl-sheet .zl-words .zl-chip + .zl-chip { margin-left: -2px; }
+/* a choice of two or three in a sheet (BUY | SELL) is the boxed segment: one ink box split by rules, the chosen one inverted */
+.zl-sheet .zl-words:not(.zl-mpick-y) { border: 2px solid var(--zl-text); }
+.zl-sheet .zl-words:not(.zl-mpick-y) button.zl-chip { border: 0; margin: 0; }
+.zl-sheet .zl-words:not(.zl-mpick-y) button.zl-chip + button.zl-chip { border-left: 2px solid var(--zl-text); }
 .zl-sheet button.zl-chip { height: 40px; min-width: 44px; padding: 0 12px; border: 2px solid var(--zl-dim); border-radius: 0; background: none; box-shadow: none; color: var(--zl-text); font: 400 17px var(--zl-disp); letter-spacing: .04em; }
 .zl-sheet button.zl-chip.is-on { position: relative; background: var(--zl-text); border-color: var(--zl-text); color: var(--zl-bg); }
 .zl-sheet button.zl-chip:active { opacity: .6; }
@@ -894,9 +898,6 @@ body.zl-calm .zl-ch-in { animation: none; }
 
 /* 法人 flows (mock Invest · L): 5 / 20 switch, held day line, stacked daily bars around zero */
 .zl-fl { display: flex; flex-direction: column; gap: 8px; }
-.zl-fl-seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--zl-ink); }
-.zl-app button.zl-fl-segb { all: unset; cursor: pointer; text-align: center; padding: 7px 0 6px; font: 11px var(--zl-pixel); color: var(--zl-mut); }
-.zl-app button.zl-fl-segb.is-on { background: var(--zl-ink); color: var(--zl-paper); }
 .zl-fl-legend { font: 11px var(--zl-ui); color: var(--zl-mut); min-height: 15px; line-height: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 .zl-fl-plot { position: relative; width: 100%; flex: 1 1 0; min-height: 120px; touch-action: none; user-select: none; -webkit-user-select: none; }
 .zl-page.zl-c-stack > .zl-c-fill.zl-fl { max-height: none; }
@@ -913,7 +914,6 @@ body.zl-calm .zl-fl-svg.is-light .zl-fl-bar { animation: none; }
 .zl-fl-hatch { stroke: var(--zl-ink); stroke-width: 1.5; }
 .zl-fl-hatch.is-mut { stroke: var(--zl-mut); }
 .zl-fl-pick { fill: var(--zl-dim); opacity: .5; }
-.zl-fl-seg.is-3 { grid-template-columns: 1fr 1fr 1fr; }
 .zl-c-group.is-wait { opacity: .45; }
 .zl-fl-src { white-space: normal; padding: 0 0 8px; }
 
@@ -1112,7 +1112,7 @@ body.zl-calm .zl-live.is-on::before, body.zl-calm .zl-tickc { animation: none; }
     .is-phone .modal.zl-sheet { top: 50%; bottom: auto; left: 50%; right: auto; width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 16px); border-width: 2px; transform: translate(-50%, calc(-50% - var(--zl-lift, 0px))); }
     .is-phone .modal.zl-sheet::before { display: none; }
 }
-.zl-fl-seg.zl-wmkt { margin: 2px 0 8px; }
+.zl-fmode.zl-wmkt { margin: 2px 0 8px; }
 .zl-page.zl-c-list > .zl-wtop { margin-bottom: -10px; }   /* the sort sits on the rows, as when they were one group */   /* the watchlist's market tabs (Taiwan / US) */
 /* its sort under them: a line of words, not a second bar; the chosen one in ink, underlined, with its order arrow */
 .zl-wsort { display: flex; align-items: center; justify-content: flex-end; gap: 14px; margin: 0 0 10px; font: 11px var(--zl-pixel); }
@@ -1254,6 +1254,12 @@ body.zl-calm .zl-lastp.is-loading .zl-flap .t, body.zl-calm .zl-lastp.is-loading
 .zl-orders-plot { position: relative; height: 58px; margin-top: 6px; }
 .zl-flow-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 4px; }
 .zl-fmode.is-sm .zl-fmode-b { padding: 2px 6px; font-size: 9px; }
+/* the wide segment fills its row in equal parts, 32 px drawn and a 44 px target (::after) */
+.zl-fmode.is-wide { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border-width: 2px; }
+.zl-app .zl-fmode.is-wide button.zl-fmode-b { position: relative; min-height: 32px; display: flex; align-items: center; justify-content: center; font-size: 11px; padding: 0 6px; }
+.zl-app .zl-fmode.is-wide button.zl-fmode-b + button.zl-fmode-b { border-left-width: 2px; }
+.zl-app .zl-fmode.is-wide button.zl-fmode-b::after { content: ""; position: absolute; left: 0; right: 0; top: -6px; bottom: -6px; }
+.zl-al-top .zl-fmode.is-wide { flex: 1; }
 .zl-app button.zl-flow-latest { all: unset; cursor: pointer; font: 400 10px var(--zl-pixel); letter-spacing: .06em; color: var(--zl-loud); visibility: hidden; }
 .zl-app button.zl-flow-latest.is-on { visibility: visible; }
 .zl-flow-plot { touch-action: none; user-select: none; -webkit-user-select: none; }

@@ -6542,6 +6542,25 @@ var pickBars = (parent, o, rows = 12) => {
   box.addEventListener("touchmove", (e) => e.stopPropagation(), { passive: true });
   return box;
 };
+var segment = (parent, items2, on, pick, o = {}) => {
+  const el2 = h(parent, "div", "zl-fmode" + (o.wide ? " is-wide" : "") + (o.sm ? " is-sm" : ""));
+  el2.setAttribute("role", "group");
+  const bs = items2.map(([k, label]) => {
+    const b = h(el2, "button", "zl-fmode-b", label);
+    b.addEventListener("click", (e) => {
+      e.preventDefault();
+      set(k);
+      pick(k);
+    });
+    return [k, b];
+  });
+  const set = (k) => bs.forEach(([q, b]) => {
+    b.toggleClass("is-on", q === k);
+    b.setAttribute("aria-pressed", String(q === k));
+  });
+  set(on);
+  return { el: el2, set };
+};
 
 // src/pages/accounts.ts
 var ACCOUNTS_FILE = "Accounts";
@@ -8087,19 +8106,12 @@ var flowsPage = (ctx, arg, codes, trade) => {
   };
   top();
   const cg = h(el2, "div", "zl-c-group zl-c-fill zl-fl");
-  const seg = h(cg, "div", "zl-fl-seg");
-  const segs = [5, 20].map((n) => {
-    const b = h(seg, "button", "zl-fl-segb" + (SPAN === n ? " is-on" : ""), t("fDays", { n }).toUpperCase());
-    b.addEventListener("click", (e) => {
-      e.preventDefault();
-      if (SPAN === n) return;
-      SPAN = n;
-      segs.forEach((x, i) => x.toggleClass("is-on", [5, 20][i] === n));
-      pick = -1;
-      update();
-    });
-    return b;
-  });
+  segment(cg, [5, 20].map((n) => [n, t("fDays", { n }).toUpperCase()]), SPAN, (n) => {
+    if (SPAN === n) return;
+    SPAN = n;
+    pick = -1;
+    update();
+  }, { wide: true });
   const legend = h(cg, "div", "zl-fl-legend");
   const plot = h(cg, "div", "zl-fl-plot");
   const shown2 = () => s2.slice(-SPAN);
@@ -8310,18 +8322,11 @@ var brokersPage = (ctx, arg, trade) => {
   let sumEl = null;
   const head = h(el2, "div", "zl-c-group zl-fl");
   const seg = (opts) => {
-    const box = h(head, "div", "zl-fl-seg" + (opts.length === 3 ? " is-3" : ""));
-    const bs = opts.map(([label, on, tap]) => {
-      const b = h(box, "button", "zl-fl-segb", label);
-      b.addEventListener("click", (e) => {
-        e.preventDefault();
-        tap();
-        bs.forEach((x, i) => x.toggleClass("is-on", opts[i][1]()));
-        render();
-      });
-      return b;
-    });
-    bs.forEach((x, i) => x.toggleClass("is-on", opts[i][1]()));
+    const i0 = opts.findIndex((x) => x[1]());
+    segment(head, opts.map((x, i) => [i, x[0]]), i0 < 0 ? null : i0, (i) => {
+      opts[i][2]();
+      render();
+    }, { wide: true });
   };
   seg([1, 5, 20].map((n) => [n === 1 ? t("bDay1").toUpperCase() : t("fDays", { n }).toUpperCase(), () => BSPAN === n, () => {
     BSPAN = n;
@@ -10324,15 +10329,10 @@ var alertsPage = (x) => {
   el2.addClass("zl-c-list");
   const A = alerts.read(), day = today();
   const top = h(el2, "div", "zl-c-group zl-al-top");
-  const words = h(top, "div", "zl-words");
-  for (const [k, label] of [["all", t("alAll")], ["price", t("alPrices")], ["date", t("alDates")]]) {
-    const b = h(words, "button", "zl-chip" + (FILTER === k ? " is-on" : ""), label.toUpperCase());
-    b.addEventListener("click", (e) => {
-      e.preventDefault();
-      FILTER = k;
-      x.ctx.redraw();
-    });
-  }
+  segment(top, [["all", t("alAll")], ["price", t("alPrices")], ["date", t("alDates")]].map(([k, l]) => [k, l.toUpperCase()]), FILTER, (k) => {
+    FILTER = k;
+    x.ctx.redraw();
+  }, { wide: true });
   const push = h(top, "button", "zl-al-push", (A.topic ? t("alPushOn") : t("alPushOff")).toUpperCase());
   push.addEventListener("click", (e) => {
     e.preventDefault();
@@ -10502,17 +10502,12 @@ var watchPage = (x) => {
     const mkt = WMKT;
     const top = h(el2, "div", "zl-c-group zl-c-top zl-wtop");
     el2.insertBefore(top, g);
-    const tabs = h(top, "div", "zl-fl-seg zl-wmkt");
-    [["tw", t("iMktTw")], ["us", t("iMktUs")]].forEach(([k, label]) => {
-      const b = h(tabs, "button", "zl-fl-segb" + (mkt === k ? " is-on" : ""), label.toUpperCase());
-      b.addEventListener("click", (e) => {
-        e.preventDefault();
-        if (WMKT === k) return;
-        WMKT = k;
-        ctx.app.saveLocalStorage(WMKT_KEY, k);
-        ctx.redraw();
-      });
-    });
+    segment(top, [["tw", t("iMktTw")], ["us", t("iMktUs")]].map(([k, l2]) => [k, l2.toUpperCase()]), mkt, (k) => {
+      if (WMKT === k) return;
+      WMKT = k;
+      ctx.app.saveLocalStorage(WMKT_KEY, k);
+      ctx.redraw();
+    }, { wide: true }).el.addClass("zl-wmkt");
     const sort = watchSort(x);
     const seg = h(top, "div", "zl-wsort");
     h(seg, "span", "zl-wsort-l", t("iSort").toUpperCase());

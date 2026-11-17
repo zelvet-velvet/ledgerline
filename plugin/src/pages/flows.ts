@@ -7,7 +7,7 @@ import { Brokers } from "../prices/brokers";
 import { num, shortDate } from "../format";
 import { t } from "../i18n";
 import { empty, h, page } from "../ui";
-import { figures, summary } from "../ui/c";
+import { figures, segment, summary } from "../ui/c";
 import type { PageCtx, PageOut } from "./index";
 
 // 法人 flows (mock `Invest · L 法人 flows`, agent's picks 2026-11-04), one screen: the last day's net in lots as the summary,
@@ -107,12 +107,7 @@ export const flowsPage = (ctx: PageCtx, arg: string, codes: string[], trade: (tk
     top();
     // the chart group takes the room that is left
     const cg = h(el, "div", "zl-c-group zl-c-fill zl-fl");
-    const seg = h(cg, "div", "zl-fl-seg");
-    const segs = ([5, 20] as const).map((n) => {
-        const b = h(seg, "button", "zl-fl-segb" + (SPAN === n ? " is-on" : ""), t("fDays", { n }).toUpperCase());
-        b.addEventListener("click", (e) => { e.preventDefault(); if (SPAN === n) return; SPAN = n; segs.forEach((x, i) => x.toggleClass("is-on", [5, 20][i] === n)); pick = -1; update(); });
-        return b;
-    });
+    segment(cg, ([5, 20] as const).map((n): [5 | 20, string] => [n, t("fDays", { n }).toUpperCase()]), SPAN, (n) => { if (SPAN === n) return; SPAN = n; pick = -1; update(); }, { wide: true });
     const legend = h(cg, "div", "zl-fl-legend");
     const plot = h(cg, "div", "zl-fl-plot");
     const shown = () => s!.slice(-SPAN);
@@ -292,13 +287,8 @@ export const brokersPage = (ctx: PageCtx, arg: string, trade: (tk: string) => vo
     let sumEl: HTMLElement | null = null;
     const head = h(el, "div", "zl-c-group zl-fl");
     const seg = (opts: [string, () => boolean, () => void][]) => {
-        const box = h(head, "div", "zl-fl-seg" + (opts.length === 3 ? " is-3" : ""));
-        const bs = opts.map(([label, on, tap]) => {
-            const b = h(box, "button", "zl-fl-segb", label);
-            b.addEventListener("click", (e) => { e.preventDefault(); tap(); bs.forEach((x, i) => x.toggleClass("is-on", opts[i][1]())); render(); });
-            return b;
-        });
-        bs.forEach((x, i) => x.toggleClass("is-on", opts[i][1]()));
+        const i0 = opts.findIndex((x) => x[1]());
+        segment(head, opts.map((x, i): [number, string] => [i, x[0]]), i0 < 0 ? null : i0, (i) => { opts[i][2](); render(); }, { wide: true });
     };
     seg(([1, 5, 20] as BrokerSpan[]).map((n) => [n === 1 ? t("bDay1").toUpperCase() : t("fDays", { n }).toUpperCase(), () => BSPAN === n, () => { BSPAN = n; B.ensure(code, n); }]));
     seg([[t("bAll").toUpperCase(), () => !foreign, () => { foreign = false; }], [t("bForeign").toUpperCase(), () => foreign, () => { foreign = true; }]]);
