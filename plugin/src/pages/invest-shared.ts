@@ -15,7 +15,7 @@ export const MINUS = "\u2212";
 export const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? MINUS : ""}${num(Math.abs(n))}`;
 // a percent with two decimals (owner, 2026-11-05), signed; a move that rounds to 0.00 has no sign
 export const pctS = (n: number) => { const r = Math.round(n * 100) / 100; return `${r > 0 ? "+" : r < 0 ? MINUS : ""}${Math.abs(r).toFixed(2)}%`; };
-export const qty = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 4 });
+export const qty = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 4 }).replace("-", MINUS);
 
 export interface X {
     ctx: PageCtx; P: Portfolio; cur: string; cash: number; warns: Warning[]; cap: number; fx(c: string): number; links: Map<string, { booked: number; diff: number }>;

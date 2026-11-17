@@ -23,7 +23,21 @@ __export(main_exports, {
   default: () => LedgerlinePlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian28 = require("obsidian");
+var import_obsidian20 = require("obsidian");
+
+// src/ui/toast.ts
+var el = null;
+var timer = 0;
+var toast = (text2, loud = false, ms = 2e3) => {
+  if (!el || !el.isConnected) el = document.body.createDiv({ cls: "zl-toast", attr: { role: "status", "aria-live": "polite" } });
+  window.clearTimeout(timer);
+  el.textContent = text2;
+  el.toggleClass("is-loud", loud);
+  el.toggleClass("theme-dark", document.body.hasClass("theme-dark"));
+  void el.offsetWidth;
+  el.addClass("is-on");
+  timer = window.setTimeout(() => el?.removeClass("is-on"), ms);
+};
 
 // src/ui/pixel.ts
 var SPR = {
@@ -406,7 +420,7 @@ var keep = (m, drop) => Object.fromEntries(Object.entries(m).filter(([, w]) => w
 var import_obsidian3 = require("obsidian");
 
 // src/format.ts
-var num = (n) => Math.round(Number(n) || 0).toLocaleString();
+var num = (n) => Math.round(Number(n) || 0).toLocaleString("en-US").replace("-", "\u2212");
 var pad = (n) => String(n).padStart(2, "0");
 var ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 var today = () => ymd(/* @__PURE__ */ new Date());
@@ -428,7 +442,7 @@ var shortDate = (s2) => {
 var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 var monthLong = (d) => d.toLocaleString("en", { month: "long" }) + " " + d.getFullYear();
 var parseNum = (v) => {
-  const s2 = String(v ?? "").replace(/,/g, "").trim();
+  const s2 = String(v ?? "").replace(/,/g, "").replace(/\u2212/g, "-").trim();
   return s2 === "" ? NaN : Number(s2);
 };
 
@@ -3373,7 +3387,7 @@ var AlertWatch = class {
       await this.plugin.store.update(this.path(), (f) => {
         f.sent = [...keepSent(readAlerts(f).sent, day), { key, date: day, text: `${stamp} \xB7 ${text2}` }];
       });
-      new import_obsidian7.Notice(text2, 1e4);
+      toast(text2, true, 1e4);
       if (A.topic) await (0, import_obsidian7.requestUrl)({ url: `${NTFY}/${encodeURIComponent(A.topic)}`, method: "POST", body: text2, headers: { Title: "Ledgerline", Tags: "chart_with_upwards_trend" }, throw: false }).catch(() => null);
     } finally {
       this.sending = false;
@@ -4172,15 +4186,15 @@ var h = (parent, tag, cls, text2) => {
   return e;
 };
 var CJK = /[\u2e80-\u9fff\uf900-\ufaff\uff00-\uffef]+/g;
-var titleText = (el, text2) => {
-  el.empty();
+var titleText = (el2, text2) => {
+  el2.empty();
   let at = 0;
   for (const m of text2.matchAll(CJK)) {
-    if (m.index > at) el.appendText(text2.slice(at, m.index));
-    h(el, "span", "zl-cjk", m[0]);
+    if (m.index > at) el2.appendText(text2.slice(at, m.index));
+    h(el2, "span", "zl-cjk", m[0]);
     at = m.index + m[0].length;
   }
-  if (at < text2.length) el.appendText(text2.slice(at));
+  if (at < text2.length) el2.appendText(text2.slice(at));
 };
 var icon = (parent, name, cls = "zl-ic") => {
   const [names, flip = ""] = name.split("|");
@@ -4209,11 +4223,11 @@ var group2 = (parent, title, footer) => {
   return g;
 };
 var row = (parent, r) => {
-  const el = h(parent, "div", "zl-row zl-in" + (r.onTap ? " is-tap" : "") + (r.muted ? " is-muted" : ""));
-  el.style.setProperty("--i", String(parent.childElementCount - 1));
+  const el2 = h(parent, "div", "zl-row zl-in" + (r.onTap ? " is-tap" : "") + (r.muted ? " is-muted" : ""));
+  el2.style.setProperty("--i", String(parent.childElementCount - 1));
   if (r.check) {
     const c = r.check;
-    const b = h(el, "button", "zl-check" + (c.on ? " is-on" : ""));
+    const b = h(el2, "button", "zl-check" + (c.on ? " is-on" : ""));
     if (c.on && c.color) b.style.background = c.color;
     if (c.on) icon(b, "check");
     b.addEventListener("click", (e) => {
@@ -4222,8 +4236,8 @@ var row = (parent, r) => {
       c.onToggle(!c.on);
     });
   }
-  if (!r.check) sprite(el, r.avatar !== void 0 ? "person" : r.icon ? pixelFor(r.icon, r.title) : rowSprite(r.title), "zl-px zl-fig-ic");
-  const main = h(el, "div", "zl-row-main");
+  if (!r.check) sprite(el2, r.avatar !== void 0 ? "person" : r.icon ? pixelFor(r.icon, r.title) : rowSprite(r.title), "zl-px zl-fig-ic");
+  const main = h(el2, "div", "zl-row-main");
   const tt = h(main, "div", "zl-row-t", r.title);
   if (r.titleColor) tt.style.color = r.titleColor;
   if (r.sub) h(main, "div", "zl-row-s", r.sub);
@@ -4234,18 +4248,18 @@ var row = (parent, r) => {
     f.style.background = r.progress[1];
   }
   if (r.value) {
-    const v = h(el, "div", "zl-row-v", r.value);
+    const v = h(el2, "div", "zl-row-v", r.value);
     if (r.valueColor) v.style.color = r.valueColor;
   }
-  if (r.chevron) sprite(el, "back", "zl-px zl-fig-go");
+  if (r.chevron) sprite(el2, "back", "zl-px zl-fig-go");
   if (r.onTap) {
     const fn = r.onTap;
-    el.addEventListener("click", (e) => {
+    el2.addEventListener("click", (e) => {
       e.preventDefault();
       fn();
     });
   }
-  return el;
+  return el2;
 };
 var skeleton = (title) => {
   const p = page(title);
@@ -5029,33 +5043,33 @@ var kScene = (plot, o, all, range, G, k, n, off, live, L2) => {
   };
 };
 var volS = (v) => v >= 1e9 ? `${(v / 1e9).toFixed(1)}B` : v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e4 ? `${(v / 1e3).toFixed(1)}K` : String(Math.round(v));
-var barLine = (el, B, i, range, sym) => {
-  el.empty();
+var barLine = (el2, B, i, range, sym) => {
+  el2.empty();
   const before = i > 0 ? B.c[i - 1] : B.pc ?? null, ch = before ? B.c[i] - before : null;
-  h(el, "span", "zl-ch-bl-d", dayLabel(shownD(sym, B.d[i], range), range));
+  h(el2, "span", "zl-ch-bl-d", dayLabel(shownD(sym, B.d[i], range), range));
   const kv = (k, v) => {
-    h(el, "span", "zl-ch-bl-k", k);
-    h(el, "span", "zl-ch-bl-v", price2(v));
+    h(el2, "span", "zl-ch-bl-k", k);
+    h(el2, "span", "zl-ch-bl-v", price2(v));
   };
   const flat = !B.ohlc || B.o[i] === B.c[i] && B.h[i] === B.c[i] && B.l[i] === B.c[i];
-  if (flat) h(el, "span", "zl-ch-bl-v", price2(B.c[i]));
+  if (flat) h(el2, "span", "zl-ch-bl-v", price2(B.c[i]));
   else {
     kv("O", B.o[i]);
     kv("H", B.h[i]);
     kv("L", B.l[i]);
     kv("C", B.c[i]);
   }
-  if (ch !== null && before) h(el, "span", "zl-ch-bl-v zl-ch-bl-m" + (ch < 0 ? " is-hot" : ch > 0 ? " is-up" : ""), `${ch >= 0 ? "+" : "\u2212"}${(Math.abs(ch) / before * 100).toFixed(2)}%`);
+  if (ch !== null && before) h(el2, "span", "zl-ch-bl-v zl-ch-bl-m" + (ch < 0 ? " is-hot" : ch > 0 ? " is-up" : ""), `${ch >= 0 ? "+" : "\u2212"}${(Math.abs(ch) / before * 100).toFixed(2)}%`);
 };
-var indicators = (el, o, L2, i, set) => {
-  el.empty();
+var indicators = (el2, o, L2, i, set) => {
+  el2.empty();
   const v = (a) => {
     const x = a?.[i];
     return x === null || x === void 0 ? "-" : price2(Math.round(x));
   };
   const cell = (cls, label, on, p, value, extra = "") => {
     if (o.chips) {
-      const c = h(el, "button", `zl-ch-chip ${cls}` + (on ? " is-on" : ""));
+      const c = h(el2, "button", `zl-ch-chip ${cls}` + (on ? " is-on" : ""));
       c.setAttribute("aria-pressed", String(on));
       h(c, "i", "zl-ch-lg-sw");
       h(c, "span", "", label === "MB 20" ? "MA20" : label.replace(" 2\u03C3", ""));
@@ -5065,7 +5079,7 @@ var indicators = (el, o, L2, i, set) => {
       });
       return;
     }
-    const b = h(el, "button", `zl-ch-lg ${cls}` + (on ? " is-on" : ""));
+    const b = h(el2, "button", `zl-ch-lg ${cls}` + (on ? " is-on" : ""));
     b.setAttribute("aria-pressed", String(on));
     const top = h(b, "span", "zl-ch-lg-t");
     h(top, "i", "zl-ch-lg-sw");
@@ -5577,19 +5591,19 @@ var readPick = (c) => {
   }
 };
 var build = (c0) => {
-  const el = document.createElement("div");
-  el.className = "zl-c-group zl-c-fill zl-mkt";
-  const tabs = h(el, "div", "zl-mkt-tabs");
-  const row2 = h(el, "div", "zl-mkt-row");
+  const el2 = document.createElement("div");
+  el2.className = "zl-c-group zl-c-fill zl-mkt";
+  const tabs = h(el2, "div", "zl-mkt-tabs");
+  const row2 = h(el2, "div", "zl-mkt-row");
   const val = h(row2, "span", "zl-mkt-v", "-");
   const f = new Flap("xs");
   row2.appendChild(f.el);
-  const host = h(el, "div", "zl-mkt-ch");
-  const touch = (on) => el.toggleClass("zl-touching", on);
-  el.addEventListener("pointerdown", () => touch(true), true);
-  for (const ev of ["pointerup", "pointercancel"]) el.addEventListener(ev, () => touch(false), true);
+  const host = h(el2, "div", "zl-mkt-ch");
+  const touch = (on) => el2.toggleClass("zl-touching", on);
+  el2.addEventListener("pointerdown", () => touch(true), true);
+  for (const ev of ["pointerup", "pointercancel"]) el2.addEventListener(ev, () => touch(false), true);
   const card = {
-    el,
+    el: el2,
     c: c0,
     lead: "",
     gen: 0,
@@ -5641,7 +5655,7 @@ var build = (c0) => {
     }
     prices.onQuote((sym) => {
       if (CARD !== card || card.gen !== gen) return false;
-      if (sym === prices.symbol(tk) && el.isConnected) card.paint();
+      if (sym === prices.symbol(tk) && el2.isConnected) card.paint();
       return true;
     });
     card.paint();
@@ -5650,7 +5664,7 @@ var build = (c0) => {
   const was = new Map(IDX.map((i) => [i.tk, open(c0, i.mkt)]));
   window.clearInterval(TIMER);
   TIMER = window.setInterval(() => {
-    if (CARD !== card || !el.isConnected || document.hidden) return;
+    if (CARD !== card || !el2.isConnected || document.hidden) return;
     for (const x of IDX) {
       const on = open(card.c, x.mkt);
       if (on && was.get(x.tk) === false && chartRange(x.tk) !== "I") {
@@ -5668,9 +5682,6 @@ var build = (c0) => {
   }, 5e3);
   return card;
 };
-
-// src/pages/invest.ts
-var import_obsidian17 = require("obsidian");
 
 // src/calc/accounts.ts
 var KINDS = ["opening", "adjust", "expense", "deposit", "transfer", "buy", "sell", "fee"];
@@ -5994,19 +6005,19 @@ var notches = (dy) => {
   const u = Math.abs(dy) / PX;
   return Math.sign(dy) * Math.floor(u < 10 ? u : 10 + Math.pow(u - 10, 1.35));
 };
-var scrub = (el, get) => {
-  el.addClass("zl-scrubbable");
-  let timer = 0, active = false, x0 = 0, y0 = 0, id = -1, o = null, n = 0;
+var scrub = (el2, get) => {
+  el2.addClass("zl-scrubbable");
+  let timer2 = 0, active = false, x0 = 0, y0 = 0, id = -1, o = null, n = 0;
   let bub = null, bv = null, bd = null;
-  el.addEventListener("touchmove", (e) => {
+  el2.addEventListener("touchmove", (e) => {
     if (active) e.preventDefault();
   }, { passive: false });
-  el.addEventListener("contextmenu", (e) => {
-    if (active || timer) e.preventDefault();
+  el2.addEventListener("contextmenu", (e) => {
+    if (active || timer2) e.preventDefault();
   });
   const stop = () => {
-    window.clearTimeout(timer);
-    timer = 0;
+    window.clearTimeout(timer2);
+    timer2 = 0;
   };
   const paint = () => {
     if (!o || !bv || !bd) return;
@@ -6018,13 +6029,13 @@ var scrub = (el, get) => {
     o.live?.(n);
   };
   const begin = () => {
-    timer = 0;
+    timer2 = 0;
     o = get();
     n = o.value;
     active = true;
-    el.addClass("is-scrub");
-    const r = el.getBoundingClientRect();
-    bub = h(el.closest(".zl-app, .zl-sheet-host") ?? document.body, "div", "zl-bubble");
+    el2.addClass("is-scrub");
+    const r = el2.getBoundingClientRect();
+    bub = h(el2.closest(".zl-app, .zl-sheet-host") ?? document.body, "div", "zl-bubble");
     h(bub, "div", "zl-bubble-k", o.label.toUpperCase());
     bv = h(bub, "div", "zl-bubble-v");
     bd = h(bub, "div", "zl-bubble-d");
@@ -6036,39 +6047,39 @@ var scrub = (el, get) => {
     stop();
     if (!active) return;
     active = false;
-    el.removeClass("is-scrub");
+    el2.removeClass("is-scrub");
     bub?.remove();
     bub = null;
     const eat = (e) => {
       e.preventDefault();
       e.stopPropagation();
     };
-    el.addEventListener("click", eat, { capture: true, once: true });
-    window.setTimeout(() => el.removeEventListener("click", eat, { capture: true }), 400);
+    el2.addEventListener("click", eat, { capture: true, once: true });
+    window.setTimeout(() => el2.removeEventListener("click", eat, { capture: true }), 400);
     if (o && n !== o.value) {
       if (save) o.done(n);
       else o.live?.(o.value);
     }
     o = null;
   };
-  el.addEventListener("pointerdown", (e) => {
+  el2.addEventListener("pointerdown", (e) => {
     if (e.button !== 0 || active) return;
     x0 = e.clientX;
     y0 = e.clientY;
     id = e.pointerId;
     stop();
-    timer = window.setTimeout(() => {
+    timer2 = window.setTimeout(() => {
       try {
-        el.setPointerCapture(id);
+        el2.setPointerCapture(id);
       } catch {
       }
       begin();
     }, HOLD);
   });
-  el.addEventListener("pointermove", (e) => {
+  el2.addEventListener("pointermove", (e) => {
     if (e.pointerId !== id) return;
     if (!active) {
-      if (timer && Math.hypot(e.clientX - x0, e.clientY - y0) > SLOP) stop();
+      if (timer2 && Math.hypot(e.clientX - x0, e.clientY - y0) > SLOP) stop();
       return;
     }
     e.preventDefault();
@@ -6082,10 +6093,10 @@ var scrub = (el, get) => {
       bv.addClass("is-tick");
     }
   });
-  el.addEventListener("pointerup", (e) => {
+  el2.addEventListener("pointerup", (e) => {
     if (e.pointerId === id) end(true);
   });
-  el.addEventListener("pointercancel", (e) => {
+  el2.addEventListener("pointercancel", (e) => {
     if (e.pointerId === id) end(false);
   });
 };
@@ -6158,9 +6169,9 @@ var board = (parent, key, text2, dir = 1) => {
   b.set(text2, dir);
   return b;
 };
-var dragBoard = (el, b, onPass, can) => {
+var dragBoard = (el2, b, onPass, can) => {
   let x0 = 0, y0 = 0, on = false, lock = null, dx = 0;
-  el.addEventListener("touchstart", (e) => {
+  el2.addEventListener("touchstart", (e) => {
     const t2 = e.touches[0];
     x0 = t2.clientX;
     y0 = t2.clientY;
@@ -6169,7 +6180,7 @@ var dragBoard = (el, b, onPass, can) => {
     dx = 0;
     b.dragged = false;
   }, { passive: true });
-  el.addEventListener("touchmove", (e) => {
+  el2.addEventListener("touchmove", (e) => {
     if (!on) return;
     const t2 = e.touches[0], mx = t2.clientX - x0, my = t2.clientY - y0;
     if (!lock && Math.hypot(mx, my) > 8) lock = Math.abs(mx) > Math.abs(my) ? "x" : "y";
@@ -6183,15 +6194,15 @@ var dragBoard = (el, b, onPass, can) => {
     if (!on) return;
     on = false;
     if (lock !== "x") return;
-    const w = el.getBoundingClientRect().width || 1, step = dx < 0 ? 1 : -1;
+    const w = el2.getBoundingClientRect().width || 1, step = dx < 0 ? 1 : -1;
     window.setTimeout(() => {
       b.dragged = false;
     }, 50);
     if (Math.abs(dx) > w / 4 && can(step)) onPass(step);
     else b.drag(0);
   };
-  el.addEventListener("touchend", end);
-  el.addEventListener("touchcancel", end);
+  el2.addEventListener("touchend", end);
+  el2.addEventListener("touchcancel", end);
 };
 var BIGL = /* @__PURE__ */ new Map();
 var bigLabel = (parent, left, right, key) => {
@@ -6577,31 +6588,31 @@ var accountsPage = (ctx) => {
   const A = load(ctx), cur = ctx.plugin.settings.baseCurrency;
   const key = ctx.frame.key, only = key.startsWith("accounts:") ? key.slice(9) : null;
   const title = only ? t(GROUPS.find(([p]) => p === only)?.[1] ?? "acTitle") : t("acTitle");
-  const el = page(title);
+  const el2 = page(title);
   if (only) {
-    el.addClass("zl-c-list");
-    const g = h(el, "div", "zl-c-group");
+    el2.addClass("zl-c-list");
+    const g = h(el2, "div", "zl-c-group");
     if (only === "unknown") figures(g, A.unknown.map((e) => ({ ...entryRow(e), k: e.account.toUpperCase() })));
     else figures(g, A.list.filter((a) => purposeOf(a) === only).map((a) => accRow(ctx, a)));
-    return { title, el };
+    return { title, el: el2 };
   }
-  el.addClass("zl-c-stack");
+  el2.addClass("zl-c-stack");
   const free = A.list.filter((a) => purposeOf(a) === "everyday").reduce((s2, a) => s2 + a.balance, 0);
-  summary(el, { key: "accounts", label: t("acTotal", { cur }), value: num(A.total), items: [[t("acFree"), num(free)], [t("acSetAside"), num(A.total - free)], [t("acPlanned"), num(A.planned)]] });
+  summary(el2, { key: "accounts", label: t("acTotal", { cur }), value: num(A.total), items: [[t("acFree"), num(free)], [t("acSetAside"), num(A.total - free)], [t("acPlanned"), num(A.planned)]] });
   if (!A.list.length) {
-    h(el, "div", "zl-c-note", t("acNone"));
-    return { title, el };
+    h(el2, "div", "zl-c-note", t("acNone"));
+    return { title, el: el2 };
   }
   for (const [p, label] of GROUPS) {
     const list5 = A.list.filter((a) => purposeOf(a) === p);
     if (!list5.length) continue;
-    const g = h(el, "div", "zl-c-group");
+    const g = h(el2, "div", "zl-c-group");
     sec(g, `${t(label)} \xB7 ${num(list5.reduce((s2, a) => s2 + a.balance, 0))}`.toUpperCase());
     const all = () => ctx.push({ key: "accounts:" + p, title: t(label) });
     tileGrid(g, gridOf(list5.map((a) => accTile(ctx, a)), 4, (n) => ({ icon: "list", k: t("cMore").toUpperCase(), v: `+${n}`, onTap: all })), 2);
   }
-  if (A.unknown.length) sec(h(el, "div", "zl-c-group zl-c-link"), t("acUnknown").toUpperCase() + ` \xB7 ${A.unknown.length}`, () => ctx.push({ key: "accounts:unknown", title: t("acUnknown") }), t("cMore").toUpperCase());
-  return { title, el };
+  if (A.unknown.length) sec(h(el2, "div", "zl-c-group zl-c-link"), t("acUnknown").toUpperCase() + ` \xB7 ${A.unknown.length}`, () => ctx.push({ key: "accounts:unknown", title: t("acUnknown") }), t("cMore").toUpperCase());
+  return { title, el: el2 };
 };
 var monthHead = (d) => {
   const m = /^(\d{4})-(\d{2})/.exec(d);
@@ -6610,9 +6621,9 @@ var monthHead = (d) => {
 var accountPage = (ctx, key) => {
   const a = load(ctx).list.find((x) => x.key === key);
   if (!a) return null;
-  const el = page(a.label);
-  el.addClass("zl-c-list");
-  summary(el, {
+  const el2 = page(a.label);
+  el2.addClass("zl-c-list");
+  summary(el2, {
     key: "account-" + a.key,
     label: `${a.bank} \xB7 ${a.label}`,
     value: num(a.balance),
@@ -6627,18 +6638,18 @@ var accountPage = (ctx, key) => {
     byMonth.get(k).push(e);
   }
   for (const [m, list5] of byMonth) {
-    const g = h(el, "div", "zl-c-group");
+    const g = h(el2, "div", "zl-c-group");
     sec(g, monthHead(m).toUpperCase());
     figures(g, list5.map((e) => {
       const r = entryRow(e);
       return { ...r, s: [r.s, t("acThen", { n: num(after.get(e) ?? 0) })].join(" \xB7 ") };
     }));
   }
-  return { title: a.label, el };
+  return { title: a.label, el: el2 };
 };
 
 // src/ui/sheet.ts
-var import_obsidian14 = require("obsidian");
+var import_obsidian13 = require("obsidian");
 
 // src/ui/haptic.ts
 var tickBox = null;
@@ -6675,7 +6686,6 @@ function tick() {
 }
 
 // src/pages/amount.ts
-var import_obsidian13 = require("obsidian");
 var MAX = 7;
 var BLANK2 = "\xA0";
 var shown = (s2) => {
@@ -6806,7 +6816,7 @@ var openPad = (_ctx, o) => {
   async function doSave() {
     if (busy) return;
     if (!st.s) {
-      new import_obsidian13.Notice(t("cTypeAmount"));
+      toast(t("cTypeAmount"), true);
       return;
     }
     busy = true;
@@ -6861,13 +6871,13 @@ var kbCache = () => {
     return {};
   }
 };
-var isField = (el) => el instanceof HTMLInputElement || el instanceof HTMLSelectElement;
-var kbKind = (el) => el instanceof HTMLSelectElement ? "select" : el instanceof HTMLInputElement ? el.type === "date" ? "date" : el.inputMode || el.type || "text" : "text";
+var isField = (el2) => el2 instanceof HTMLInputElement || el2 instanceof HTMLSelectElement;
+var kbKind = (el2) => el2 instanceof HTMLSelectElement ? "select" : el2 instanceof HTMLInputElement ? el2.type === "date" ? "date" : el2.inputMode || el2.type || "text" : "text";
 var centerCard = (m) => {
   if (!document.body.hasClass("is-phone")) return;
-  const el = m.modalEl, vv = window.visualViewport;
-  window.setTimeout(() => el.addClass("is-ready"), 240);
-  const stopSlide = () => [el, el.parentElement].forEach((x) => x?.getAnimations().forEach((a) => {
+  const el2 = m.modalEl, vv = window.visualViewport;
+  window.setTimeout(() => el2.addClass("is-ready"), 240);
+  const stopSlide = () => [el2, el2.parentElement].forEach((x) => x?.getAnimations().forEach((a) => {
     if (!("animationName" in a)) a.cancel();
   }));
   stopSlide();
@@ -6875,23 +6885,23 @@ var centerCard = (m) => {
   const appArea = document.querySelector(".app-container");
   let kind = "text", moveTimer = 0;
   const settle = () => {
-    el.removeClass("is-moving");
+    el2.removeClass("is-moving");
     const a = document.activeElement;
-    if (a instanceof HTMLInputElement && el.contains(a) && a.type === "text") {
+    if (a instanceof HTMLInputElement && el2.contains(a) && a.type === "text") {
       const p02 = a.selectionStart, p1 = a.selectionEnd;
       if (p02 !== null && p1 !== null) a.setSelectionRange(p02, p1);
     }
   };
   const lift = (kb) => {
-    const H = window.innerHeight, h2 = el.offsetHeight;
+    const H = window.innerHeight, h2 = el2.offsetHeight;
     const side = window.innerWidth > H;
     if (!side) {
       const kbPx = `${Math.round(kb)}px`;
-      el.style.removeProperty("--zl-lift");
-      el.style.maxHeight = "";
-      if (el.style.getPropertyValue("--zl-kb") === kbPx) return;
-      el.addClass("is-moving");
-      el.style.setProperty("--zl-kb", kbPx);
+      el2.style.removeProperty("--zl-lift");
+      el2.style.maxHeight = "";
+      if (el2.style.getPropertyValue("--zl-kb") === kbPx) return;
+      el2.addClass("is-moving");
+      el2.style.setProperty("--zl-kb", kbPx);
       window.clearTimeout(moveTimer);
       moveTimer = window.setTimeout(() => {
         settle();
@@ -6901,10 +6911,10 @@ var centerCard = (m) => {
     }
     const up = kb > 0 ? Math.max(0, (H + h2) / 2 + 12 - (H - kb)) : 0;
     const next = `${Math.round(Math.min(up, (H - h2) / 2 - 8))}px`;
-    el.style.maxHeight = kb > 0 ? `${H - kb - 24}px` : "";
-    if (el.style.getPropertyValue("--zl-lift") === next) return;
-    el.addClass("is-moving");
-    el.style.setProperty("--zl-lift", next);
+    el2.style.maxHeight = kb > 0 ? `${H - kb - 24}px` : "";
+    if (el2.style.getPropertyValue("--zl-lift") === next) return;
+    el2.addClass("is-moving");
+    el2.style.setProperty("--zl-lift", next);
     window.clearTimeout(moveTimer);
     moveTimer = window.setTimeout(settle, 280);
   };
@@ -6913,7 +6923,7 @@ var centerCard = (m) => {
     vv ? window.innerHeight - (vv.height + vv.offsetTop) : 0,
     0
   ));
-  const focused = () => el.contains(document.activeElement) && isField(document.activeElement);
+  const focused = () => el2.contains(document.activeElement) && isField(document.activeElement);
   const fit2 = () => {
     const kb = measure();
     if (kb > 40 && focused()) {
@@ -6941,13 +6951,13 @@ var centerCard = (m) => {
     lift(kbCache()[kind] || 0);
   };
   const onFocusOut = (e) => {
-    if (isField(e.relatedTarget) && el.contains(e.relatedTarget)) return;
+    if (isField(e.relatedTarget) && el2.contains(e.relatedTarget)) return;
     window.setTimeout(() => {
       if (!focused()) lift(0);
     }, 0);
   };
-  el.addEventListener("focusin", onFocusIn);
-  el.addEventListener("focusout", onFocusOut);
+  el2.addEventListener("focusin", onFocusIn);
+  el2.addEventListener("focusout", onFocusOut);
   const ro = appArea ? new ResizeObserver(fit2) : null;
   if (appArea) ro?.observe(appArea);
   vv?.addEventListener("resize", fit2);
@@ -6999,19 +7009,19 @@ var slideClose = (m) => {
       close();
       return;
     }
-    const el = m.modalEl, bg = m.containerEl.querySelector(".modal-bg");
+    const el2 = m.modalEl, bg = m.containerEl.querySelector(".modal-bg");
     if (upright()) {
-      el.getAnimations().forEach((a) => a.cancel());
-      el.addClass("is-drag");
-      el.style.transition = "translate .22s cubic-bezier(.4, 0, 1, 1)";
-      el.style.translate = `0 ${el.offsetHeight + 40}px`;
+      el2.getAnimations().forEach((a) => a.cancel());
+      el2.addClass("is-drag");
+      el2.style.transition = "translate .22s cubic-bezier(.4, 0, 1, 1)";
+      el2.style.translate = `0 ${el2.offsetHeight + 40}px`;
       if (bg) {
         bg.style.transition = "opacity .22s";
         bg.style.opacity = "0";
       }
-    } else el.addClass("is-leaving");
+    } else el2.addClass("is-leaving");
     window.setTimeout(() => {
-      el.style.visibility = "hidden";
+      el2.style.visibility = "hidden";
       m.containerEl.style.visibility = "hidden";
       close();
     }, 220);
@@ -7024,9 +7034,9 @@ var slideClose = (m) => {
   window.requestAnimationFrame(bindBg);
 };
 var dragClose = (m) => {
-  const el = m.modalEl;
+  const el2 = m.modalEl;
   let y0 = 0, x0 = 0, dy = 0, on = false, skip = false, track = [];
-  el.addEventListener("touchstart", (e) => {
+  el2.addEventListener("touchstart", (e) => {
     const tch = e.touches[0];
     skip = e.touches.length !== 1 || !upright() || !!e.target.closest(".zl-dateblk, input, textarea, .zl-tgrid");
     on = false;
@@ -7035,18 +7045,18 @@ var dragClose = (m) => {
     x0 = tch.clientX;
     track = [{ y: tch.clientY, t: e.timeStamp }];
   }, { passive: true });
-  el.addEventListener("touchmove", (e) => {
+  el2.addEventListener("touchmove", (e) => {
     if (skip) return;
     const tch = e.touches[0], d = tch.clientY - y0;
     if (!on) {
-      if (el.querySelector(".is-scrub")) {
+      if (el2.querySelector(".is-scrub")) {
         skip = true;
         return;
       }
-      if (d > 6 && Math.abs(d) > Math.abs(tch.clientX - x0) && el.scrollTop <= 0) {
+      if (d > 6 && Math.abs(d) > Math.abs(tch.clientX - x0) && el2.scrollTop <= 0) {
         on = true;
-        el.addClass("is-drag");
-        el.style.transition = "none";
+        el2.addClass("is-drag");
+        el2.style.transition = "none";
       } else if (Math.abs(d) > 6) {
         skip = true;
         return;
@@ -7054,7 +7064,7 @@ var dragClose = (m) => {
     }
     e.preventDefault();
     dy = Math.max(0, d);
-    el.style.translate = `0 ${dy}px`;
+    el2.style.translate = `0 ${dy}px`;
     track.push({ y: tch.clientY, t: e.timeStamp });
     if (track.length > 6) track.shift();
   }, { passive: false });
@@ -7067,15 +7077,15 @@ var dragClose = (m) => {
       m.close();
       return;
     }
-    el.style.transition = "translate .25s cubic-bezier(.38, .7, .125, 1)";
-    el.style.translate = "";
+    el2.style.transition = "translate .25s cubic-bezier(.38, .7, .125, 1)";
+    el2.style.translate = "";
     window.setTimeout(() => {
-      el.removeClass("is-drag");
-      el.style.transition = "";
+      el2.removeClass("is-drag");
+      el2.style.transition = "";
     }, 260);
   };
-  el.addEventListener("touchend", end);
-  el.addEventListener("touchcancel", end);
+  el2.addEventListener("touchend", end);
+  el2.addEventListener("touchcancel", end);
 };
 var base = (m, title, subtitle) => {
   m.modalEl.addClass("zl-sheet");
@@ -7134,7 +7144,7 @@ var numText = (s2, dec = 0) => {
   const n = parseNum(s2);
   return isNaN(n) ? s2 : n.toLocaleString("en", { minimumFractionDigits: dec === 2 ? 2 : 0, maximumFractionDigits: dec });
 };
-var FormSheet = class extends import_obsidian14.Modal {
+var FormSheet = class extends import_obsidian13.Modal {
   constructor(app, o) {
     super(app);
     this.o = o;
@@ -7441,7 +7451,7 @@ var FormSheet = class extends import_obsidian14.Modal {
             moved = false;
             return;
           }
-          if (!import_obsidian14.Platform.isMobile) {
+          if (!import_obsidian13.Platform.isMobile) {
             try {
               pick.showPicker?.();
             } catch {
@@ -7566,7 +7576,7 @@ var FormSheet = class extends import_obsidian14.Modal {
     this.contentEl.empty();
   }
 };
-var ChoiceSheet = class extends import_obsidian14.Modal {
+var ChoiceSheet = class extends import_obsidian13.Modal {
   constructor(app, title, choices, onChoose, subtitle) {
     super(app);
     this.title = title;
@@ -7595,7 +7605,7 @@ var ChoiceSheet = class extends import_obsidian14.Modal {
   }
 };
 var confirmSheet = (app, title, text2, okText) => new Promise((resolve) => {
-  const m = new import_obsidian14.Modal(app);
+  const m = new import_obsidian13.Modal(app);
   let answer2 = false;
   const c = base(m, title, text2);
   const bar = h(c, "div", "zl-sheet-btns");
@@ -7611,7 +7621,7 @@ var confirmSheet = (app, title, text2, okText) => new Promise((resolve) => {
   };
   m.open();
 });
-var MonthSheet = class extends import_obsidian14.Modal {
+var MonthSheet = class extends import_obsidian13.Modal {
   constructor(app, title, sel, go) {
     super(app);
     this.title = title;
@@ -7830,11 +7840,11 @@ var openSearch = (from, src, o) => {
   void bar.offsetWidth;
   layer.addClass("is-on");
   input.focus({ preventScroll: true });
-  let seq = 0, timer = 0, closed = false;
+  let seq = 0, timer2 = 0, closed = false;
   const close = () => {
     if (closed) return;
     closed = true;
-    window.clearTimeout(timer);
+    window.clearTimeout(timer2);
     seq++;
     window.removeEventListener("scroll", hold);
     window.removeEventListener("resize", fixH);
@@ -7857,25 +7867,25 @@ var openSearch = (from, src, o) => {
     if (e.touches[0].clientY - y0 < -12 && document.activeElement === input && !bar.contains(e.target)) input.blur();
   }, { passive: true });
   layer.addEventListener("touchend", (e) => e.stopPropagation(), { passive: true });
-  const tap = (el, box, fn) => {
+  const tap = (el2, box, fn) => {
     let x0 = 0, y0t = 0, s0 = 0, armed = false;
-    el.addEventListener("pointerdown", (e) => {
+    el2.addEventListener("pointerdown", (e) => {
       e.preventDefault();
       armed = true;
       x0 = e.clientX;
       y0t = e.clientY;
       s0 = box.scrollTop;
     });
-    el.addEventListener("pointermove", (e) => {
+    el2.addEventListener("pointermove", (e) => {
       if (armed && Math.hypot(e.clientX - x0, e.clientY - y0t) > 8) armed = false;
     });
-    el.addEventListener("pointercancel", () => {
+    el2.addEventListener("pointercancel", () => {
       armed = false;
     });
-    el.addEventListener("pointerleave", () => {
+    el2.addEventListener("pointerleave", () => {
       armed = false;
     });
-    el.addEventListener("pointerup", (e) => {
+    el2.addEventListener("pointerup", (e) => {
       if (!armed) return;
       armed = false;
       if (Math.abs(box.scrollTop - s0) > 2) return;
@@ -7934,7 +7944,7 @@ var openSearch = (from, src, o) => {
   };
   const update = () => {
     const q = input.value.trim();
-    window.clearTimeout(timer);
+    window.clearTimeout(timer2);
     const n = ++seq;
     if (!q) {
       recent();
@@ -7942,7 +7952,7 @@ var openSearch = (from, src, o) => {
     }
     const here = mergeHits(o.mine(q), src.listed(q));
     rows(here);
-    timer = window.setTimeout(() => {
+    timer2 = window.setTimeout(() => {
       void src.remote(q).then((far) => {
         if (n === seq) rows(mergeHits(here, far).slice(0, 12));
       });
@@ -8041,25 +8051,25 @@ var setRow = (r, x) => {
 var flowsPage = (ctx, arg, codes, trade) => {
   const [tk, w0] = arg.split(":"), who = w0 === "f" || w0 === "t" || w0 === "d" ? w0 : null;
   const title = who ? `${tk} ${t(EN[who])}` : t("fTitle", { tk });
-  const el = page(title);
-  el.addClass("zl-c-stack");
+  const el2 = page(title);
+  el2.addClass("zl-c-stack");
   const fab = { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => trade(tk) };
   const flows = ctx.plugin.flows, code = Flows.code(ctx.plugin.prices.symbol(tk));
   if (!code) {
-    empty(el, { icon: "flows", title: t("fNone"), text: t("fNoneS") });
-    return { title, el, fab };
+    empty(el2, { icon: "flows", title: t("fNone"), text: t("fNoneS") });
+    return { title, el: el2, fab };
   }
   flows.ensure(Array.from(/* @__PURE__ */ new Set([...codes, code])));
   let s2 = flows.series(code);
   if (!s2) {
-    empty(el, { icon: "flows", title: t("fLoading"), text: t("fLoadingS") });
+    empty(el2, { icon: "flows", title: t("fLoading"), text: t("fLoadingS") });
     flows.onChange(() => {
-      if (!el.isConnected) return false;
+      if (!el2.isConnected) return false;
       if (!flows.series(code)) return true;
       ctx.redraw();
       return false;
     });
-    return { title, el, fab };
+    return { title, el: el2, fab };
   }
   const etf = isEtf(code);
   let sumEl = null;
@@ -8072,11 +8082,11 @@ var flowsPage = (ctx, arg, codes, trade) => {
     }
     const g2 = summary(createDiv(), { key: "flows", label: t("fToday", { w: who ? t(NAME[who]) : t("fRowK"), d: shortDate(last.date) }), value: L(last[k]), hot: last[k] < 0, dim: who === "d" && etf, items: items2 });
     if (sumEl) sumEl.replaceWith(g2);
-    else el.appendChild(g2);
+    else el2.appendChild(g2);
     sumEl = g2;
   };
   top();
-  const cg = h(el, "div", "zl-c-group zl-c-fill zl-fl");
+  const cg = h(el2, "div", "zl-c-group zl-c-fill zl-fl");
   const seg = h(cg, "div", "zl-fl-seg");
   const segs = [5, 20].map((n) => {
     const b = h(seg, "button", "zl-fl-segb" + (SPAN === n ? " is-on" : ""), t("fDays", { n }).toUpperCase());
@@ -8133,7 +8143,7 @@ var flowsPage = (ctx, arg, codes, trade) => {
     const a = by(d.buy), z = by(d.sell);
     return { k, s: [a ? `${a.name} ${signed2(a.net)}` : "", z ? `${z.name} ${signed2(z.net)}` : ""].filter(Boolean).join(" \xB7 ") || t("bNoneForeign"), v: "", onTap: open2 };
   };
-  const g = h(el, "div", "zl-c-group");
+  const g = h(el2, "div", "zl-c-group");
   const rowsOf = () => {
     const x = s2, last = x[x.length - 1], n = SPAN, w = x.slice(-n);
     if (!who) return [...["f", "t", "d"].map((k) => {
@@ -8163,7 +8173,7 @@ var flowsPage = (ctx, arg, codes, trade) => {
     });
   };
   B.onChange(() => {
-    if (!el.isConnected) return false;
+    if (!el2.isConnected) return false;
     const rs = g.querySelectorAll(".zl-fig");
     rowsOf().forEach((r, i) => {
       if (rs[i]) setRow(rs[i], r);
@@ -8171,7 +8181,7 @@ var flowsPage = (ctx, arg, codes, trade) => {
     return true;
   });
   flows.onChange(() => {
-    if (!el.isConnected) return false;
+    if (!el2.isConnected) return false;
     const n = flows.series(code);
     if (!n || n.length === s2.length && n[n.length - 1].date === s2[s2.length - 1].date) return true;
     s2 = n;
@@ -8180,7 +8190,7 @@ var flowsPage = (ctx, arg, codes, trade) => {
     update();
     return true;
   });
-  return { title, el, fab };
+  return { title, el: el2, fab };
 };
 var stacks = (who, etf) => {
   const d = etf ? "zl-fl-d is-mut" : "zl-fl-d";
@@ -8198,7 +8208,7 @@ var bars = (plot, s2, W, H, pick, parts, light) => {
   svg.setAttribute("height", String(H));
   svg.setAttribute("class", "zl-ch-svg zl-fl-svg" + (light ? " is-light" : ""));
   plot.appendChild(svg);
-  const el = (p, tag, a, cls) => {
+  const el2 = (p, tag, a, cls) => {
     const e = document.createElementNS(NS4, tag);
     for (const [k, v] of Object.entries(a)) e.setAttribute(k, String(v));
     if (cls) e.setAttribute("class", cls);
@@ -8206,10 +8216,10 @@ var bars = (plot, s2, W, H, pick, parts, light) => {
     return e;
   };
   const id = `zl-fl-hatch-${++PAT}`, idm = `${id}-m`;
-  const defs = el(svg, "defs", {});
+  const defs = el2(svg, "defs", {});
   for (const [pid, cls] of [[id, "zl-fl-hatch"], [idm, "zl-fl-hatch is-mut"]]) {
-    const pat = el(defs, "pattern", { id: pid, width: 4, height: 4, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" });
-    el(pat, "line", { x1: 0, y1: 0, x2: 0, y2: 4 }, cls);
+    const pat = el2(defs, "pattern", { id: pid, width: 4, height: 4, patternUnits: "userSpaceOnUse", patternTransform: "rotate(45)" });
+    el2(pat, "line", { x1: 0, y1: 0, x2: 0, y2: 4 }, cls);
   }
   const P = s2.map(parts);
   let hi = 0, lo = 0;
@@ -8222,11 +8232,11 @@ var bars = (plot, s2, W, H, pick, parts, light) => {
   const x0 = AXIS2, step = (W - x0 - 2) / s2.length, bw = Math.max(2, Math.min(18, step * 0.7));
   const ticks = niceTicks(lo, hi, 4);
   for (const v of ticks) {
-    el(svg, "line", { x1: x0, x2: W - 2, y1: Math.round(y(v)) + 0.5, y2: Math.round(y(v)) + 0.5 }, v === 0 ? "zl-ch-axis" : "zl-ch-grid");
-    el(svg, "text", { x: x0 - 6, y: y(v) + 4, "text-anchor": "end" }, "zl-ch-yl").textContent = short(v);
+    el2(svg, "line", { x1: x0, x2: W - 2, y1: Math.round(y(v)) + 0.5, y2: Math.round(y(v)) + 0.5 }, v === 0 ? "zl-ch-axis" : "zl-ch-grid");
+    el2(svg, "text", { x: x0 - 6, y: y(v) + 4, "text-anchor": "end" }, "zl-ch-yl").textContent = short(v);
   }
-  if (!ticks.includes(0)) el(svg, "line", { x1: x0, x2: W - 2, y1: Math.round(y(0)) + 0.5, y2: Math.round(y(0)) + 0.5 }, "zl-ch-axis");
-  el(svg, "rect", { x: x0 + pick * step, y: y0, width: step, height: y1 - y0 }, "zl-fl-pick");
+  if (!ticks.includes(0)) el2(svg, "line", { x1: x0, x2: W - 2, y1: Math.round(y(0)) + 0.5, y2: Math.round(y(0)) + 0.5 }, "zl-ch-axis");
+  el2(svg, "rect", { x: x0 + pick * step, y: y0, width: step, height: y1 - y0 }, "zl-fl-pick");
   const beat = Math.min(30, 300 / Math.max(1, s2.length));
   P.forEach((r, i) => {
     const cx = x0 + (i + 0.5) * step;
@@ -8236,14 +8246,14 @@ var bars = (plot, s2, W, H, pick, parts, light) => {
       const a = v > 0 ? up : dn, b = a + v;
       if (v > 0) up = b;
       else dn = b;
-      const rc = el(svg, "rect", { x: cx - bw / 2, y: y(Math.max(a, b)), width: bw, height: Math.max(1, Math.abs(y(a) - y(b))) }, `zl-fl-bar ${cls}`);
+      const rc = el2(svg, "rect", { x: cx - bw / 2, y: y(Math.max(a, b)), width: bw, height: Math.max(1, Math.abs(y(a) - y(b))) }, `zl-fl-bar ${cls}`);
       if (hatch) rc.setAttribute("fill", `url(#${cls.includes("is-mut") ? idm : id})`);
       rc.style.setProperty("--d", `${Math.round(i * beat)}ms`);
     });
   });
   const marks = s2.length > 2 ? [0, Math.floor((s2.length - 1) / 2), s2.length - 1] : s2.map((_, i) => i);
   for (const i of marks) {
-    el(svg, "text", { x: i === 0 ? x0 : i === s2.length - 1 ? W - 2 : x0 + (i + 0.5) * step, y: H - 5, "text-anchor": i === 0 ? "start" : i === s2.length - 1 ? "end" : "middle" }, "zl-ch-xl").textContent = shortDate(s2[i].date);
+    el2(svg, "text", { x: i === 0 ? x0 : i === s2.length - 1 ? W - 2 : x0 + (i + 0.5) * step, y: H - 5, "text-anchor": i === 0 ? "start" : i === s2.length - 1 ? "end" : "middle" }, "zl-ch-xl").textContent = shortDate(s2[i].date);
   }
 };
 var syncFigs = (g, rows) => {
@@ -8271,20 +8281,20 @@ var brokersPage = (ctx, arg, trade) => {
   const [tk, f0] = arg.split(":");
   let foreign = f0 === "foreign";
   const title = t("bTitle", { tk });
-  const el = page(title);
-  el.addClass("zl-c-list");
+  const el2 = page(title);
+  el2.addClass("zl-c-list");
   const fab = { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => trade(tk) };
   const B = ctx.plugin.brokers, code = Flows.code(ctx.plugin.prices.symbol(tk));
   if (!code) {
-    empty(el, { icon: "flows", title: t("fNone"), text: t("fNoneS") });
-    return { title, el, fab };
+    empty(el2, { icon: "flows", title: t("fNone"), text: t("fNoneS") });
+    return { title, el: el2, fab };
   }
   B.ensure(code, BSPAN);
   const any = () => B.get(code, BSPAN) ?? B.get(code, 20) ?? B.get(code, 5) ?? B.get(code, 1);
   if (!any()) {
-    empty(el, { icon: "flows", title: B.failedAt(code, BSPAN) ? t("bFailed") : t("bLoading"), text: t("bSource") });
+    empty(el2, { icon: "flows", title: B.failedAt(code, BSPAN) ? t("bFailed") : t("bLoading"), text: t("bSource") });
     B.onChange(() => {
-      if (!el.isConnected) return false;
+      if (!el2.isConnected) return false;
       if (!any()) {
         if (B.failedAt(code, BSPAN)) {
           ctx.redraw();
@@ -8295,10 +8305,10 @@ var brokersPage = (ctx, arg, trade) => {
       ctx.redraw();
       return false;
     });
-    return { title, el, fab };
+    return { title, el: el2, fab };
   }
   let sumEl = null;
-  const head = h(el, "div", "zl-c-group zl-fl");
+  const head = h(el2, "div", "zl-c-group zl-fl");
   const seg = (opts) => {
     const box = h(head, "div", "zl-fl-seg" + (opts.length === 3 ? " is-3" : ""));
     const bs = opts.map(([label, on, tap]) => {
@@ -8322,9 +8332,9 @@ var brokersPage = (ctx, arg, trade) => {
   }], [t("bForeign").toUpperCase(), () => foreign, () => {
     foreign = true;
   }]]);
-  const gb = h(el, "div", "zl-c-group"), secB = h(gb, "div", "zl-sec");
-  const gs = h(el, "div", "zl-c-group"), secS = h(gs, "div", "zl-sec");
-  const note = h(el, "div", "zl-fl-legend zl-fl-src", t("bSource"));
+  const gb = h(el2, "div", "zl-c-group"), secB = h(gb, "div", "zl-sec");
+  const gs = h(el2, "div", "zl-c-group"), secS = h(gs, "div", "zl-sec");
+  const note = h(el2, "div", "zl-fl-legend zl-fl-src", t("bSource"));
   const rows = (l, none) => {
     const k = foreign ? l.filter((b) => isForeignBroker(b.name)) : l;
     return k.length ? k.map((b) => ({ k: b.name, s: t("bRowS", { b: num(b.b), s: num(b.s), p: (b.pct / 100).toFixed(1) }), v: signed2(b.net), hot: b.net < 0 })) : [{ k: none, s: t("bNoneS"), v: "-", dim: true }];
@@ -8338,22 +8348,22 @@ var brokersPage = (ctx, arg, trade) => {
     const label = wait ? B.failedAt(code, BSPAN) ? t("bFailed") : t("bLoading") : t(foreign ? "bSumF" : "bSum", { span, d: d.asOf ? shortDate(d.asOf) : "-" });
     const g = summary(createDiv(), { key: "brokers", label, value: signed2(net), hot: net < 0, items: items2 });
     if (sumEl) sumEl.replaceWith(g);
-    else el.insertBefore(g, head);
+    else el2.insertBefore(g, head);
     sumEl = g;
     secB.setText(t("bBuying").toUpperCase());
     secS.setText(t("bSelling").toUpperCase());
     syncFigs(gb, rows(d.buy, t("bNoneForeign")));
     syncFigs(gs, rows(d.sell, t("bNoneForeign")));
     for (const x of [gb, gs, g]) x.toggleClass("is-wait", wait);
-    el.appendChild(note);
+    el2.appendChild(note);
   };
   render();
   B.onChange((k) => {
-    if (!el.isConnected) return false;
+    if (!el2.isConnected) return false;
     if (k === Brokers.key(code, BSPAN)) render();
     return true;
   });
-  return { title, el, fab };
+  return { title, el: el2, fab };
 };
 
 // src/pages/invest-shared.ts
@@ -8364,7 +8374,7 @@ var pctS = (n) => {
   const r = Math.round(n * 100) / 100;
   return `${r > 0 ? "+" : r < 0 ? MINUS : ""}${Math.abs(r).toFixed(2)}%`;
 };
-var qty = (n) => n.toLocaleString(void 0, { maximumFractionDigits: 4 });
+var qty = (n) => n.toLocaleString("en-US", { maximumFractionDigits: 4 }).replace("-", MINUS);
 var WHY = { holiday: "whyHoliday", typhoon: "whyTyphoon", notrade: "whyNoTrade", early: "whyEarly" };
 var liveBadge = (x) => {
   const s2 = x.ctx.plugin.prices.liveState();
@@ -8387,7 +8397,7 @@ var tickerBadge = (x, tk) => {
   const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   return { text: t("liveOff", { m: mkt, t: day === today() ? hm2 : `${d.toLocaleDateString("en-US", { weekday: "short" })} ${hm2}` }).toUpperCase(), live: false };
 };
-var findAct = (x, el) => ({ icon: "search", label: t("iFind"), dock: true, onTap: () => x.search(el) });
+var findAct = (x, el2) => ({ icon: "search", label: t("iFind"), dock: true, onTap: () => x.search(el2) });
 var CHG_KEY = "ledgerline-chg";
 var CHG = -1;
 var CHGS = /* @__PURE__ */ new WeakMap();
@@ -8520,14 +8530,14 @@ var warnText = (w) => w.rule === "cap" ? t("iWarnCap", { tk: w.key, n: num(w.ove
 var home = (x) => {
   const { ctx, P } = x;
   const title = t("tabInvest");
-  const el = page(title);
-  el.addClass("zl-c-stack", "zl-mm");
+  const el2 = page(title);
+  el2.addClass("zl-c-stack", "zl-mm");
   const held = P.positions.filter((p) => p.shares > 0).sort((a, b) => b.value - a.value);
-  const fab = { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.buy(void 0, el) };
+  const fab = { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.buy(void 0, el2) };
   const day = todayHeld(x, held);
   const rp = P.cost > 0 ? P.pl / P.cost * 100 : 0, r12 = Math.round(rp * 10) / 10;
   const tone = (n) => n > 0 ? "up" : n < 0 ? "down" : void 0;
-  homeTop(el, {
+  homeTop(el2, {
     key: "invest",
     value: num(P.value),
     label: t("iHoldings"),
@@ -8535,10 +8545,10 @@ var home = (x) => {
     tone: P.priced && day ? tone(day.ch) : void 0,
     reads: held.length && (P.priced || held.some((p) => p.price !== null && !p.fxMissing)) ? [[t("iGainLoss"), signed3(P.pl), { sub: [`${r12 > 0 ? "+" : r12 < 0 ? MINUS : ""}${Math.abs(r12).toFixed(1)}%`, t("iSinceBought")], tone: tone(P.pl) }]] : [[t("iCashWait"), num(x.cash)]]
   });
-  marketCard(el, { prices: ctx.plugin.prices, app: ctx.app, cal: () => ctx.plugin.prices.calendar?.cal, chg: (tk) => todayOf(ctx.plugin.prices, tk) });
-  watchStrip(x, el);
-  keepSideways(el);
-  const lk = h(el, "div", "zl-c-group zl-mlinks");
+  marketCard(el2, { prices: ctx.plugin.prices, app: ctx.app, cal: () => ctx.plugin.prices.calendar?.cal, chg: (tk) => todayOf(ctx.plugin.prices, tk) });
+  watchStrip(x, el2);
+  keepSideways(el2);
+  const lk = h(el2, "div", "zl-c-group zl-mlinks");
   const link = (label, onTap) => {
     const b = h(lk, "button", "zl-mlink", label);
     b.addEventListener("click", (e) => {
@@ -8550,7 +8560,7 @@ var home = (x) => {
   link(t("fMapLink").toUpperCase(), () => ctx.push({ key: "map", title: t("fMapT") }));
   link(t("alLink").toUpperCase(), () => ctx.push({ key: "alerts", title: t("alTitle") }));
   link(t("iMixLink").toUpperCase(), () => ctx.push({ key: "mix", title: t("iMixT") }));
-  return { title, el, fab, actions: [findAct(x, el)], badge: liveBadge(x) };
+  return { title, el: el2, fab, actions: [findAct(x, el2)], badge: liveBadge(x) };
 };
 var missingText = (x) => {
   const pr = x.ctx.plugin.prices, ps = x.P.positions.filter((p) => x.P.missing.includes(p.ticker));
@@ -8575,20 +8585,20 @@ var todayHeld = (x, held) => {
   const before = x.P.value - ch;
   return { ch, pct: before > 0 ? ch / before * 100 : 0 };
 };
-var keepSideways = (el) => {
+var keepSideways = (el2) => {
   let x0 = 0, y0 = 0, side = null;
-  el.addEventListener("touchstart", (e) => {
+  el2.addEventListener("touchstart", (e) => {
     const t2 = e.touches[0];
     x0 = t2.clientX;
     y0 = t2.clientY;
     side = null;
   }, { passive: true });
-  el.addEventListener("touchmove", (e) => {
+  el2.addEventListener("touchmove", (e) => {
     const t2 = e.touches[0], dx = t2.clientX - x0, dy = t2.clientY - y0;
     if (side === null && Math.abs(dx) + Math.abs(dy) > 6) side = Math.abs(dx) > Math.abs(dy);
     if (side) e.stopPropagation();
   }, { passive: true });
-  el.addEventListener("touchend", (e) => {
+  el2.addEventListener("touchend", (e) => {
     if (side) e.stopPropagation();
   }, { passive: true });
 };
@@ -8643,16 +8653,16 @@ var runWm = (t2) => {
   }
   WM.raf = requestAnimationFrame(runWm);
 };
-var watchStrip = (x, el) => {
+var watchStrip = (x, el2) => {
   const { ctx } = x, tks = x.P.watch;
-  const g = h(el, "div", "zl-c-group zl-wstrip");
+  const g = h(el2, "div", "zl-c-group zl-wstrip");
   sec(g, t("iWatchN", { n: tks.length }).toUpperCase(), () => ctx.push({ key: "watch", title: t("iWatch") }), t("iAll").toUpperCase());
   const vp = h(g, "div", "zl-wm");
   if (!tks.length) {
     const b = h(vp, "button", "zl-wm-none", t("iWatchNone"));
     b.addEventListener("click", (e) => {
       e.preventDefault();
-      x.search(el);
+      x.search(el2);
     });
     return g;
   }
@@ -8739,58 +8749,58 @@ var watchStrip = (x, el) => {
 var mixPage = (x) => {
   const { ctx, P } = x;
   const title = t("iMixT");
-  const el = page(title);
-  el.addClass("zl-c-stack");
-  const fab = { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.buy(void 0, el) };
+  const el2 = page(title);
+  el2.addClass("zl-c-stack");
+  const fab = { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.buy(void 0, el2) };
   const sel = /* @__PURE__ */ new Date(), mk = `${sel.getFullYear()}-${String(sel.getMonth() + 1).padStart(2, "0")}`;
   const { plan, month } = ctx.plugin.store.monthData(sel.getFullYear(), sel.getMonth());
   const amt = Number(month?.[PLAN_KEY] ?? plan[PLAN_KEY]) || 0;
   const bs = investBuckets(ctx.plugin.store.fm(ctx.plugin.store.path(FILES.invest)), amt, mk, x.fx, x.cur);
   const toBuy = bs ? bs.reduce((s2, b) => s2 + Math.max(0, b.target - b.bought), 0) : null;
-  summary(el, { key: "mix", label: t("iCashWait"), value: num(x.cash), items: toBuy !== null ? [[t("iToBuy"), num(toBuy)]] : [] });
+  summary(el2, { key: "mix", label: t("iCashWait"), value: num(x.cash), items: toBuy !== null ? [[t("iToBuy"), num(toBuy)]] : [] });
   const toHoldings = () => ctx.push({ key: "holdings", title: t("iHoldingsT") });
   const toRules = () => ctx.push({ key: "rules", title: t("iRules") });
   if (P.buckets.length && P.value > 0) {
-    const g = h(el, "div", "zl-c-group");
+    const g = h(el2, "div", "zl-c-group");
     sec(g, t("iMixT").toUpperCase(), x.warns.length ? toRules : void 0, x.warns.length ? (x.warns.length === 1 ? t("iWarn1") : t("iWarnN", { n: x.warns.length })).toUpperCase() : void 0, x.warns.length > 0);
     for (const b of P.buckets) bline(g, { name: b.label, spent: b.pct, quota: 100, pace: b.target / 100, value: `${Math.round(b.pct)}%`, of: t("iTargetN", { n: b.target }), hot: Math.abs(b.drift) > P.threshold, mix: true, onTap: toHoldings });
   }
   if (bs?.length) {
-    const g = h(el, "div", "zl-c-group");
+    const g = h(el2, "div", "zl-c-group");
     sec(g, t("iPlan", { n: num(amt) }).toUpperCase());
-    for (const b of bs) bline(g, { name: b.label, spent: b.bought, quota: b.target, pace: 0, value: num(Math.max(0, b.target - b.bought)), of: t("cLeftOf", { n: num(b.target) }), hot: false, onTap: () => x.buy(void 0, el) });
+    for (const b of bs) bline(g, { name: b.label, spent: b.bought, quota: b.target, pace: 0, value: num(Math.max(0, b.target - b.bought)), of: t("cLeftOf", { n: num(b.target) }), hot: false, onTap: () => x.buy(void 0, el2) });
   }
-  if (!P.buckets.length && !bs?.length) empty(el, { icon: "trending-up", title: t("iNone"), text: t("iNoneSub") });
-  return { title, el, fab, actions: [findAct(x, el)] };
+  if (!P.buckets.length && !bs?.length) empty(el2, { icon: "trending-up", title: t("iNone"), text: t("iNoneSub") });
+  return { title, el: el2, fab, actions: [findAct(x, el2)] };
 };
 var rulesPage = (x) => {
   const { ctx, P } = x;
   const title = t("iRules");
-  const el = page(title);
-  el.addClass("zl-c-list");
-  const g = h(el, "div", "zl-c-group");
+  const el2 = page(title);
+  el2.addClass("zl-c-list");
+  const g = h(el2, "div", "zl-c-group");
   sec(g, t("iRulesNow").toUpperCase());
   figures(g, x.warns.length ? x.warns.map((w) => ({
     icon: w.rule === "reason" ? "list" : "invest",
     k: w.key,
     s: warnText(w),
-    v: w.rule === "cap" ? `+${num(w.over)}` : w.rule === "mix" ? `${w.over > 0 ? "+" : ""}${w.over}%` : "",
+    v: w.rule === "cap" ? `+${num(w.over)}` : w.rule === "mix" ? `${w.over > 0 ? "+" : w.over < 0 ? "\u2212" : ""}${Math.abs(w.over)}%` : "",
     hot: true,
     onTap: w.rule === "reason" ? () => ctx.push({ key: "journal:" + w.key, title: t("iJournal") }) : w.rule === "cap" ? () => ctx.push({ key: "asset:" + w.key, title: w.key }) : void 0
   })) : [{ k: t("iRulesOk").toUpperCase(), v: "-", dim: true }]);
-  const r = h(el, "div", "zl-c-group");
+  const r = h(el2, "div", "zl-c-group");
   sec(r, t("iRulesT").toUpperCase());
   figures(r, [
     { k: t("iRuleCap").toUpperCase(), s: t("iRuleCapS"), v: num(x.cap), dim: true },
     { k: t("iRuleMix").toUpperCase(), s: t("iRuleMixS"), v: `${P.threshold}%`, dim: true },
     { k: t("iRuleReason").toUpperCase(), s: t("iRuleReasonS"), v: "", dim: true }
   ]);
-  return { title, el };
+  return { title, el: el2 };
 };
 
 // src/pages/drawings.ts
-var import_obsidian15 = require("obsidian");
-var DrawingsSheet = class extends import_obsidian15.Modal {
+var import_obsidian14 = require("obsidian");
+var DrawingsSheet = class extends import_obsidian14.Modal {
   constructor(app, store, ticker, addNote) {
     super(app);
     this.store = store;
@@ -8865,8 +8875,8 @@ var DrawingsSheet = class extends import_obsidian15.Modal {
 };
 
 // src/ui/flow.ts
-var palOf = (el) => {
-  const s2 = getComputedStyle(el), v = (k, d) => s2.getPropertyValue(k).trim() || d;
+var palOf = (el2) => {
+  const s2 = getComputedStyle(el2), v = (k, d) => s2.getPropertyValue(k).trim() || d;
   return { ink: v("--zl-ink", "#1C1B19"), mut: v("--zl-mut", "#6D6A63"), dim: v("--zl-dim", "#D5D1C7"), paper: v("--zl-paper", "#ECE9E1"), up: v("--zl-up", "#126B55"), dn: v("--zl-down", "#C9503B"), mark: v("--zl-mark", "#2E5E73"), loud: v("--zl-loud", "#E8461F"), font: '"ZL IBM Plex Mono", ui-monospace, Menlo, monospace' };
 };
 var alpha = (c, a) => {
@@ -9524,9 +9534,9 @@ var dayTxt = (d) => {
 var mapPage = (x) => {
   const { ctx, P } = x, prices = ctx.plugin.prices, flow = ctx.plugin.flow;
   const title = t("fMapT");
-  const el = page(title);
-  el.addClass("zl-c-stack", "zl-mapg");
-  const g = h(el, "div", "zl-c-group zl-c-fill zl-map");
+  const el2 = page(title);
+  el2.addClass("zl-c-stack", "zl-mapg");
+  const g = h(el2, "div", "zl-c-group zl-c-fill zl-map");
   const top = h(g, "div", "zl-flow-top");
   const back = h(top, "button", "zl-flow-latest", t("fMapAll"));
   const src = h(top, "div", "zl-ch-src", t("fMapSrc"));
@@ -9534,7 +9544,7 @@ var mapPage = (x) => {
   const plot = h(g, "div", "zl-flow-plot is-loading"), cv = h(plot, "canvas");
   h(plot, "div", "zl-flow-load", t("fTapeLoad"));
   const rd = h(g, "div", "zl-flow-read"), r12 = h(rd, "span"), r2 = h(rd, "span", "zl-flow-r2");
-  const og = h(el, "div", "zl-c-group zl-orders");
+  const og = h(el2, "div", "zl-c-group zl-orders");
   const oh = h(og, "div", "zl-flow-read"), o1 = h(oh, "span", "", t("fOrders")), o2 = h(oh, "span", "zl-flow-r2", "\xA0");
   const ocv = h(h(og, "div", "zl-orders-plot"), "canvas");
   let rects = [], raf = 0, chosen = "", chosenAt = 0, inside = null;
@@ -9548,7 +9558,7 @@ var mapPage = (x) => {
   const pc = (n) => `${n > 0 ? "+" : n < 0 ? "\u2212" : ""}${Math.abs(n).toFixed(2)}%`;
   const draw = () => {
     raf = 0;
-    if (!el.isConnected) return;
+    if (!el2.isConnected) return;
     if (chosen && Date.now() - chosenAt > 8e3) chosen = "";
     const Pl = palOf(g), list5 = tiles();
     rects = drawMap(cv, list5, Pl, chosen)?.rects ?? [];
@@ -9630,12 +9640,12 @@ var mapPage = (x) => {
     window.setTimeout(later, 8050);
   });
   flow.map(true, () => {
-    if (!el.isConnected) return false;
+    if (!el2.isConnected) return false;
     later();
     return true;
   });
   const gone = window.setInterval(() => {
-    if (el.isConnected) return;
+    if (el2.isConnected) return;
     window.clearInterval(gone);
     flow.map(false);
   }, 5e3);
@@ -9643,7 +9653,7 @@ var mapPage = (x) => {
   new ResizeObserver(later).observe(plot);
   new ResizeObserver(later).observe(ocv);
   later();
-  return { title, el, still: true };
+  return { title, el: el2, still: true };
 };
 var sectorLine = (x, parent, tk) => {
   const prices = x.ctx.plugin.prices, flow = x.ctx.plugin.flow, sym = prices.symbol(tk);
@@ -9690,7 +9700,7 @@ var sectorLine = (x, parent, tk) => {
 };
 
 // src/pages/invest-thesis.ts
-var import_obsidian16 = require("obsidian");
+var import_obsidian15 = require("obsidian");
 var BENCH = "0050";
 var list = (v) => Array.isArray(v) ? v : v ? [v] : [];
 var thesisOf = (x, tk) => readThesis(x.ctx.plugin.store.fm(journalPath(tk)));
@@ -9847,7 +9857,7 @@ var buyCheck = (x, tk, go) => {
   }));
   let limit = null;
   const live = prices.price(tk);
-  const m = new import_obsidian16.Modal(x.ctx.app);
+  const m = new import_obsidian15.Modal(x.ctx.app);
   const c = base(m, t("bcTitle", { tk }));
   m.containerEl.addClass("zl-sheet-host");
   const meta = h(c, "div", "zl-bc-met");
@@ -9954,35 +9964,35 @@ var revenueTile = (x, tk) => {
 };
 var revenuePage = (x, tk) => {
   const title = t("rvTitle", { tk });
-  const el = page(title);
-  el.addClass("zl-c-stack");
+  const el2 = page(title);
+  el2.addClass("zl-c-stack");
   const code = revCode(x, tk), rv = x.ctx.plugin.revenue;
   if (code) rv.ensure(code);
   const s2 = code ? statsOf(x, code) : null;
   if (!code || !s2) {
     const failed = !!code && rv.failed(code);
-    summary(el, { key: "rev-" + tk, label: t(failed ? "rvFailed" : "rvNone"), value: "-", dim: true });
-    h(el, "div", "zl-field-note", t(failed ? "rvFailedS" : "rvNoneS"));
+    summary(el2, { key: "rev-" + tk, label: t(failed ? "rvFailed" : "rvNone"), value: "-", dim: true });
+    h(el2, "div", "zl-field-note", t(failed ? "rvFailedS" : "rvNoneS"));
     if (code) rv.onChange((c) => {
-      if (!el.isConnected) return false;
+      if (!el2.isConnected) return false;
       if (c === code) x.ctx.redraw();
       return true;
     });
-    return { title, el };
+    return { title, el: el2 };
   }
   try {
     x.ctx.app.saveLocalStorage(SEEN, { ...seen(x), [code]: s2.latest.ym });
   } catch {
   }
   const tone = (n) => n === null ? "-" : pctS(n);
-  const top = summary(el, {
+  const top = summary(el2, {
     key: "rev-" + tk,
     label: t("rvMonth", { m: monthName(s2.latest.ym) }),
     value: revShort(s2.latest.v),
     items: [[t("rvVs", { m: monthName(ymAdd(s2.latest.ym, -12), true) }), tone(s2.yoy), (s2.yoy ?? 0) < 0], [t("rvVs", { m: monthName(ymAdd(s2.latest.ym, -1)) }), tone(s2.mom), (s2.mom ?? 0) < 0]]
   });
   top.querySelectorAll(".zl-sum-v").forEach((v) => v.toggleClass("is-up", /^\+/.test(v.textContent ?? "")));
-  const g = h(el, "div", "zl-c-group zl-c-fill zl-rev");
+  const g = h(el2, "div", "zl-c-group zl-c-fill zl-rev");
   sec(g, t("rvBars", { n: s2.months.length }));
   const line = h(g, "div", "zl-rev-pick");
   const show = (i) => {
@@ -9991,7 +10001,7 @@ var revenuePage = (x, tk) => {
   };
   show(s2.months.length - 1);
   pickBars(g, { vals: s2.months.map((m) => m.v), strip: s2.months.map((m) => m.yoy), labels: s2.months.map((m, i) => i % 3 === 2 ? monthName(m.ym)[0] : ""), pick: s2.months.length - 1, onPick: show });
-  const f = h(el, "div", "zl-c-group");
+  const f = h(el2, "div", "zl-c-group");
   sec(f, t("rvCompared"));
   const last3 = s2.months.slice(-3);
   figures(f, [
@@ -10003,8 +10013,8 @@ var revenuePage = (x, tk) => {
   f.querySelectorAll(".zl-fig-v").forEach((v, i) => {
     if (i < 2) v.toggleClass("is-up", /^\+/.test(v.textContent ?? ""));
   });
-  h(el, "div", "zl-field-note zl-rev-src", t("rvSrc"));
-  return { title, el, still: true };
+  h(el2, "div", "zl-field-note zl-rev-src", t("rvSrc"));
+  return { title, el: el2, still: true };
 };
 
 // src/pages/invest-ticker.ts
@@ -10018,12 +10028,12 @@ var asOfText = (ms) => {
 };
 var assetPage = (x, p) => {
   const { ctx } = x;
-  const el = page(p.ticker);
-  el.addClass("zl-c-stack");
+  const el2 = page(p.ticker);
+  el2.addClass("zl-c-stack");
   const costP = p.q > 0 ? p.avgP : null;
-  chartBlock(x, el, p.ticker, p.currency, costP);
-  thesisCard(x, el, p.ticker);
-  const hold = h(el, "div", "zl-c-group zl-hold");
+  chartBlock(x, el2, p.ticker, p.currency, costP);
+  thesisCard(x, el2, p.ticker);
+  const hold = h(el2, "div", "zl-c-group zl-hold");
   const items2 = [
     [t("iYouHold"), qty(p.shares), false],
     [t("iAvgCost"), costP !== null ? price2(costP) : "-", false],
@@ -10036,7 +10046,7 @@ var assetPage = (x, p) => {
   });
   const pr = ctx.plugin.prices, sym = pr.symbol(p.ticker);
   pr.onQuote((s2) => {
-    if (!el.isConnected) return false;
+    if (!el2.isConnected) return false;
     if (s2 !== sym) return true;
     const q = atNow(pr, p.ticker, p);
     if (q.price === null) return true;
@@ -10058,15 +10068,15 @@ var assetPage = (x, p) => {
     { k: t("iPlanT"), icon: "calendar", v: next ? shortDate(next) : "-", dim: !p.dca, onTap: () => x.editPlan(p) },
     { k: t("iJournal"), icon: "receipt", v: String(thoughts.length), dim: !thoughts.length, onTap: () => ctx.push({ key: "journal:" + p.ticker, title: t("iJournal") }) }
   ].filter((v) => !!v);
-  tileGrid(h(el, "div", "zl-c-group"), tiles);
-  return { title: p.ticker, el, still: true, actions: [drawAct(x, p.ticker)], fab: tradeFab(x, p.ticker), badge: tickerBadge(x, p.ticker) };
+  tileGrid(h(el2, "div", "zl-c-group"), tiles);
+  return { title: p.ticker, el: el2, still: true, actions: [drawAct(x, p.ticker)], fab: tradeFab(x, p.ticker), badge: tickerBadge(x, p.ticker) };
 };
 var tradesPage = (x, p) => {
   const title = t("iTrades");
-  const el = page(title);
-  el.addClass("zl-c-list");
-  summary(el, { key: "trades-" + p.ticker, label: `${p.ticker} \xB7 ${t("iRealized")}`, value: signed3(p.realized), hot: p.realized < 0, items: [[t("iFees"), num(p.fees)], [t("iTrades"), String(p.trades.length)], ...p.dropped > 0 ? [[t("iDropped"), qty(p.dropped), true]] : []] });
-  const g = h(el, "div", "zl-c-group");
+  const el2 = page(title);
+  el2.addClass("zl-c-list");
+  summary(el2, { key: "trades-" + p.ticker, label: `${p.ticker} \xB7 ${t("iRealized")}`, value: signed3(p.realized), hot: p.realized < 0, items: [[t("iFees"), num(p.fees)], [t("iTrades"), String(p.trades.length)], ...p.dropped > 0 ? [[t("iDropped"), qty(p.dropped), true]] : []] });
+  const g = h(el2, "div", "zl-c-group");
   const gap = (tr) => {
     const l = x.links.get(tr.id);
     return !l || !l.diff ? "" : ` \xB7 ${l.booked ? t("iBooksOff", { n: num(l.diff) }) : t("iNotBooked")}`;
@@ -10079,16 +10089,16 @@ var tradesPage = (x, p) => {
     hot: !!gap(tr),
     onTap: () => x.editTrade(p, tr)
   })));
-  return { title, el, fab: { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.buy(p.ticker) } };
+  return { title, el: el2, fab: { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.buy(p.ticker) } };
 };
 var DRAWN = /* @__PURE__ */ new WeakMap();
-var chartBlock = (x, el, tk, currency, cost) => {
+var chartBlock = (x, el2, tk, currency, cost) => {
   const { ctx } = x;
   const prices = ctx.plugin.prices, q = prices.get(tk), bars2 = prices.series(tk, "D")?.bars, live = liveOf(prices, tk);
   prices.refreshSeries(tk, "D");
   const lastP = live?.price ?? bars2?.c[bars2.c.length - 1] ?? null;
   const td = todayOf(prices, tk), ch = td?.ch ?? null;
-  const top = h(el, "div", "zl-c-group zl-c-top zl-lastp");
+  const top = h(el2, "div", "zl-c-group zl-c-top zl-lastp");
   const lt = h(top, "div", "zl-lastp-l");
   const isOpen = () => prices.isOpen(tk);
   const kText = () => t(isOpen() ? "iNowPrice" : "iLastPrice");
@@ -10124,7 +10134,7 @@ var chartBlock = (x, el, tk, currency, cost) => {
     }, 15e3);
   }
   prices.onQuote((sym) => {
-    if (!el.isConnected) return false;
+    if (!el2.isConnected) return false;
     if (sym !== prices.symbol(tk)) return true;
     const lv = liveOf(prices, tk);
     if (!lv) return true;
@@ -10143,7 +10153,7 @@ var chartBlock = (x, el, tk, currency, cost) => {
   prices.watch(tk);
   let tick2 = 0;
   const poll = window.setInterval(() => {
-    if (!el.isConnected) {
+    if (!el2.isConnected) {
       window.clearInterval(poll);
       prices.unwatch(tk);
       return;
@@ -10151,7 +10161,7 @@ var chartBlock = (x, el, tk, currency, cost) => {
     if (document.hidden || !prices.isOpen(tk) && tick2++ % 12) return;
     void prices.live(tk);
   }, 5e3);
-  const cg = h(el, "div", "zl-c-group zl-c-fill zl-chartg");
+  const cg = h(el2, "div", "zl-c-group zl-c-fill zl-chartg");
   const srcRow = h(cg, "div", "zl-flow-top");
   const srcEl = h(srcRow, "div", "zl-ch-src", srcText());
   const memo = DRAWN.get(ctx.frame) ?? [];
@@ -10164,11 +10174,11 @@ var tickerPage = (x, tk) => {
   const { ctx, P } = x;
   const prices = ctx.plugin.prices;
   prices.refresh([prices.symbol(tk)]);
-  const el = page(tk);
-  el.addClass("zl-c-stack");
+  const el2 = page(tk);
+  el2.addClass("zl-c-stack");
   const watched = P.watch.includes(tk);
-  chartBlock(x, el, tk, guessCur(prices.symbol(tk)), null);
-  thesisCard(x, el, tk);
+  chartBlock(x, el2, tk, guessCur(prices.symbol(tk)), null);
+  thesisCard(x, el2, tk);
   const tiles = [
     watched ? { k: "", icon: "eye", v: t("iWatching").toUpperCase(), onTap: () => {
       void x.dropWatch(tk);
@@ -10178,15 +10188,15 @@ var tickerPage = (x, tk) => {
     flowsTile(ctx, tk, flowCodes(ctx, flowTickers(P))),
     revenueTile(x, tk)
   ].filter((v) => !!v);
-  tileGrid(h(el, "div", "zl-c-group"), tiles);
-  return { title: tk, el, still: true, actions: [drawAct(x, tk)], fab: tradeFab(x, tk), badge: tickerBadge(x, tk) };
+  tileGrid(h(el2, "div", "zl-c-group"), tiles);
+  return { title: tk, el: el2, still: true, actions: [drawAct(x, tk)], fab: tradeFab(x, tk), badge: tickerBadge(x, tk) };
 };
 var journalPage = (x, tk) => {
   const { ctx } = x;
   const title = t("iJournal");
-  const el = page(title);
-  el.addClass("zl-c-list");
-  const g = h(el, "div", "zl-c-group");
+  const el2 = page(title);
+  el2.addClass("zl-c-list");
+  const g = h(el2, "div", "zl-c-group");
   sec(g, tk);
   const js = x.journal(tk);
   figures(g, [
@@ -10195,19 +10205,19 @@ var journalPage = (x, tk) => {
       void ctx.plugin.openPath(journalPath(tk));
     } }] : []
   ]);
-  return { title, el, fab: { icon: "plus", text: t("iThought").toUpperCase(), label: t("iThought"), onTap: () => x.addThought(tk) } };
+  return { title, el: el2, fab: { icon: "plus", text: t("iThought").toUpperCase(), label: t("iThought"), onTap: () => x.addThought(tk) } };
 };
 
 // src/pages/invest-holdings.ts
 var holdingsPage = (x) => {
   const { ctx, P } = x;
   const title = t("iHoldingsT");
-  const el = page(title);
-  el.addClass("zl-c-list");
-  summary(el, { label: t("iWorth"), value: num(P.value), items: [[t("iCost"), num(P.cost)], [t("iPL"), signed3(P.pl), P.pl < 0], [t("iRealized"), signed3(P.realized), P.realized < 0]] });
-  const g = h(el, "div", "zl-c-group");
+  const el2 = page(title);
+  el2.addClass("zl-c-list");
+  summary(el2, { label: t("iWorth"), value: num(P.value), items: [[t("iCost"), num(P.cost)], [t("iPL"), signed3(P.pl), P.pl < 0], [t("iRealized"), signed3(P.realized), P.realized < 0]] });
+  const g = h(el2, "div", "zl-c-group");
   hrows(x, g, P.positions);
-  return { title, el, actions: [findAct(x, el)], fab: { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.buy(void 0, el) } };
+  return { title, el: el2, actions: [findAct(x, el2)], fab: { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.buy(void 0, el2) } };
 };
 var retOf = (x, tk, p) => {
   const pr = x.ctx.plugin.prices, ok = p.price !== null;
@@ -10310,10 +10320,10 @@ var alertSheet = (x, a, preset) => {
 var alertsPage = (x) => {
   const { alerts, prices } = x.ctx.plugin;
   const title = t("alTitle");
-  const el = page(title);
-  el.addClass("zl-c-list");
+  const el2 = page(title);
+  el2.addClass("zl-c-list");
   const A = alerts.read(), day = today();
-  const top = h(el, "div", "zl-c-group zl-al-top");
+  const top = h(el2, "div", "zl-c-group zl-al-top");
   const words = h(top, "div", "zl-words");
   for (const [k, label] of [["all", t("alAll")], ["price", t("alPrices")], ["date", t("alDates")]]) {
     const b = h(words, "button", "zl-chip" + (FILTER === k ? " is-on" : ""), label.toUpperCase());
@@ -10348,17 +10358,17 @@ var alertsPage = (x) => {
     const s2 = d.kind === "revenue" ? t("alRevS") : d.kind === "report" ? t("alReportS") : d.kind === "exdiv" ? t("alExdivS", { n: ((d.cash ?? 0) / 100).toLocaleString() }) : d.what || t("alThesisS");
     rows.push({ at: d.date, icon: d.kind === "thesis" ? "receipt" : "clock", k, s: s2, v: when.toUpperCase(), hot: n <= 0, onTap: d.ticker ? () => x.ctx.push({ key: d.kind === "revenue" ? "revenue:" + d.ticker : "chart:" + d.ticker, title: d.ticker }) : void 0 });
   }
-  const g = h(el, "div", "zl-c-group");
+  const g = h(el2, "div", "zl-c-group");
   sec(g, `${t("alComing").toUpperCase()} \xB7 ${rows.length}`);
   figures(g, rows.length ? rows.sort((a, b) => (a.at || "0").localeCompare(b.at || "0")) : [{ k: t("alNone"), v: "-", dim: true }]);
   const sent = [...A.sent].reverse();
   if (sent.length) {
-    const s2 = h(el, "div", "zl-c-group");
+    const s2 = h(el2, "div", "zl-c-group");
     sec(s2, t("alSent").toUpperCase());
     figures(s2, sent.map((x2) => ({ icon: "check", k: x2.text.split(" \xB7 ").slice(1).join(" \xB7 ") || x2.text, s: x2.text.split(" \xB7 ")[0], v: t("alSentV").toUpperCase(), dim: true })));
   }
-  h(el, "div", "zl-field-note", t("alFoot"));
-  return { title, el, fab: { icon: "plus", text: t("alNew").toUpperCase(), label: t("alNew"), onTap: () => alertSheet(x) } };
+  h(el2, "div", "zl-field-note", t("alFoot"));
+  return { title, el: el2, fab: { icon: "plus", text: t("alNew").toUpperCase(), label: t("alNew"), onTap: () => alertSheet(x) } };
 };
 
 // src/pages/invest-watch.ts
@@ -10479,9 +10489,9 @@ var watchMarkets = (x) => {
 var watchPage = (x) => {
   const { ctx, P } = x;
   const title = t("iWatch");
-  const el = page(title);
-  el.addClass("zl-c-list");
-  const g = h(el, "div", "zl-c-group");
+  const el2 = page(title);
+  el2.addClass("zl-c-list");
+  const g = h(el2, "div", "zl-c-group");
   if (!P.watch.length) figures(g, [{ k: t("iWatchNone").toUpperCase(), v: "-", dim: true }]);
   else {
     const m = watchMarkets(x);
@@ -10490,8 +10500,8 @@ var watchPage = (x) => {
       WMKT = v === "us" || v === "tw" ? v : m.tw.length || !m.us.length ? "tw" : "us";
     }
     const mkt = WMKT;
-    const top = h(el, "div", "zl-c-group zl-c-top zl-wtop");
-    el.insertBefore(top, g);
+    const top = h(el2, "div", "zl-c-group zl-c-top zl-wtop");
+    el2.insertBefore(top, g);
     const tabs = h(top, "div", "zl-fl-seg zl-wmkt");
     [["tw", t("iMktTw")], ["us", t("iMktUs")]].forEach(([k, label]) => {
       const b = h(tabs, "button", "zl-fl-segb" + (mkt === k ? " is-on" : ""), label.toUpperCase());
@@ -10534,7 +10544,7 @@ var watchPage = (x) => {
       r.addClass("zl-kept");
     });
   }
-  return { title, el, actions: [findAct(x, el)], fab: { icon: "plus", text: t("iWatchAdd").toUpperCase(), label: t("iWatchAdd"), onTap: () => x.addWatch(el) } };
+  return { title, el: el2, actions: [findAct(x, el2)], fab: { icon: "plus", text: t("iWatchAdd").toUpperCase(), label: t("iWatchAdd"), onTap: () => x.addWatch(el2) } };
 };
 
 // src/pages/invest.ts
@@ -10573,7 +10583,7 @@ var investPage = {
         n = out2.length;
         if (n) a.entries = [...list3(a.entries), ...out2];
       });
-      if (n) new import_obsidian17.Notice(t("iBooked"));
+      if (n) toast(t("iBooked"));
     };
     const updateAsset = async (ticker, fn) => {
       let fresh = {};
@@ -10762,9 +10772,9 @@ var investPage = {
           });
           await book(fresh, [id]);
           const broke2 = newWarnings(checkRules(P, cap3, () => true), checkRules(buildPortfolio(fresh, (q) => prices.price(q), (c) => prices.fx(c, cur, fb), today(), cur), cap3, () => true));
-          if (broke2.length) new import_obsidian17.Notice(broke2.map(warnText).join("\n"), 8e3);
+          if (broke2.length) toast(broke2.map(warnText).join("\n"), true, 8e3);
           if (v.why?.trim()) await think(tk, { date: tr.date, trade: id, why: v.why.trim() });
-          new import_obsidian17.Notice(t("iSaved", { what: v.type === "SELL" ? t("iSell") : t("iBuy"), n: qty(parseNum(v.shares)), tk }));
+          toast(t("iSaved", { what: v.type === "SELL" ? t("iSell") : t("iBuy"), n: qty(parseNum(v.shares)), tk }));
         }
       }).open();
     };
@@ -10802,7 +10812,7 @@ var investPage = {
           recalc(a);
         });
         await book(fresh, [tr.id]);
-        new import_obsidian17.Notice(t("iUpdated", { tk: p.ticker }));
+        toast(t("iUpdated", { tk: p.ticker }));
       },
       danger: { text: t("iDeleteTrade"), onTap: async () => {
         if (!await confirmSheet(ctx.app, t("iDeleteTrade"), t("iDeleteTradeQ", { n: qty(tr.shares), tk: p.ticker, date: tr.date || "-" }), t("delete"))) return false;
@@ -10871,12 +10881,12 @@ var investPage = {
           if (parseNum(v.amount) > 0) a.dca = { amount: Math.round(parseNum(v.amount)), day: Math.round(parseNum(v.day)) || 1 };
           else delete a.dca;
         });
-        new import_obsidian17.Notice(t("iUpdated", { tk: p.ticker }));
+        toast(t("iUpdated", { tk: p.ticker }));
       }
     }).open();
     const addWatch = (from) => search(from, (tk) => {
       if (xs.P.watch.includes(tk)) {
-        new import_obsidian17.Notice(t("iExists"));
+        toast(t("iExists"), true);
         return;
       }
       void store.update(CFG, (f) => {
@@ -10950,7 +10960,6 @@ var investPage = {
 };
 
 // src/pages/day.ts
-var import_obsidian18 = require("obsidian");
 var cap = (s2) => {
   const x = String(s2).replace(/_/g, " ");
   return x.charAt(0).toUpperCase() + x.slice(1);
@@ -10976,13 +10985,13 @@ var editDayAmount = (ctx, date, prop, isCustom) => {
       await write((f) => {
         f[prop] = n;
       });
-      new import_obsidian18.Notice(t("savedX", { name, amount: num(n), cur }));
+      toast(t("savedX", { name, amount: num(n), cur }));
     },
     remove: isCustom && val ? { text: t("remove"), run: async () => {
       await write((f) => {
         delete f[prop];
       });
-      new import_obsidian18.Notice(t("removedX", { name }));
+      toast(t("removedX", { name }));
     } } : void 0
   });
 };
@@ -11002,7 +11011,7 @@ var expenseSheet = (ctx, date0 = today()) => {
     await store.update(note.path, (f) => {
       f[k] = n;
     });
-    new import_obsidian18.Notice(t("savedX", { name: cap(k), amount: num(n), cur }));
+    toast(t("savedX", { name: cap(k), amount: num(n), cur }));
   };
   const pad2 = (d, k, close, host) => openPad(ctx, {
     title: cap(k),
@@ -11040,7 +11049,7 @@ var expenseSheet = (ctx, date0 = today()) => {
           openText(sh.host, { title: t("addOneTime"), sub: when(d), value: "", placeholder: t("whatHint"), save: (name) => {
             const key = itemKey(name);
             if (!slug(name) || !key) {
-              new import_obsidian18.Notice(t("needName"));
+              toast(t("needName"), true);
               return;
             }
             void countOneTime(ctx, key);
@@ -11063,7 +11072,7 @@ var dayPage = (ctx, date, notePath) => {
   const { store, settings } = ctx.plugin;
   const cur = settings.baseCurrency;
   const title = dayTitle(date);
-  const el = page(dayFrame(date).title);
+  const el2 = page(dayFrame(date).title);
   const shift = (n) => {
     const d = localDate(date);
     d.setDate(d.getDate() + n);
@@ -11077,15 +11086,15 @@ var dayPage = (ctx, date, notePath) => {
       if (v.d) ctx.replace(dayFrame(v.d));
     }
   }).open();
-  el.addClass("zl-has-bar");
-  monthBar(el, shortDate(shift(-1)), title, shortDate(shift(1)), (s2) => s2 ? ctx.replace(dayFrame(shift(s2))) : pick());
+  el2.addClass("zl-has-bar");
+  monthBar(el2, shortDate(shift(-1)), title, shortDate(shift(1)), (s2) => s2 ? ctx.replace(dayFrame(shift(s2))) : pick());
   const own = notePath ? store.fm(notePath) : null;
   const note = own && notePath ? { name: date, path: notePath, fm: own } : store.day(date);
   if (!note) {
-    empty(el, { icon: "calendar-plus", title: t("noDay"), text: t("noDaySub"), button: t("startDay"), onTap: () => {
-      void store.createDay(date).then(() => new import_obsidian18.Notice(t("dayStarted", { date: title })), (e) => new import_obsidian18.Notice(String(e instanceof Error ? e.message : e)));
+    empty(el2, { icon: "calendar-plus", title: t("noDay"), text: t("noDaySub"), button: t("startDay"), onTap: () => {
+      void store.createDay(date).then(() => toast(t("dayStarted", { date: title })), (e) => toast(String(e instanceof Error ? e.message : e), true));
     } });
-    return { title: dayFrame(date).title, el };
+    return { title: dayFrame(date).title, el: el2 };
   }
   const [y, m] = date.split("-").map(Number);
   const { daily, oneTime, M } = store.monthData(y, m - 1);
@@ -11094,8 +11103,8 @@ var dayPage = (ctx, date, notePath) => {
   const [on, off] = dayExtras(fm, [...defined], oneTime);
   const custom = on.filter((k) => Number(fm[k]) !== 0), skipped = off.filter((k) => Number(fm[k]) !== 0);
   const total = [...defined, ...custom].reduce((s2, k) => s2 + (Number(fm[k]) || 0), 0);
-  el.addClass("zl-c-stack");
-  const top0 = h(el, "div", "zl-c-group");
+  el2.addClass("zl-c-stack");
+  const top0 = h(el2, "div", "zl-c-group");
   const big = h(top0, "div", "zl-c-big" + (total > 0 ? "" : " is-dim"), num(total));
   big.setAttribute("aria-label", t("spentOnDay"));
   const tq = M.budget.reduce((s2, x) => s2 + x.quota, 0), ts = M.budget.reduce((s2, x) => s2 + x.spent, 0);
@@ -11119,12 +11128,12 @@ var dayPage = (ctx, date, notePath) => {
     done: (n) => {
       void write((f) => {
         f[prop] = n;
-      }).then(() => new import_obsidian18.Notice(t("savedX", { name: cap(prop), amount: num(n), cur })));
+      }).then(() => toast(t("savedX", { name: cap(prop), amount: num(n), cur })));
     }
   });
   daily.forEach((bg, i) => {
     const left = M.budget[i];
-    const g = h(el, "div", "zl-c-group");
+    const g = h(el2, "div", "zl-c-group");
     const head = sec(g, (bg.name || t("groupN", { n: i + 1 })).toUpperCase());
     if (left) {
       const r = h(head, "span", "zl-sec-go" + (left.remain < 0 ? " is-hot" : ""), `${num(left.remain)} ${t("cLeft").toUpperCase()}`);
@@ -11140,26 +11149,26 @@ var dayPage = (ctx, date, notePath) => {
     }));
   });
   if (custom.length) {
-    const g = h(el, "div", "zl-c-group");
+    const g = h(el2, "div", "zl-c-group");
     sec(g, t("oneTime").toUpperCase());
     tileGrid(g, custom.map((p) => ({ k: cap(p).toUpperCase(), v: num(fm[p]), hot: true, onTap: () => edit(p, true), scrub: drag(p) })));
   }
   if (skipped.length) {
-    const g = h(el, "div", "zl-c-group");
+    const g = h(el2, "div", "zl-c-group");
     sec(g, t("notCounted").toUpperCase());
     tileGrid(g, skipped.map((p) => ({ k: cap(p).toUpperCase(), v: num(fm[p]), dim: true, onTap: async () => {
       if (await confirmSheet(ctx.app, t("countQ", { name: cap(p) }), t("countSub"), t("count"))) {
         await countOneTime(ctx, p);
-        new import_obsidian18.Notice(t("countedX", { name: cap(p) }));
+        toast(t("countedX", { name: cap(p) }));
       }
     } })));
   }
-  if (daily.length || custom.length) h(el, "div", "zl-c-note zl-scrub-hint", t("cScrubHint"));
-  if (!daily.length && !custom.length) empty(el, { icon: "list", title: t("noItems"), button: t("dailyItems"), onTap: () => ctx.push({ key: "items", title: t("dailyItems") }) });
+  if (daily.length || custom.length) h(el2, "div", "zl-c-note zl-scrub-hint", t("cScrubHint"));
+  if (!daily.length && !custom.length) empty(el2, { icon: "list", title: t("noItems"), button: t("dailyItems"), onTap: () => ctx.push({ key: "items", title: t("dailyItems") }) });
   const add = () => expenseSheet(ctx, date);
   return {
     title: dayFrame(date).title,
-    el,
+    el: el2,
     actions: [{ icon: "list", label: t("dailyItems"), onTap: () => ctx.push({ key: "items", title: t("dailyItems") }) }],
     fab: { icon: "plus", text: t("cAddExpense").toUpperCase(), label: t("cAddExpense"), onTap: add }
   };
@@ -11203,17 +11212,17 @@ var groupSheet = (ctx, gs, i) => {
         if (all[i]) Object.assign(all[i], { name, quota });
         else all.push({ name, quota, daily: true, spending: [] });
       });
-      new import_obsidian18.Notice(t("itemsSaved"));
+      toast(t("itemsSaved"));
     }
   }).open();
 };
 var itemsPage = (ctx) => {
   const gs = rawGroups(ctx);
-  const el = page(t("dailyItems"));
+  const el2 = page(t("dailyItems"));
   const total = pctTotal(gs);
-  if (!gs.length) empty(el, { icon: "list", title: t("noGroups") });
+  if (!gs.length) empty(el2, { icon: "list", title: t("noGroups") });
   else {
-    const g = group2(el, void 0, t("pctTotal", { n: total }) + (total > 100 ? " \xB7 " + t("over100", { n: total }) : ""));
+    const g = group2(el2, void 0, t("pctTotal", { n: total }) + (total > 100 ? " \xB7 " + t("over100", { n: total }) : ""));
     gs.forEach((x, i) => row(g, {
       icon: "circle",
       tint: colorFor(i),
@@ -11224,23 +11233,23 @@ var itemsPage = (ctx) => {
       onTap: () => ctx.push({ key: "items:" + i, title: x.name || t("groupN", { n: i + 1 }) })
     }));
   }
-  return { title: t("dailyItems"), el, fab: { icon: "plus", text: t("newGroup").toUpperCase(), label: t("newGroup"), onTap: () => groupSheet(ctx, gs, gs.length) } };
+  return { title: t("dailyItems"), el: el2, fab: { icon: "plus", text: t("newGroup").toUpperCase(), label: t("newGroup"), onTap: () => groupSheet(ctx, gs, gs.length) } };
 };
 var itemGroupPage = (ctx, i) => {
   const gs = rawGroups(ctx);
   const g = gs[i];
   if (!g) return itemsPage(ctx);
   const name = g.name || t("groupN", { n: i + 1 });
-  const el = page(name);
-  const head = group2(el);
+  const el2 = page(name);
+  const head = group2(el2);
   row(head, { icon: "pencil", tint: C.accent, title: t("nameAndShare"), sub: t("shareHint"), value: `${Number(g.quota) || 0}%`, chevron: true, onTap: () => groupSheet(ctx, gs, i) });
-  const list5 = group2(el, t("items"), t("itemsHint"));
+  const list5 = group2(el2, t("items"), t("itemsHint"));
   for (const it of items(g)) row(list5, { icon: "circle-small,dot", tint: colorFor(i), title: cap(it), onTap: async () => {
     if (!await confirmSheet(ctx.app, t("removeItem", { name: cap(it) }), t("removeItemSub"), t("remove"))) return;
     await saveGroups(ctx, (all) => {
       all[i].spending = items(all[i]).filter((x) => x !== it);
     });
-    new import_obsidian18.Notice(t("removedX", { name: cap(it) }));
+    toast(t("removedX", { name: cap(it) }));
   } });
   row(list5, { icon: "plus", tint: C.accent, title: t("addItem"), titleColor: C.accent, onTap: () => new FormSheet(ctx.app, {
     title: t("addItem"),
@@ -11256,22 +11265,22 @@ var itemGroupPage = (ctx, i) => {
       await saveGroups(ctx, (all) => {
         all[i].spending = [...items(all[i]), k];
       });
-      new import_obsidian18.Notice(t("itemsSaved"));
+      toast(t("itemsSaved"));
     }
   }).open() });
-  row(group2(el), { icon: "trash-2", tint: C.neg, title: t("deleteGroup"), titleColor: C.neg, onTap: async () => {
+  row(group2(el2), { icon: "trash-2", tint: C.neg, title: t("deleteGroup"), titleColor: C.neg, onTap: async () => {
     if (!await confirmSheet(ctx.app, t("deleteGroup"), t("deleteGroupSub", { name }), t("delete"))) return;
     await saveGroups(ctx, (all) => {
       all.splice(i, 1);
     });
-    new import_obsidian18.Notice(t("removedX", { name }));
+    toast(t("removedX", { name }));
     ctx.pop();
   } });
-  return { title: name, el };
+  return { title: name, el: el2 };
 };
 
 // src/settings.ts
-var import_obsidian19 = require("obsidian");
+var import_obsidian16 = require("obsidian");
 var TAB_ORDER = ["debt", "invest", "log", "ledger", "goals"];
 var PAGE_MOVES = ["slide", "push", "wipe", "fade", "cascade"];
 var DEFAULTS = {
@@ -11302,7 +11311,7 @@ var applyTheme = (app, mode) => {
   const a = app;
   if (a.vault.getConfig?.("theme") !== v) a.changeTheme?.(v);
 };
-var LedgerSettingTab = class extends import_obsidian19.PluginSettingTab {
+var LedgerSettingTab = class extends import_obsidian16.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -11312,43 +11321,43 @@ var LedgerSettingTab = class extends import_obsidian19.PluginSettingTab {
     const s2 = this.plugin.settings;
     const save = () => this.plugin.saveSettings();
     c.empty();
-    new import_obsidian19.Setting(c).setName(t("sDataFolder")).setDesc(t("sDataFolderDesc")).addText((x) => x.setValue(s2.dataFolder).onChange(async (v) => {
+    new import_obsidian16.Setting(c).setName(t("sDataFolder")).setDesc(t("sDataFolderDesc")).addText((x) => x.setValue(s2.dataFolder).onChange(async (v) => {
       s2.dataFolder = v.trim() || DEFAULTS.dataFolder;
       await save();
     }));
-    new import_obsidian19.Setting(c).setName(t("sLogFolder")).setDesc(t("sLogFolderDesc")).addText((x) => x.setValue(s2.logFolder).onChange(async (v) => {
+    new import_obsidian16.Setting(c).setName(t("sLogFolder")).setDesc(t("sLogFolderDesc")).addText((x) => x.setValue(s2.logFolder).onChange(async (v) => {
       s2.logFolder = v.trim() || DEFAULTS.logFolder;
       await save();
     }));
-    new import_obsidian19.Setting(c).setName(t("sCurrency")).setDesc(t("sCurrencyDesc")).addText((x) => x.setValue(s2.baseCurrency).onChange(async (v) => {
+    new import_obsidian16.Setting(c).setName(t("sCurrency")).setDesc(t("sCurrencyDesc")).addText((x) => x.setValue(s2.baseCurrency).onChange(async (v) => {
       s2.baseCurrency = v.trim().toUpperCase() || DEFAULTS.baseCurrency;
       await save();
     }));
-    new import_obsidian19.Setting(c).setName(t("sTaiwan")).setDesc(t("sTaiwanDesc")).addToggle((x) => x.setValue(s2.taiwan).onChange(async (v) => {
+    new import_obsidian16.Setting(c).setName(t("sTaiwan")).setDesc(t("sTaiwanDesc")).addToggle((x) => x.setValue(s2.taiwan).onChange(async (v) => {
       s2.taiwan = v;
       await save();
     }));
-    new import_obsidian19.Setting(c).setName(t("sFugle")).setDesc(t("sFugleDesc")).addText((x) => {
+    new import_obsidian16.Setting(c).setName(t("sFugle")).setDesc(t("sFugleDesc")).addText((x) => {
       x.inputEl.type = "password";
       x.setValue(this.plugin.fugleKey()).onChange(async (v) => {
         this.plugin.setFugleKey(v);
         await save();
       });
     });
-    new import_obsidian19.Setting(c).setName(t("sStartup")).setDesc(t("sStartupDesc")).addToggle((x) => x.setValue(s2.openOnStartup).onChange(async (v) => {
+    new import_obsidian16.Setting(c).setName(t("sStartup")).setDesc(t("sStartupDesc")).addToggle((x) => x.setValue(s2.openOnStartup).onChange(async (v) => {
       s2.openOnStartup = v;
       await save();
     }));
-    new import_obsidian19.Setting(c).setName(t("sFullScreen")).setDesc(t("sFullScreenDesc")).addToggle((x) => x.setValue(s2.fullScreen).onChange(async (v) => {
+    new import_obsidian16.Setting(c).setName(t("sFullScreen")).setDesc(t("sFullScreenDesc")).addToggle((x) => x.setValue(s2.fullScreen).onChange(async (v) => {
       s2.fullScreen = v;
       await save();
     }));
-    new import_obsidian19.Setting(c).setName(t("sLook")).setHeading();
-    new import_obsidian19.Setting(c).setName(t("sBigNumber")).setDesc(t("sBigNumberDesc")).addDropdown((x) => x.addOption("dots", t("sDots")).addOption("flap", t("sFlap")).setValue(s2.bigNumber).onChange(async (v) => {
+    new import_obsidian16.Setting(c).setName(t("sLook")).setHeading();
+    new import_obsidian16.Setting(c).setName(t("sBigNumber")).setDesc(t("sBigNumberDesc")).addDropdown((x) => x.addOption("dots", t("sDots")).addOption("flap", t("sFlap")).setValue(s2.bigNumber).onChange(async (v) => {
       s2.bigNumber = v === "flap" ? "flap" : "dots";
       await save();
     }));
-    new import_obsidian19.Setting(c).setName(t("sMove")).setDesc(t("sMoveDesc")).addDropdown((x) => {
+    new import_obsidian16.Setting(c).setName(t("sMove")).setDesc(t("sMoveDesc")).addDropdown((x) => {
       const names2 = { slide: "sMoveSlide", push: "sMovePush", wipe: "sMoveWipe", fade: "sMoveFade", cascade: "sMoveCascade" };
       PAGE_MOVES.forEach((k) => x.addOption(k, t(names2[k])));
       x.setValue(s2.pageMove).onChange(async (v) => {
@@ -11356,51 +11365,51 @@ var LedgerSettingTab = class extends import_obsidian19.PluginSettingTab {
         await save();
       });
     });
-    new import_obsidian19.Setting(c).setName(t("sCalm")).setDesc(t("sCalmDesc")).addToggle((x) => x.setValue(s2.calm).onChange(async (v) => {
+    new import_obsidian16.Setting(c).setName(t("sCalm")).setDesc(t("sCalmDesc")).addToggle((x) => x.setValue(s2.calm).onChange(async (v) => {
       s2.calm = v;
       await save();
     }));
-    new import_obsidian19.Setting(c).setName(t("sTheme")).setDesc(t("sThemeDesc")).addDropdown((x) => x.addOption("auto", t("sThemeAuto")).addOption("light", t("sThemeLight")).addOption("dark", t("sThemeDark")).setValue(s2.theme).onChange(async (v) => {
+    new import_obsidian16.Setting(c).setName(t("sTheme")).setDesc(t("sThemeDesc")).addDropdown((x) => x.addOption("auto", t("sThemeAuto")).addOption("light", t("sThemeLight")).addOption("dark", t("sThemeDark")).setValue(s2.theme).onChange(async (v) => {
       s2.theme = v === "light" || v === "dark" ? v : "auto";
       applyTheme(this.app, s2.theme);
       await save();
     }));
-    new import_obsidian19.Setting(c).setName(t("sRedUp")).setDesc(t("sRedUpDesc")).addToggle((x) => x.setValue(s2.redUp).onChange(async (v) => {
+    new import_obsidian16.Setting(c).setName(t("sRedUp")).setDesc(t("sRedUpDesc")).addToggle((x) => x.setValue(s2.redUp).onChange(async (v) => {
       s2.redUp = v;
       await save();
     }));
-    new import_obsidian19.Setting(c).setName(t("sUsNy")).setDesc(t("sUsNyDesc")).addToggle((x) => x.setValue(s2.usNy).onChange(async (v) => {
+    new import_obsidian16.Setting(c).setName(t("sUsNy")).setDesc(t("sUsNyDesc")).addToggle((x) => x.setValue(s2.usNy).onChange(async (v) => {
       s2.usNy = v;
       await save();
     }));
-    new import_obsidian19.Setting(c).setName(t("sSkin")).setDesc(t("sSkinDesc")).addToggle((x) => x.setValue(s2.skin).onChange(async (v) => {
+    new import_obsidian16.Setting(c).setName(t("sSkin")).setDesc(t("sSkinDesc")).addToggle((x) => x.setValue(s2.skin).onChange(async (v) => {
       s2.skin = v;
       document.body.toggleClass("zl-skin", v);
       await save();
     }));
-    new import_obsidian19.Setting(c).setName(t("sModules")).setDesc(t("sModulesDesc")).setHeading();
+    new import_obsidian16.Setting(c).setName(t("sModules")).setDesc(t("sModulesDesc")).setHeading();
     const names = { debt: "tabDebt", invest: "tabInvest", log: "tabLog", ledger: "tabLedger", goals: "tabGoals" };
     const order = tabOrderOf(s2.tabOrder);
     const rows = [];
     order.forEach((id) => {
-      const set = new import_obsidian19.Setting(c).setName(t(names[id])).addToggle((x) => x.setValue(s2.tabs[id]).onChange(async (v) => {
+      const set = new import_obsidian16.Setting(c).setName(t(names[id])).addToggle((x) => x.setValue(s2.tabs[id]).onChange(async (v) => {
         s2.tabs[id] = v;
         await save();
       }));
       set.settingEl.addClass("zl-set-drag");
       const grip = set.settingEl.createDiv({ cls: "zl-set-grip", attr: { "aria-label": t("sDrag") } });
-      (0, import_obsidian19.setIcon)(grip, "grip-vertical");
+      (0, import_obsidian16.setIcon)(grip, "grip-vertical");
       set.settingEl.prepend(grip);
       rows.push(set.settingEl);
       grip.addEventListener("pointerdown", (e) => {
         e.preventDefault();
         grip.setPointerCapture(e.pointerId);
-        const el = set.settingEl, from = rows.indexOf(el), y0 = e.clientY, ht = el.offsetHeight || 1;
+        const el2 = set.settingEl, from = rows.indexOf(el2), y0 = e.clientY, ht = el2.offsetHeight || 1;
         let to = from;
-        el.addClass("is-dragging");
+        el2.addClass("is-dragging");
         const move = (m) => {
           const dy = m.clientY - y0;
-          el.style.transform = `translateY(${dy}px)`;
+          el2.style.transform = `translateY(${dy}px)`;
           to = Math.max(0, Math.min(rows.length - 1, from + Math.round(dy / ht)));
           rows.forEach((r, j) => {
             if (j === from) return;
@@ -11437,16 +11446,16 @@ var LedgerSettingTab = class extends import_obsidian19.PluginSettingTab {
         grip.addEventListener("pointercancel", onUp);
       });
     });
-    const hap = new import_obsidian19.Setting(c).setName("Test haptic").setDesc("Tap: the phone should tick once.");
+    const hap = new import_obsidian16.Setting(c).setName("Test haptic").setDesc("Tap: the phone should tick once.");
     hap.addButton((b) => b.setButtonText("Tick").onClick(() => {
       const how = tick();
       hap.setDesc({ capacitor: "Used: Obsidian's haptics.", vibrate: "Used: web vibration.", switch: "Used: the iOS 18 switch tick. Felt nothing? Then Obsidian has no haptics here.", "": "No haptics found on this device." }[how] ?? how);
     }));
-    new import_obsidian19.Setting(c).setName(t("sDebug")).setDesc(t("sDebugDesc")).setHeading().addToggle((x) => x.setValue(s2.debugLog).onChange(async (v) => {
+    new import_obsidian16.Setting(c).setName(t("sDebug")).setDesc(t("sDebugDesc")).setHeading().addToggle((x) => x.setValue(s2.debugLog).onChange(async (v) => {
       s2.debugLog = v;
       await save();
     }));
-    new import_obsidian19.Setting(c).setName(t("sDebugPath")).addText((x) => x.setValue(s2.debugPath).onChange(async (v) => {
+    new import_obsidian16.Setting(c).setName(t("sDebugPath")).addText((x) => x.setValue(s2.debugPath).onChange(async (v) => {
       s2.debugPath = v.trim() || DEFAULTS.debugPath;
       await save();
     }));
@@ -11526,10 +11535,7 @@ var Router = class {
 };
 
 // src/view.ts
-var import_obsidian25 = require("obsidian");
-
-// src/pages/debt.ts
-var import_obsidian21 = require("obsidian");
+var import_obsidian17 = require("obsidian");
 
 // src/calc/debt.ts
 var DEFAULT_RATE = 775e-5;
@@ -11615,7 +11621,6 @@ var projectDebt = (d, pay, now) => {
 };
 
 // src/pages/shared.ts
-var import_obsidian20 = require("obsidian");
 var editAllocation = (ctx, key, what) => {
   const { store, settings } = ctx.plugin;
   const cur = settings.baseCurrency;
@@ -11634,7 +11639,7 @@ var editAllocation = (ctx, key, what) => {
       choices.push({ value: "onward", label: t("fromMonth", { month }), hint: t("fromMonthHint") });
       new ChoiceSheet(ctx.app, `${num(info.amount)} \u2192 ${num(next)} ${cur}`, choices, async (mode) => {
         const frozen = await store.setAllocation(key, next, mode);
-        new import_obsidian20.Notice(mode === "once" ? t("allocOnce", { what, amount: num(next), cur, month }) : t("allocOnward", { what, amount: num(next), cur, month }) + (frozen ? t("allocFrozen", { n: frozen }) : ""));
+        toast(mode === "once" ? t("allocOnce", { what, amount: num(next), cur, month }) : t("allocOnward", { what, amount: num(next), cur, month }) + (frozen ? t("allocFrozen", { n: frozen }) : ""));
       }).open();
     }
   }).open();
@@ -11815,19 +11820,19 @@ var netWorth = (plugin) => {
   const assets = parts.filter((p) => p.value > 0).reduce((s2, p) => s2 + p.value, 0), debts = parts.filter((p) => p.value < 0).reduce((s2, p) => s2 - p.value, 0);
   return { parts, total: assets - debts, assets, debts };
 };
-var signed4 = (n) => `${n < 0 ? "-" : ""}${num(Math.abs(n))}`;
+var signed4 = (n) => num(n);
 var netWorthPage = (ctx) => {
   const N = netWorth(ctx.plugin);
   const title = t("nwTitle");
-  const el = page(title);
-  el.addClass("zl-c-stack");
-  summary(el, { label: t("nwLabel", { cur: ctx.plugin.settings.baseCurrency }), value: signed4(N.total), hot: N.total < 0, items: [[t("nwHave"), num(N.assets)], [t("nwOwe"), num(N.debts), N.debts > 0]] });
-  const g = h(el, "div", "zl-c-group");
+  const el2 = page(title);
+  el2.addClass("zl-c-stack");
+  summary(el2, { label: t("nwLabel", { cur: ctx.plugin.settings.baseCurrency }), value: signed4(N.total), hot: N.total < 0, items: [[t("nwHave"), num(N.assets)], [t("nwOwe"), num(N.debts), N.debts > 0]] });
+  const g = h(el2, "div", "zl-c-group");
   sec(g, t("nwParts").toUpperCase());
   figures(g, N.parts.map((p) => ({ k: p.label.toUpperCase(), v: signed4(p.value), hot: p.value < 0, onTap: () => ctx.goTab(p.key) })));
-  figures(h(el, "div", "zl-c-group"), [{ icon: "wallet", k: t("acTitle").toUpperCase(), s: t("acSeeWhere"), v: "", onTap: () => ctx.push({ key: "accounts", title: t("acTitle") }) }]);
-  h(el, "div", "zl-c-note", t("nwNote"));
-  return { title, el };
+  figures(h(el2, "div", "zl-c-group"), [{ icon: "wallet", k: t("acTitle").toUpperCase(), s: t("acSeeWhere"), v: "", onTap: () => ctx.push({ key: "accounts", title: t("acTitle") }) }]);
+  h(el2, "div", "zl-c-note", t("nwNote"));
+  return { title, el: el2 };
 };
 
 // src/pages/debt.ts
@@ -11860,7 +11865,7 @@ var debtPage = {
           list5.push({ date: v.date || today(), amount, note: v.note || t("defaultPaymentNote") });
           f.payments = list5;
         });
-        new import_obsidian21.Notice(t("loggedPayment", { amount: num(amount), left: num(Math.max(0, d.balance - amount)), cur }));
+        toast(t("loggedPayment", { amount: num(amount), left: num(Math.max(0, d.balance - amount)), cur }));
       }
     }).open();
     const editPayment = (p) => new FormSheet(ctx.app, {
@@ -11883,7 +11888,7 @@ var debtPage = {
           x.note = v.note;
           ok = true;
         });
-        new import_obsidian21.Notice(ok ? t("updatedPayment", { amount: num(parseNum(v.amount)), cur }) : t("txGone"));
+        toast(ok ? t("updatedPayment", { amount: num(parseNum(v.amount)), cur }) : t("txGone"), !ok);
       },
       danger: {
         text: t("deletePayment"),
@@ -11897,7 +11902,7 @@ var debtPage = {
               ok = true;
             }
           });
-          new import_obsidian21.Notice(ok ? t("deletedPayment", { amount: num(p.amount), cur }) : t("txGone"));
+          toast(ok ? t("deletedPayment", { amount: num(p.amount), cur }) : t("txGone"), !ok);
           return true;
         }
       }
@@ -11911,7 +11916,7 @@ var debtPage = {
         await store.update(CFG, (f) => {
           f[key] = percent ? +(n / 100).toFixed(8) : n;
         });
-        new import_obsidian21.Notice(t("updated", { what, value: percent ? `${n}%` : money(n) }));
+        toast(t("updated", { what, value: percent ? `${n}%` : money(n) }));
       }
     }).open();
     const editStart = () => new FormSheet(ctx.app, {
@@ -11922,7 +11927,7 @@ var debtPage = {
         await store.update(CFG, (f) => {
           f.start_date = v.v;
         });
-        new import_obsidian21.Notice(t("updated", { what: t("repaymentStarts"), value: v.v }));
+        toast(t("updated", { what: t("repaymentStarts"), value: v.v }));
       }
     }).open();
     const editAllocation2 = () => editAllocation(ctx, PLAN_KEY2, t("monthlyAllocation"));
@@ -11959,19 +11964,19 @@ var debtPage = {
 };
 var first = (ctx, d, money, cur, a) => {
   const title = t("tabDebt");
-  const el = page(title);
+  const el2 = page(title);
   if (!d.exists) {
-    el.addClass("zl-c-stack");
-    empty(el, { icon: "landmark", title: t("noDebt"), text: t("noDebtSub"), button: t("setUpLoan"), onTap: a.setUp });
-    return { title, el };
+    el2.addClass("zl-c-stack");
+    empty(el2, { icon: "landmark", title: t("noDebt"), text: t("noDebtSub"), button: t("setUpLoan"), onTap: a.setUp });
+    return { title, el: el2 };
   }
-  el.addClass("zl-c-stack");
+  el2.addClass("zl-c-stack");
   const pay = Math.max(d.repayment, d.monthlyMin);
   const mon = (s2) => {
     const [y, m] = s2.split("-").map(Number);
     return `${MONTHS[(m || 1) - 1]} ${String(y).slice(2)}`.toUpperCase();
   };
-  homeTop(el, {
+  homeTop(el2, {
     key: "debt",
     value: num(d.balance),
     label: t("cRemaining"),
@@ -11979,7 +11984,7 @@ var first = (ctx, d, money, cur, a) => {
     reads: d.grace && d.start ? [[t("dFirstPay"), mon(d.start)], [t("dEachMonth"), num(pay)]] : [[t("dPaidSoFar"), num(d.paid)], [t("dEachMonthNow"), num(pay)]]
   });
   const P = projectDebt(d, pay, /* @__PURE__ */ new Date());
-  const g = h(el, "div", "zl-c-group zl-c-fill");
+  const g = h(el2, "div", "zl-c-group zl-c-fill");
   sec(g, t("dYears").toUpperCase());
   const cols = P.years.slice(1).length ? P.years.slice(1) : P.years;
   const labels = cols.map((_, i) => {
@@ -11994,18 +11999,18 @@ var first = (ctx, d, money, cur, a) => {
   const acc = buildAccounts(ctx.plugin.store.fm(ctx.plugin.store.path(ACCOUNTS_FILE)));
   const saved = lineHeld(acc.list, "student_loan") ?? d.loanPrep;
   const nw = netWorth(ctx.plugin).total;
-  figures(h(el, "div", "zl-c-group"), [
+  figures(h(el2, "div", "zl-c-group"), [
     { icon: "wallet", k: t("dSaved"), s: t("dSavedSub"), v: money(saved), onTap: () => ctx.push({ key: "loan", title: t("loanDetails") }) },
     ...n ? [{ icon: "receipt", k: t("dPayments"), s: n === 1 ? t("cPayment1") : t("cPayments", { n }), v: money(d.paid), onTap: () => ctx.push({ key: "history", title: t("repaymentHistory") }) }] : [],
-    { icon: "wallet", k: t("nwTitle"), s: t("nwSub"), v: `${nw < 0 ? "-" : ""}${money(Math.abs(nw))}`, hot: nw < 0, onTap: () => ctx.push({ key: "networth", title: t("nwTitle") }) }
+    { icon: "wallet", k: t("nwTitle"), s: t("nwSub"), v: `${nw < 0 ? "\u2212" : ""}${money(Math.abs(nw))}`, hot: nw < 0, onTap: () => ctx.push({ key: "networth", title: t("nwTitle") }) }
   ]);
-  return { title, el, fab: { icon: "plus", text: t("recordPayment").toUpperCase(), label: t("recordPayment"), onTap: a.recordPayment } };
+  return { title, el: el2, fab: { icon: "plus", text: t("recordPayment").toUpperCase(), label: t("recordPayment"), onTap: a.recordPayment } };
 };
 var loan = (ctx, d, money, a) => {
   const title = t("loanDetails");
-  const el = page(title);
-  el.addClass("zl-c-stack");
-  summary(el, { label: t("remaining"), value: num(d.balance), hot: d.balance > 0, items: [[t("cPaid"), num(d.paid)], [t("progress"), `${d.progress.toFixed(1)}%`], [t("cMonthly"), num(Math.max(d.repayment, d.monthlyMin))]] });
+  const el2 = page(title);
+  el2.addClass("zl-c-stack");
+  summary(el2, { label: t("remaining"), value: num(d.balance), hot: d.balance > 0, items: [[t("cPaid"), num(d.paid)], [t("progress"), `${d.progress.toFixed(1)}%`], [t("cMonthly"), num(Math.max(d.repayment, d.monthlyMin))]] });
   const list5 = [
     { icon: "debt", k: t("initialPrincipal").toUpperCase(), v: money(d.principal), onTap: () => a.editNumber(t("initialPrincipal"), "initial_principal", d.principal) },
     { icon: "percent", k: t("interestRate").toUpperCase(), v: `${(d.rate * 100).toFixed(3)}%`, onTap: () => a.editNumber(t("interestRate"), "interest_rate", d.rate, true) },
@@ -12015,27 +12020,26 @@ var loan = (ctx, d, money, a) => {
     { icon: "log", k: (d.grace || !d.start ? t("repaymentStarts") : t("repayingSince")).toUpperCase(), s: d.grace ? t("inDaysShort", { d: d.daysUntilStart }) : void 0, v: d.start ? shortDate(d.start) : t("notSet"), onTap: a.editStart }
   ];
   if (d.grace) list5.push({ icon: "swap", k: t("graceSplit").toUpperCase(), s: t("fromSavingsPlan"), v: `${num(d.toInvestment)} \xB7 ${num(d.loanPrep)}` });
-  figures(h(el, "div", "zl-c-group"), list5);
-  return { title, el, fab: { icon: "plus", text: t("recordPayment").toUpperCase(), label: t("recordPayment"), onTap: a.recordPayment } };
+  figures(h(el2, "div", "zl-c-group"), list5);
+  return { title, el: el2, fab: { icon: "plus", text: t("recordPayment").toUpperCase(), label: t("recordPayment"), onTap: a.recordPayment } };
 };
 var history = (ctx, d, money, recordPayment, editPayment) => {
   const title = t("repaymentHistory");
-  const el = page(title);
-  el.addClass("zl-c-list");
-  summary(el, { label: t("cPaidTotal"), value: num(d.paid), items: [[t("cCount"), String(d.payments.length)], [t("progress"), `${d.progress.toFixed(1)}%`]] });
-  if (!d.payments.length) empty(el, { icon: "receipt", title: t("noPayments"), text: t("noPaymentsSub") });
-  else figures(h(el, "div", "zl-c-group"), [...d.payments].sort((x, y) => (y.date || "").localeCompare(x.date || "") || y.index - x.index).map((p) => ({
+  const el2 = page(title);
+  el2.addClass("zl-c-list");
+  summary(el2, { label: t("cPaidTotal"), value: num(d.paid), items: [[t("cCount"), String(d.payments.length)], [t("progress"), `${d.progress.toFixed(1)}%`]] });
+  if (!d.payments.length) empty(el2, { icon: "receipt", title: t("noPayments"), text: t("noPaymentsSub") });
+  else figures(h(el2, "div", "zl-c-group"), [...d.payments].sort((x, y) => (y.date || "").localeCompare(x.date || "") || y.index - x.index).map((p) => ({
     icon: "receipt",
     k: (p.note || t("defaultPaymentNote")).toUpperCase(),
     s: shortDate(dateStr(p.date, "-")),
     v: money(p.amount),
     onTap: () => editPayment(p)
   })));
-  return { title, el, fab: { icon: "plus", text: t("recordPayment").toUpperCase(), label: t("recordPayment"), onTap: recordPayment } };
+  return { title, el: el2, fab: { icon: "plus", text: t("recordPayment").toUpperCase(), label: t("recordPayment"), onTap: recordPayment } };
 };
 
 // src/pages/ledger.ts
-var import_obsidian22 = require("obsidian");
 var ACT = {
   paid_for: { label: "aPaidFor", tile: "tPaidFor", tileSub: "tPaidForSub", icon: "down", color: C.pos },
   paid_by: { label: "aPaidBy", tile: "tPaidBy", tileSub: "tPaidBySub", icon: "debt", color: C.warn },
@@ -12080,7 +12084,7 @@ var ledgerPage = {
             list5.push({ friend: friend2, action: v.action, amount, date: v.date || today(), note: v.note });
             f.ledger = list5;
           });
-          new import_obsidian22.Notice(t("savedTx", { friend: friend2, what: t(act(v.action).label).toLowerCase(), amount: num(amount), cur }));
+          toast(t("savedTx", { friend: friend2, what: t(act(v.action).label).toLowerCase(), amount: num(amount), cur }));
         }
       }).open();
     };
@@ -12104,7 +12108,7 @@ var ledgerPage = {
           e.note = v.note;
           ok = true;
         });
-        new import_obsidian22.Notice(ok ? t("updatedTx", { friend: r.friend, amount: num(parseNum(v.amount)), cur }) : t("txGone"));
+        toast(ok ? t("updatedTx", { friend: r.friend, amount: num(parseNum(v.amount)), cur }) : t("txGone"), !ok);
       },
       danger: {
         text: t("deleteTx"),
@@ -12118,7 +12122,7 @@ var ledgerPage = {
               ok = true;
             }
           });
-          new import_obsidian22.Notice(ok ? t("deletedTx", { friend: r.friend, amount: num(r.amount), cur }) : t("txGone"));
+          toast(ok ? t("deletedTx", { friend: r.friend, amount: num(r.amount), cur }) : t("txGone"), !ok);
           return true;
         }
       }
@@ -12148,12 +12152,12 @@ var person = (ctx, f, most) => ({ icon: "person", name: true, k: f.name.toUpperC
 var txRow = (r, editTx, pronoun = false) => ({ icon: txIcon(r.action), name: true, k: say(r, pronoun).toUpperCase(), s: recLine(r), v: num(r.amount), hot: owes(r.action), onTap: () => editTx(r) });
 var firstPage = (ctx, L2, cur, _tint, newTx, editTx) => {
   const title = t("tabLedger");
-  const el = page(title);
-  el.addClass("zl-c-stack");
+  const el2 = page(title);
+  el2.addClass("zl-c-stack");
   const open2 = L2.friends.filter((f) => f.net !== 0);
   const settled = L2.friends.length - open2.length;
   const all = () => ctx.push({ key: "activity", title: t("cAllActivity") });
-  homeTop(el, {
+  homeTop(el2, {
     key: "ledger",
     value: num(Math.abs(L2.net)),
     label: L2.net >= 0 ? t("cOwedAll", { cur }) : t("cOweAll", { cur }),
@@ -12161,36 +12165,36 @@ var firstPage = (ctx, L2, cur, _tint, newTx, editTx) => {
     reads: [[t("theyOweMe"), num(L2.oweMe)], [t("iOweThem"), num(L2.oweThem)]]
   });
   const most = Math.max(1, ...open2.map((f) => Math.abs(f.net)));
-  const g = h(el, "div", "zl-c-group");
+  const g = h(el2, "div", "zl-c-group");
   sec(g, t("openBalances").toUpperCase(), L2.count ? all : void 0, t("cAllActivity").toUpperCase());
   if (open2.length) figures(g, open2.slice(0, MAX_HOME).map((f) => person(ctx, f, most)));
   if (!open2.length) figures(g, [{ k: (L2.count ? t("allSettled") : t("noTx")).toUpperCase(), s: L2.count ? t("nothingOwed") : t("noTxSub"), v: "0", dim: true }]);
   const more = Math.max(0, open2.length - MAX_HOME);
-  const tail = more || settled ? sec(h(el, "div", "zl-c-group zl-c-link"), [more ? t("cMoreN", { n: more }) : "", settled ? t("lSettledN", { n: settled }) : ""].filter(Boolean).join(" \xB7 ").toUpperCase(), all, t("cMore").toUpperCase()) : null;
+  const tail = more || settled ? sec(h(el2, "div", "zl-c-group zl-c-link"), [more ? t("cMoreN", { n: more }) : "", settled ? t("lSettledN", { n: settled }) : ""].filter(Boolean).join(" \xB7 ").toUpperCase(), all, t("cMore").toUpperCase()) : null;
   const recent = L2.friends.flatMap((f) => f.records).sort((a, b) => b.date.localeCompare(a.date) || b.index - a.index).slice(0, 3);
   let rbox = null;
   if (recent.length) {
-    const r = h(el, "div", "zl-c-group");
+    const r = h(el2, "div", "zl-c-group");
     sec(r, t("recentActivity").toUpperCase());
     rbox = figures(r, recent.map((x) => txRow(x, editTx)));
   }
-  if (tail) el.appendChild(tail.parentElement);
+  if (tail) el2.appendChild(tail.parentElement);
   const trim = rbox ? dropRow(rbox, 0) : void 0;
-  return { title, el, trim, fab: { icon: "plus", text: t("newTx").toUpperCase(), label: t("newTx"), onTap: () => newTx() } };
+  return { title, el: el2, trim, fab: { icon: "plus", text: t("newTx").toUpperCase(), label: t("newTx"), onTap: () => newTx() } };
 };
 var activityPage = (ctx, L2, newTx, editTx) => {
   const title = t("cAllActivity");
-  const el = page(title);
-  el.addClass("zl-c-list");
-  const g = h(el, "div", "zl-c-group");
+  const el2 = page(title);
+  el2.addClass("zl-c-list");
+  const g = h(el2, "div", "zl-c-group");
   sec(g, t("cPeople").toUpperCase());
   const most = Math.max(1, ...L2.friends.map((f) => Math.abs(f.net)));
   figures(g, L2.friends.map((f) => person(ctx, f, most)));
   const all = L2.friends.flatMap((f) => f.records).sort((a, b) => b.date.localeCompare(a.date) || b.index - a.index);
-  const r = h(el, "div", "zl-c-group");
+  const r = h(el2, "div", "zl-c-group");
   sec(r, t("recentActivity").toUpperCase());
   figures(r, all.map((x) => txRow(x, editTx)));
-  return { title, el, fab: { icon: "plus", text: t("newTx").toUpperCase(), label: t("newTx"), onTap: newTx } };
+  return { title, el: el2, fab: { icon: "plus", text: t("newTx").toUpperCase(), label: t("newTx"), onTap: newTx } };
 };
 var monthHead2 = (d) => {
   const m = /^(\d{4})-(\d{2})/.exec(d);
@@ -12205,10 +12209,10 @@ var histRows = (f, recs, editTx) => {
   });
 };
 var friendPage = (ctx, f, newTx, settle, editTx) => {
-  const el = page(f.name);
-  el.addClass("zl-c-stack");
+  const el2 = page(f.name);
+  el2.addClass("zl-c-stack");
   const dates = f.records.map((r) => r.date).filter(Boolean).sort();
-  summary(el, {
+  summary(el2, {
     key: "friend-" + f.name,
     label: f.net > 0 ? t("lOwesYouN", { name: f.name }) : f.net < 0 ? t("lYouOweN", { name: f.name }) : t("settled"),
     value: num(Math.abs(f.net)),
@@ -12217,15 +12221,15 @@ var friendPage = (ctx, f, newTx, settle, editTx) => {
     items: [[t("lOpenSince"), f.activeSince ? shortDate(f.activeSince) : "-"], [t("last"), dates.length ? shortDate(dates[dates.length - 1]) : "-"], [t("txCount"), String(f.records.length)]]
   });
   const st = settleOf(f);
-  if (st) figures(h(el, "div", "zl-c-group"), [{ icon: txIcon(st.action), k: t("lSettleUp").toUpperCase(), s: say({ friend: f.name, action: st.action, amount: st.amount, date: "", note: "", index: -1 }, true), v: num(st.amount), hot: f.net < 0, onTap: () => settle(st) }]);
-  const g = h(el, "div", "zl-c-group");
+  if (st) figures(h(el2, "div", "zl-c-group"), [{ icon: txIcon(st.action), k: t("lSettleUp").toUpperCase(), s: say({ friend: f.name, action: st.action, amount: st.amount, date: "", note: "", index: -1 }, true), v: num(st.amount), hot: f.net < 0, onTap: () => settle(st) }]);
+  const g = h(el2, "div", "zl-c-group");
   sec(g, t("recentActivity").toUpperCase(), f.records.length > 1 ? () => ctx.push({ key: "history:" + f.name, title: f.name }) : void 0, t("cAll").toUpperCase());
   const box = figures(g, histRows(f, newestFirst(f), editTx));
-  return { title: f.name, el, trim: dropRow(box, 1), fab: { icon: "plus", text: t("newTx").toUpperCase(), label: t("newTx"), onTap: newTx } };
+  return { title: f.name, el: el2, trim: dropRow(box, 1), fab: { icon: "plus", text: t("newTx").toUpperCase(), label: t("newTx"), onTap: newTx } };
 };
 var historyPage = (f, newTx, editTx) => {
-  const el = page(f.name);
-  el.addClass("zl-c-list");
+  const el2 = page(f.name);
+  el2.addClass("zl-c-list");
   const byMonth = /* @__PURE__ */ new Map();
   for (const r of newestFirst(f)) {
     const k = r.date.slice(0, 7);
@@ -12233,15 +12237,14 @@ var historyPage = (f, newTx, editTx) => {
     byMonth.get(k).push(r);
   }
   for (const [m, recs] of byMonth) {
-    const g = h(el, "div", "zl-c-group");
+    const g = h(el2, "div", "zl-c-group");
     sec(g, monthHead2(m).toUpperCase());
     figures(g, histRows(f, recs, editTx));
   }
-  return { title: f.name, el, fab: { icon: "plus", text: t("newTx").toUpperCase(), label: t("newTx"), onTap: newTx } };
+  return { title: f.name, el: el2, fab: { icon: "plus", text: t("newTx").toUpperCase(), label: t("newTx"), onTap: newTx } };
 };
 
 // src/pages/goals.ts
-var import_obsidian23 = require("obsidian");
 var NEW3 = "__new__";
 var goalsPage = {
   id: "goals",
@@ -12261,7 +12264,7 @@ var goalsPage = {
     });
     const splitFund = (s0) => {
       const m0 = /^\s*(\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*)\s*(.*)$/u.exec(s0 ?? "");
-      return m0 ? { emoji: m0[1], label: m0[2].trim() } : { emoji: "\u{1F3AF}", label: (s0 ?? "").trim() };
+      return m0 ? { emoji: m0[1], label: m0[2].trim() } : { emoji: "", label: (s0 ?? "").trim() };
     };
     const newGoal = (fundKey) => new FormSheet(ctx.app, {
       title: t("newGoal"),
@@ -12273,7 +12276,7 @@ var goalsPage = {
           label: t("fund"),
           type: "select",
           value: fundKey ?? G.funds[0]?.key ?? NEW3,
-          options: [...G.funds.map((f) => [f.key, `${f.emoji} ${f.label}`.trim()]), [NEW3, t("newFund")]],
+          options: [...G.funds.map((f) => [f.key, f.label]), [NEW3, t("newFund")]],
           ask: { value: NEW3, into: "fundIn", title: t("fundName"), placeholder: t("fundNameHint") }
         },
         { key: "fundIn", label: t("fundName"), type: "text", off: true },
@@ -12293,11 +12296,11 @@ var goalsPage = {
         v.emoji = nf.emoji;
         const isNew = v.fund === NEW3;
         const key2 = isNew ? keyOf(v.fundName) : v.fund;
-        const emoji = isNew ? v.emoji || "\u{1F3AF}" : G.funds.find((f) => f.key === key2)?.emoji || "\u{1F3AF}";
+        const emoji = isNew ? v.emoji : G.funds.find((f) => f.key === key2)?.emoji ?? "";
         const amount = parseNum(v.goal);
         await store.update(CFG, (f) => {
-          if (isNew) f.funds = [...Array.isArray(f.funds) ? f.funds : f.funds ? [f.funds] : [], { key: key2, label: v.fundName.trim(), emoji }];
-          const entry = { name: v.name.trim(), fund: key2, emoji, goal: amount };
+          if (isNew) f.funds = [...Array.isArray(f.funds) ? f.funds : f.funds ? [f.funds] : [], { key: key2, label: v.fundName.trim(), ...emoji ? { emoji } : {} }];
+          const entry = { name: v.name.trim(), fund: key2, ...emoji ? { emoji } : {}, goal: amount };
           if (v.date) entry.target_date = v.date;
           entry.expenses = [];
           f.goals = [...Array.isArray(f.goals) ? f.goals : f.goals ? [f.goals] : [], entry];
@@ -12306,13 +12309,13 @@ var goalsPage = {
           await store.update(store.path(FILES.savings), (f) => {
             if (f[key2] === void 0) f[key2] = 0;
           });
-          new import_obsidian23.Notice(t("addedFund", { name: v.fundName.trim() }));
-        } else new import_obsidian23.Notice(t("addedGoal", { name: v.name.trim(), amount: num(amount), cur }));
+          toast(t("addedFund", { name: v.fundName.trim() }));
+        } else toast(t("addedGoal", { name: v.name.trim(), amount: num(amount), cur }));
       }
     }).open();
     const addExpense = (g) => new FormSheet(ctx.app, {
       title: t("addExpense"),
-      subtitle: `${g.emoji} ${g.name}`.trim(),
+      subtitle: g.name,
       submitText: t("save"),
       fields: [
         { key: "amount", label: t("amount"), type: "number", suffix: cur, placeholder: "0", required: true },
@@ -12324,7 +12327,7 @@ var goalsPage = {
         await updateGoal(g.name, (x) => {
           x.expenses = [...Array.isArray(x.expenses) ? x.expenses : [], { item: v.item || t("expenseDefault"), amount, date: v.date }];
         });
-        new import_obsidian23.Notice(t("addedExpense", { amount: num(amount), cur, name: g.name }));
+        toast(t("addedExpense", { amount: num(amount), cur, name: g.name }));
       }
     }).open();
     const editExpense = (g, x) => new FormSheet(ctx.app, {
@@ -12347,7 +12350,7 @@ var goalsPage = {
           e.date = v.date;
           ok = true;
         });
-        new import_obsidian23.Notice(ok ? t("updatedExpense", { item: v.item || x.item, amount: num(parseNum(v.amount)), cur }) : t("expenseGone"));
+        toast(ok ? t("updatedExpense", { item: v.item || x.item, amount: num(parseNum(v.amount)), cur }) : t("expenseGone"), !ok);
       },
       danger: {
         text: t("deleteExpense"),
@@ -12361,7 +12364,7 @@ var goalsPage = {
               ok = true;
             }
           });
-          new import_obsidian23.Notice(ok ? t("deletedExpense", { item: x.item }) : t("expenseGone"));
+          toast(ok ? t("deletedExpense", { item: x.item }) : t("expenseGone"), !ok);
           return true;
         }
       }
@@ -12375,7 +12378,7 @@ var goalsPage = {
         await updateGoal(g.name, (x) => {
           x.goal = parseNum(v.v);
         });
-        new import_obsidian23.Notice(t("updatedGoal", { what: t("goalAmount"), value: num(parseNum(v.v)) }));
+        toast(t("updatedGoal", { what: t("goalAmount"), value: num(parseNum(v.v)) }));
       }
     }).open();
     const editTarget = (g) => new FormSheet(ctx.app, {
@@ -12387,7 +12390,7 @@ var goalsPage = {
         await updateGoal(g.name, (x) => {
           x.target_date = v.v;
         });
-        new import_obsidian23.Notice(t("updatedGoal", { what: t("targetDate"), value: shortDate(v.v) }));
+        toast(t("updatedGoal", { what: t("targetDate"), value: shortDate(v.v) }));
       }
     }).open();
     const deleteGoal = async (g) => {
@@ -12395,7 +12398,7 @@ var goalsPage = {
       await store.update(CFG, (f) => {
         if (Array.isArray(f.goals)) f.goals = f.goals.filter((x) => x.name !== g.name);
       });
-      new import_obsidian23.Notice(t("deletedGoal", { name: g.name }));
+      toast(t("deletedGoal", { name: g.name }));
       ctx.pop();
     };
     if (ctx.frame.key === "accounts" || ctx.frame.key.startsWith("accounts:")) return accountsPage(ctx);
@@ -12455,11 +12458,11 @@ var fundLine = (S, f) => {
 var firstPage2 = (ctx, S, newGoal) => {
   const { G, cur } = S;
   const title = t("tabGoals");
-  const el = page(title);
-  el.addClass("zl-c-stack");
+  const el2 = page(title);
+  el2.addClass("zl-c-stack");
   const target = G.funds.reduce((s2, f) => s2 + (f.goals.length ? f.target : fundTarget(S, f)), 0);
   const monthly = G.funds.reduce((s2, f) => s2 + (S.monthly.get(f.key) ?? 0), 0);
-  homeTop(el, {
+  homeTop(el2, {
     key: "goals",
     value: num(G.totalSaved),
     label: t("cSaved", { cur }),
@@ -12468,95 +12471,94 @@ var firstPage2 = (ctx, S, newGoal) => {
   });
   const fab = { icon: "plus", text: t("newGoal").toUpperCase(), label: t("newGoal"), onTap: newGoal };
   if (!G.funds.length) {
-    empty(el, { icon: "target", title: t("noGoals"), text: t("noGoalsSub") });
-    return { title, el, fab };
+    empty(el2, { icon: "target", title: t("noGoals"), text: t("noGoalsSub") });
+    return { title, el: el2, fab };
   }
   const funds = () => ctx.push({ key: "funds", title: t("funds") });
-  const fg = h(el, "div", "zl-c-group");
+  const fg = h(el2, "div", "zl-c-group");
   sec(fg, t("funds").toUpperCase(), funds, t("cAll").toUpperCase());
   tileGrid(fg, gridOf(G.funds.map((f) => fundTile(ctx, S, f)), 4, (n) => ({ icon: "list", k: t("cMore").toUpperCase(), v: `+${n}`, onTap: funds })));
   const next = G.goals.filter((g) => g.target && g.pct < 100).slice(0, 3);
   let trim;
   if (next.length) {
-    const ng = h(el, "div", "zl-c-group");
+    const ng = h(el2, "div", "zl-c-group");
     sec(ng, t("gComingUp").toUpperCase());
     trim = dropRow(figures(ng, next.map((g) => goalRow(ctx, S, g, `${shortDate(g.target)} \xB7 ${num(g.amount)}`))), 1);
   }
   const banks = new Set(S.A.list.map((a) => a.bank)).size;
-  sec(h(el, "div", "zl-c-group zl-c-link"), (S.A.list.length ? t("gAccounts", { n: S.A.list.length, b: banks }) : t("acTitle")).toUpperCase(), () => ctx.push({ key: "accounts", title: t("acTitle") }), t("cMore").toUpperCase());
-  return { title, el, fab, trim };
+  sec(h(el2, "div", "zl-c-group zl-c-link"), (S.A.list.length ? t("gAccounts", { n: S.A.list.length, b: banks }) : t("acTitle")).toUpperCase(), () => ctx.push({ key: "accounts", title: t("acTitle") }), t("cMore").toUpperCase());
+  return { title, el: el2, fab, trim };
 };
 var fundsPage = (ctx, S) => {
   const title = t("funds");
-  const el = page(title);
-  el.addClass("zl-c-list");
-  const g = h(el, "div", "zl-c-group");
+  const el2 = page(title);
+  el2.addClass("zl-c-list");
+  const g = h(el2, "div", "zl-c-group");
   figures(g, S.G.funds.map((f) => ({ icon: fundIcon(f), name: true, k: f.label.toUpperCase(), s: fundLine(S, f), v: num(f.saved), hot: isShort(S, f), onTap: () => ctx.push({ key: "fund:" + f.key, title: f.label }) })));
-  return { title, el };
+  return { title, el: el2 };
 };
 var fundPage = (ctx, f, S, newGoal) => {
   const title = f.label;
-  const el = page(title);
-  el.addClass("zl-c-stack");
+  const el2 = page(title);
+  el2.addClass("zl-c-stack");
   const monthly = S.monthly.get(f.key) ?? 0;
   const ft = f.goals.length ? f.target : fundTarget(S, f);
   const done = doneBy(f, monthly, S.now);
-  summary(el, { key: "fund-" + f.key, label: t("savedSoFar"), value: num(f.saved), items: [[f.goals.length ? t("gGoalTotal") : t("cTarget"), ft > 0 ? num(ft) : "-"], [t("remainingGoal"), ft > 0 ? num(Math.max(0, ft - f.collected)) : "-"], [t("gDoneBy"), !f.goals.length ? "-" : f.collected >= f.target ? t("gAllDone") : done ? monthName2(done) : t("gNever")]] });
-  const g = h(el, "div", "zl-c-group");
+  summary(el2, { key: "fund-" + f.key, label: t("savedSoFar"), value: num(f.saved), items: [[f.goals.length ? t("gGoalTotal") : t("cTarget"), ft > 0 ? num(ft) : "-"], [t("remainingGoal"), ft > 0 ? num(Math.max(0, ft - f.collected)) : "-"], [t("gDoneBy"), !f.goals.length ? "-" : f.collected >= f.target ? t("gAllDone") : done ? monthName2(done) : t("gNever")]] });
+  const g = h(el2, "div", "zl-c-group");
   figures(g, [{ icon: fundIcon(f), k: t("monthlyAmount").toUpperCase(), s: t("fromSavingsPlan"), v: num(monthly), onTap: () => editAllocation(ctx, f.key, `${f.label}: ${t("monthlyAmount").toLowerCase()}`) }]);
-  const gg = h(el, "div", "zl-c-group");
+  const gg = h(el2, "div", "zl-c-group");
   sec(gg, t("gInOrder").toUpperCase(), f.goals.length > 1 ? () => ctx.push({ key: "goals:" + f.key, title: f.label }) : void 0, t("cAll").toUpperCase());
   let trim;
   if (f.goals.length) trim = dropRow(figures(gg, f.goals.map((goal) => goalRow(ctx, S, goal, goalSub(goal)))), 1);
   else figures(gg, [{ k: t("gNoGoalYet").toUpperCase(), v: "-", dim: true }]);
-  return { title, el, trim, fab: { icon: "plus", text: t("newGoal").toUpperCase(), label: t("newGoal"), onTap: newGoal } };
+  return { title, el: el2, trim, fab: { icon: "plus", text: t("newGoal").toUpperCase(), label: t("newGoal"), onTap: newGoal } };
 };
 var goalSub = (goal) => goal.target ? `${shortDate(goal.target)} \xB7 ${num(goal.amount)} \xB7 ${Math.floor(goal.pct)}%` : t("gNoDate", { pct: Math.floor(goal.pct) });
 var goalsList = (ctx, f, S, newGoal) => {
   const title = f.label;
-  const el = page(title);
-  el.addClass("zl-c-list");
-  const g = h(el, "div", "zl-c-group");
+  const el2 = page(title);
+  el2.addClass("zl-c-list");
+  const g = h(el2, "div", "zl-c-group");
   sec(g, t("gInOrder").toUpperCase());
   figures(g, f.goals.map((goal) => goalRow(ctx, S, goal, goalSub(goal))));
-  return { title, el, fab: { icon: "plus", text: t("newGoal").toUpperCase(), label: t("newGoal"), onTap: newGoal } };
+  return { title, el: el2, fab: { icon: "plus", text: t("newGoal").toUpperCase(), label: t("newGoal"), onTap: newGoal } };
 };
 var goalPage = (ctx, g, S, a) => {
   const title = g.name;
-  const el = page(title);
-  el.addClass("zl-c-stack");
-  summary(el, { key: "goal-" + g.name, label: t("setAside"), value: num(g.alloc), items: [[t("goal"), num(g.amount)], [t("progress"), `${Math.floor(g.pct)}%`], [t("alreadyPaid"), num(g.spent)]] });
+  const el2 = page(title);
+  el2.addClass("zl-c-stack");
+  summary(el2, { key: "goal-" + g.name, label: t("setAside"), value: num(g.alloc), items: [[t("goal"), num(g.amount)], [t("progress"), `${Math.floor(g.pct)}%`], [t("alreadyPaid"), num(g.spent)]] });
   const f = S.G.funds.find((x) => x.goals.includes(g));
   const tr = S.track.get(g), m = num(S.monthly.get(f?.key ?? "") ?? 0), fund = f?.label ?? "";
   const say2 = !tr ? t("gSayNoDate", { pct: Math.floor(g.pct) }) : tr.short > 0 ? t("gSayShort", { n: num(tr.short), date: shortDate(g.target), fund, per: num(tr.perMonth), m }) : g.pct >= 100 ? t("gSayCovered", { fund }) : t("gSayOnTrack", { fund, m, date: shortDate(g.target) });
-  const d = h(el, "div", "zl-c-group");
+  const d = h(el2, "div", "zl-c-group");
   h(d, "p", "zl-c-note" + (tr && tr.short > 0 ? " is-hot" : ""), say2);
   tileGrid(d, [
     { icon: "goals", k: t("goal").toUpperCase(), v: num(g.amount), onTap: () => a.editGoalAmount(g) },
     { icon: "log", k: t("targetDate").toUpperCase(), v: g.target ? shortDate(g.target) : t("noTarget"), dim: !g.target, onTap: () => a.editTarget(g) }
   ]);
-  const ex = h(el, "div", "zl-c-group");
+  const ex = h(el2, "div", "zl-c-group");
   sec(ex, t("expenses").toUpperCase(), g.expenses.length > 1 ? () => ctx.push({ key: "paid:" + g.name, title: g.name }) : void 0, t("cAll").toUpperCase());
   let trim;
   if (!g.expenses.length) figures(ex, [{ k: t("nothingPaid").toUpperCase(), v: "0", dim: true }]);
   else trim = dropRow(figures(ex, paidRows(g, a)), 1);
-  sec(h(el, "div", "zl-c-group zl-c-danger"), t("deleteGoal").toUpperCase(), () => {
+  sec(h(el2, "div", "zl-c-group zl-c-danger"), t("deleteGoal").toUpperCase(), () => {
     void a.deleteGoal(g);
   }, "");
-  return { title, el, trim, fab: { icon: "plus", text: t("addExpense").toUpperCase(), label: t("addExpense"), onTap: () => a.addExpense(g) } };
+  return { title, el: el2, trim, fab: { icon: "plus", text: t("addExpense").toUpperCase(), label: t("addExpense"), onTap: () => a.addExpense(g) } };
 };
 var paidRows = (g, a) => [...g.expenses].sort((p, q) => q.date.localeCompare(p.date) || q.index - p.index).map((x) => ({ icon: "receipt", k: (x.item || t("expenseDefault")).toUpperCase(), s: x.date ? shortDate(x.date) : void 0, v: num(x.amount), hot: true, onTap: () => a.editExpense(g, x) }));
 var paidList = (g, a) => {
-  const el = page(g.name);
-  el.addClass("zl-c-list");
-  const ex = h(el, "div", "zl-c-group");
+  const el2 = page(g.name);
+  el2.addClass("zl-c-list");
+  const ex = h(el2, "div", "zl-c-group");
   sec(ex, t("expenses").toUpperCase());
   figures(ex, paidRows(g, a));
-  return { title: g.name, el, fab: { icon: "plus", text: t("addExpense").toUpperCase(), label: t("addExpense"), onTap: () => a.addExpense(g) } };
+  return { title: g.name, el: el2, fab: { icon: "plus", text: t("addExpense").toUpperCase(), label: t("addExpense"), onTap: () => a.addExpense(g) } };
 };
 
 // src/pages/log.ts
-var import_obsidian24 = require("obsidian");
 var FULL2 = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 var cap2 = (s2) => {
   const x = String(s2).replace(/_/g, " ");
@@ -12593,7 +12595,7 @@ var logPage = {
     if (blank && key !== "root") return { title: label, el: page(label) };
     const writeMonth = async (fn) => {
       if (!month) {
-        new import_obsidian24.Notice(t("needMonth", { month: label }));
+        toast(t("needMonth", { month: label }), true);
         return false;
       }
       await store.update(monthPath, fn);
@@ -12620,13 +12622,13 @@ var logPage = {
       const b2 = M.budget[Number(key.slice(7))];
       if (b2) return budgetPage(x, b2, days);
     }
-    const el = page(label);
-    el.addClass("zl-c-stack");
+    const el2 = page(label);
+    el2.addClass("zl-c-stack");
     const now = /* @__PURE__ */ new Date();
     const isNow = sel.year === now.getFullYear() && sel.month === now.getMonth();
     const dim = new Date(sel.year, sel.month + 1, 0).getDate(), daysLeft = dim - now.getDate() + 1;
     const fab = { icon: "plus", text: t("cAddExpense").toUpperCase(), hint: t("today").toUpperCase(), label: t("cAddExpense"), onTap: () => expenseSheet(ctx) };
-    const top0 = h(el, "div", "zl-c-group zl-c-top");
+    const top0 = h(el2, "div", "zl-c-group zl-c-top");
     const b = board(top0, "log", blank ? "-" : num(M.remaining));
     dragBoard(top0, b, (d) => step(d), () => true);
     const fmtM = (d) => {
@@ -12637,7 +12639,7 @@ var logPage = {
     bigLabel(top0, blank ? t("cNoNotes") : t("cLeftMonth"), fact);
     if (blank) {
       reads(top0, [[t("cMonth"), "log-r1", "-"], [t("saved"), "log-r2", "-"]]);
-      return { title: label, el, fab };
+      return { title: label, el: el2, fab };
     }
     const tq = M.budget.reduce((s2, x2) => s2 + x2.quota, 0), ts = M.budget.reduce((s2, x2) => s2 + x2.spent, 0);
     if (isNow) {
@@ -12647,7 +12649,7 @@ var logPage = {
       reads(top0, [[t("cSpentToday"), "log-r1", num(spentToday)], [t("cLeftToday"), "log-r2", num(Math.round(perDay - spentToday))]]);
     } else reads(top0, [[t("cMonth"), "log-r1", t("cClosed")], [t("saved"), "log-r2", num(M.saved)]]);
     if (M.budget.length) {
-      const g2 = h(el, "div", "zl-c-group");
+      const g2 = h(el2, "div", "zl-c-group");
       sec(g2, t("cDailyBudget").toUpperCase());
       for (const x2 of M.budget) {
         const over = x2.remain < 0;
@@ -12664,7 +12666,7 @@ var logPage = {
         });
       }
     }
-    const g = h(el, "div", "zl-c-group");
+    const g = h(el2, "div", "zl-c-group");
     sec(g, t("cThisMonth").toUpperCase());
     const gap = M.alloc.gap, open2 = () => ctx.push({ key: "month", title: t("cThisMonth") });
     const ne = M.extras.length;
@@ -12672,7 +12674,7 @@ var logPage = {
       { icon: "wallet", k: t("cSalaryPlan"), s: gap ? t("cPlanGap", { gap: num(Math.abs(gap)), dir: gap < 0 ? t("cPlanOver") : t("cPlanUnder") }) : t("cPlanAddsUp"), v: gap ? num(Math.abs(gap)) : "", hot: gap !== 0, onTap: open2 },
       { icon: "receipt", k: t("cBillsOneOffs"), s: t(ne === 1 ? "cBillsSub" : "cBillsSubN", { p: M.paidCount, n: fixed.length, e: ne }), v: num(M.fixedTotal + M.extraTotal), onTap: open2 }
     ]);
-    return { title: label, el, fab };
+    return { title: label, el: el2, fab };
   }
 };
 var del = (o, k, key) => {
@@ -12685,9 +12687,9 @@ var del = (o, k, key) => {
 var thisMonthPage = (x, nFixed) => {
   const { ctx, cur, label, M, inc } = x;
   const { store } = ctx.plugin;
-  const el = page(t("cThisMonth"));
-  el.addClass("zl-c-list");
-  const top = h(el, "div", "zl-c-group");
+  const el2 = page(t("cThisMonth"));
+  el2.addClass("zl-c-list");
+  const top = h(el2, "div", "zl-c-group");
   const sal = h(top, "button", "zl-read zl-tm-sal");
   h(sal, "span", "zl-read-k", t("cSalaryMonth"));
   const f = new Flap("md", 6);
@@ -12721,7 +12723,7 @@ var thisMonthPage = (x, nFixed) => {
   });
   h(top, "p", "zl-c-note" + (gap ? " is-hot" : ""), gap ? t("cPlanCheckOff", { gap: num(Math.abs(gap)), dir: gap < 0 ? t("cPlanOver") : t("cPlanUnder") }) : t("cPlanCheck"));
   if (nFixed) {
-    const g = h(el, "div", "zl-c-group");
+    const g = h(el2, "div", "zl-c-group");
     sec(g, t("cFixedBills", { p: M.paidCount, n: nFixed }).toUpperCase());
     for (const r of M.fixedRows) {
       const on = r.paid !== 0;
@@ -12740,7 +12742,7 @@ var thisMonthPage = (x, nFixed) => {
       h(row2, "strong", "", num(r.paid || r.def));
     }
   }
-  const og = h(el, "div", "zl-c-group");
+  const og = h(el2, "div", "zl-c-group");
   sec(og, t("cOneOffs").toUpperCase());
   if (!M.extras.length) h(og, "p", "zl-c-note", t("cNoOneOffs"));
   for (const e of M.extras) {
@@ -12766,18 +12768,18 @@ var thisMonthPage = (x, nFixed) => {
         e[k] = amount + (Number(e[k]) || 0);
         f2.extra_expenses = e;
       })) return false;
-      new import_obsidian24.Notice(t("savedX", { name: v.name.trim(), amount: num(amount), cur }));
+      toast(t("savedX", { name: v.name.trim(), amount: num(amount), cur }));
     }
   }).open();
-  return { title: t("cThisMonth"), el, fab: { icon: "plus", text: t("cAddOneOff").toUpperCase(), label: t("cAddOneOff"), onTap: add } };
+  return { title: t("cThisMonth"), el: el2, fab: { icon: "plus", text: t("cAddOneOff").toUpperCase(), label: t("cAddOneOff"), onTap: add } };
 };
 var incomePage = (x) => {
   const { ctx, cur, label, inc } = x;
   const { store } = ctx.plugin;
-  const el = page(t("income"));
-  hero(el, { label: t("totalIncome"), value: num(inc.total), unit: cur, color: C.pos });
-  if (!inc.rows.length) empty(el, { icon: "arrow-down-to-line", title: t("noIncome") });
-  const g = group2(el);
+  const el2 = page(t("income"));
+  hero(el2, { label: t("totalIncome"), value: num(inc.total), unit: cur, color: C.pos });
+  if (!inc.rows.length) empty(el2, { icon: "arrow-down-to-line", title: t("noIncome") });
+  const g = group2(el2);
   for (const r of inc.rows) {
     const name = cap2(r.label);
     const write = (val) => x.writeMonth((f) => {
@@ -12799,17 +12801,17 @@ var incomePage = (x) => {
       validate: (v) => v.v === "" || isNaN(parseNum(v.v)) ? t("invalidNumber") : null,
       onSubmit: async (v) => {
         if (!await write(parseNum(v.v))) return false;
-        new import_obsidian24.Notice(t("savedX", { name, amount: num(parseNum(v.v)), cur }));
+        toast(t("savedX", { name, amount: num(parseNum(v.v)), cur }));
       },
       danger: {
         text: r.kind === "extra" ? t("removeIncome") : t("skipMonth"),
         onTap: async () => {
           if (r.kind === "extra") {
             if (!await x.writeMonth((f) => del(f, "extra_income", r.key))) return false;
-            new import_obsidian24.Notice(t("removedX", { name }));
+            toast(t("removedX", { name }));
           } else {
             if (!await write(0)) return false;
-            new import_obsidian24.Notice(t("skippedX", { name, month: label }));
+            toast(t("skippedX", { name, month: label }));
           }
           return true;
         }
@@ -12842,7 +12844,7 @@ var incomePage = (x) => {
           e[k] = amount + (Number(e[k]) || 0);
           f.extra_income = e;
         })) return false;
-        new import_obsidian24.Notice(t("savedX", { name: v.name, amount: num(amount), cur }));
+        toast(t("savedX", { name: v.name, amount: num(amount), cur }));
       } else if (v.kind === "bonus") {
         const m = Number(v.bmonth);
         await store.update(store.path(FILES.income), (f) => {
@@ -12850,7 +12852,7 @@ var incomePage = (x) => {
           list5.push({ name: v.name.trim(), month: m, amount });
           f.bonuses = list5;
         });
-        new import_obsidian24.Notice(t("bonusSaved", { name: v.name.trim(), month: MONTHS[m - 1], amount: num(amount), cur }));
+        toast(t("bonusSaved", { name: v.name.trim(), month: MONTHS[m - 1], amount: num(amount), cur }));
       } else {
         const r = inc.rows.find((y) => y.key === v.which);
         if (!r) return false;
@@ -12864,19 +12866,19 @@ var incomePage = (x) => {
         await store.update(store.path(FILES.income), (f) => {
           f[r.key] = amount;
         });
-        new import_obsidian24.Notice(t("baseChanged", { name: cap2(r.label), from: num(r.base), to: num(amount), cur, month: label }));
+        toast(t("baseChanged", { name: cap2(r.label), from: num(r.base), to: num(amount), cur, month: label }));
       }
     }
   }).open();
-  return { title: t("income"), el, fab: { icon: "plus", text: t("addIncome").toUpperCase(), label: t("addIncome"), onTap: add } };
+  return { title: t("income"), el: el2, fab: { icon: "plus", text: t("addIncome").toUpperCase(), label: t("addIncome"), onTap: add } };
 };
 var savingsPage = (x) => {
   const { ctx, cur, M } = x;
   const { store } = ctx.plugin;
-  const el = page(t("savings"));
-  hero(el, { label: t("setAsideMonth"), value: num(M.saved), unit: cur, color: C.info });
+  const el2 = page(t("savings"));
+  hero(el2, { label: t("setAsideMonth"), value: num(M.saved), unit: cur, color: C.info });
   const goalFunds = (Array.isArray(store.fm(store.path(FILES.goals))?.funds) ? store.fm(store.path(FILES.goals)).funds : []).map((f) => String(f.key));
-  const g = group2(el);
+  const g = group2(el2);
   row(g, { title: t("living"), sub: t("livingSub"), value: num(M.alloc.living), chevron: false });
   for (const [k, v] of M.savings) {
     const owner = k === "investment" ? "invest" : k === "student_loan" ? "debt" : goalFunds.includes(k) ? "goals" : null;
@@ -12887,25 +12889,25 @@ var savingsPage = (x) => {
   const inv = store.fm(store.path(FILES.invest));
   const buckets = investBuckets(inv, plan, `${sel.year}-${String(sel.month + 1).padStart(2, "0")}`, (c) => ctx.plugin.prices.fx(c, cur, inv?.fx_fallback ?? {}), cur);
   if (buckets) {
-    const bg = group2(el, t("investThisMonth"));
+    const bg = group2(el2, t("investThisMonth"));
     for (const b of buckets) {
       const hit2 = b.target > 0 && b.bought >= b.target;
       row(bg, { title: b.label, value: `${num(Math.max(0, b.bought))} / ${num(b.target)}`, valueColor: hit2 ? C.pos : void 0, progress: [b.target > 0 ? Math.max(0, b.bought) / b.target * 100 : 0, C.pos], chevron: true, onTap: () => ctx.goTab("invest") });
     }
   }
-  return { title: t("savings"), el };
+  return { title: t("savings"), el: el2 };
 };
 var setPaid = async (x, r, on, amount) => {
   if (!await x.writeMonth((f) => {
     f[r.prop] = on ? amount ?? r.def : 0;
   })) return;
-  new import_obsidian24.Notice(on ? t("markedPaid", { name: r.item.name }) : t("markedUnpaid", { name: r.item.name }));
+  toast(on ? t("markedPaid", { name: r.item.name }) : t("markedUnpaid", { name: r.item.name }));
 };
 var fixedPage = (x) => {
   const { ctx, cur, M } = x;
-  const el = page(t("fixedExpenses"));
-  hero(el, { label: t("fixedThisMonth"), value: num(M.fixedTotal), unit: cur, color: C.neg, sub: t("paidN", { n: M.paidCount, m: M.fixedRows.length }) });
-  const g = group2(el);
+  const el2 = page(t("fixedExpenses"));
+  hero(el2, { label: t("fixedThisMonth"), value: num(M.fixedTotal), unit: cur, color: C.neg, sub: t("paidN", { n: M.paidCount, m: M.fixedRows.length }) });
+  const g = group2(el2);
   for (const r of M.fixedRows) {
     row(g, {
       check: { on: r.paid !== 0, color: C.pos, onToggle: (on) => {
@@ -12918,14 +12920,14 @@ var fixedPage = (x) => {
       onTap: () => ctx.push({ key: "fixed:" + r.prop, title: r.item.name })
     });
   }
-  return { title: t("fixedExpenses"), el };
+  return { title: t("fixedExpenses"), el: el2 };
 };
 var fixedItemPage = (x, r) => {
   const { cur } = x;
-  const el = page(r.item.name);
+  const el2 = page(r.item.name);
   const on = r.paid !== 0;
-  hero(el, { label: on ? t("paidThisMonth") : t("notPaid"), value: num(r.paid), unit: cur, color: on ? C.neg : C.faint });
-  const g = group2(el);
+  hero(el2, { label: on ? t("paidThisMonth") : t("notPaid"), value: num(r.paid), unit: cur, color: on ? C.neg : C.faint });
+  const g = group2(el2);
   row(g, { check: { on, color: C.pos, onToggle: (v) => {
     void setPaid(x, r, v);
   } }, title: t("paidThisMonth"), onTap: () => {
@@ -12935,64 +12937,64 @@ var fixedItemPage = (x, r) => {
     if (!await x.writeMonth((f) => {
       f[r.prop] = n;
     })) return false;
-    new import_obsidian24.Notice(t("savedX", { name: r.item.name, amount: num(n), cur }));
+    toast(t("savedX", { name: r.item.name, amount: num(n), cur }));
   }) });
   row(g, { icon: "pin", tint: C.faint, title: t("defaultAmount"), value: num(r.def) });
-  return { title: r.item.name, el };
+  return { title: r.item.name, el: el2 };
 };
 var extraPage = (x) => {
   const { ctx, cur, M } = x;
-  const el = page(t("extraExpenses"));
-  hero(el, { label: t("extraTotal"), value: num(M.extraTotal), unit: cur, color: C.warn });
-  if (!M.extras.length) empty(el, { icon: "sparkles", title: t("noExtra") });
+  const el2 = page(t("extraExpenses"));
+  hero(el2, { label: t("extraTotal"), value: num(M.extraTotal), unit: cur, color: C.warn });
+  if (!M.extras.length) empty(el2, { icon: "sparkles", title: t("noExtra") });
   else {
-    const g = group2(el);
+    const g = group2(el2);
     for (const e of M.extras) row(g, { title: cap2(e.prop), sub: e.days.length ? t("daysN", { n: e.days.length }) : void 0, value: num(e.total), valueColor: C.warn, chevron: true, onTap: () => ctx.push({ key: "extra:" + e.prop, title: cap2(e.prop) }) });
   }
-  return { title: t("extraExpenses"), el };
+  return { title: t("extraExpenses"), el: el2 };
 };
 var extraItemPage = (x, e) => {
   const { ctx, cur } = x;
   const name = cap2(e.prop);
-  const el = page(name);
-  hero(el, { label: t("extraTotal"), value: num(e.total), unit: cur, color: C.warn });
+  const el2 = page(name);
+  hero(el2, { label: t("extraTotal"), value: num(e.total), unit: cur, color: C.warn });
   if (e.fromMonth > 0) {
-    const g = group2(el, t("monthlyEntry"));
+    const g = group2(el2, t("monthlyEntry"));
     row(g, { icon: "pencil", tint: C.warn, title: t("monthlyEntry"), value: num(e.fromMonth), chevron: true, onTap: () => x.editAmount(t("monthlyEntry"), e.fromMonth, async (n) => {
       if (!await x.writeMonth((f) => {
         f.extra_expenses = { ...f.extra_expenses ?? {}, [e.prop]: n };
       })) return false;
-      new import_obsidian24.Notice(t("savedX", { name, amount: num(n), cur }));
+      toast(t("savedX", { name, amount: num(n), cur }));
     }) });
     row(g, { icon: "trash-2", tint: C.neg, title: t("removeEntry"), titleColor: C.neg, onTap: async () => {
       if (!await confirmSheet(ctx.app, t("removeEntry"), `${name} \xB7 ${num(e.fromMonth)} ${cur}`, t("delete"))) return;
-      if (await x.writeMonth((f) => del(f, "extra_expenses", e.prop))) new import_obsidian24.Notice(t("removedX", { name }));
+      if (await x.writeMonth((f) => del(f, "extra_expenses", e.prop))) toast(t("removedX", { name }));
     } });
   }
   if (e.days.length) {
-    const g = group2(el, t("days"));
+    const g = group2(el2, t("days"));
     for (const d of e.days) row(g, { icon: "calendar", tint: C.faint, title: shortDate(d.name), value: num(d.amount), valueColor: C.warn, chevron: true, onTap: () => void ctx.plugin.openDay(d.name) });
   }
-  return { title: name, el };
+  return { title: name, el: el2 };
 };
 var budgetPage = (x, b, days) => {
   const { ctx, cur, label } = x;
-  const el = page(b.item.name);
-  el.addClass("zl-c-list");
+  const el2 = page(b.item.name);
+  el2.addClass("zl-c-list");
   const sel = ctx.plugin.logMonth, now = /* @__PURE__ */ new Date();
   const isNow = sel.year === now.getFullYear() && sel.month === now.getMonth();
   const dim = new Date(sel.year, sel.month + 1, 0).getDate(), daysLeft = isNow ? dim - now.getDate() + 1 : 0;
-  summary(el, {
+  summary(el2, {
     key: "budget-" + b.index,
     label: `${b.item.name} \xB7 ${b.remain >= 0 ? t("leftInBudget") : t("overBudget")}`,
     value: num(Math.abs(b.remain)),
     hot: b.level !== "ok",
     items: [[t("cLimit"), num(b.quota)], [t("spent"), num(b.spent)], isNow ? [t("cPerDayLeft"), num(Math.max(0, b.remain) / Math.max(1, daysLeft)), b.remain < 0] : [t("used"), `${b.quota > 0 ? Math.round(b.spent / b.quota * 100) : 0}%`]]
   });
-  const bar = h(el, "div", "zl-c-group");
+  const bar = h(el2, "div", "zl-c-group");
   sec(bar, (isNow ? t("cVsPace") : t("spent")).toUpperCase());
   budgetBar(bar, b.spent, b.quota, isNow ? now.getDate() / dim : 0, 30, 10, 18);
-  const lim = h(el, "div", "zl-c-group");
+  const lim = h(el2, "div", "zl-c-group");
   const pct2 = b.item.quota;
   const setLimit = () => x.editAmount(
     t("cLimitOf", { name: b.item.name }),
@@ -13001,7 +13003,7 @@ var budgetPage = (x, b, days) => {
       if (!await x.writeMonth((f) => {
         f[b.quotaKey] = n;
       })) return false;
-      new import_obsidian24.Notice(t("savedX", { name: b.item.name, amount: num(n), cur }));
+      toast(t("savedX", { name: b.item.name, amount: num(n), cur }));
     },
     false,
     t("cLimitNote", { name: b.item.name, month: label, pct: pct2 })
@@ -13017,22 +13019,22 @@ var budgetPage = (x, b, days) => {
         void x.writeMonth((f) => {
           f[b.quotaKey] = n;
         }).then((ok) => {
-          if (ok) new import_obsidian24.Notice(t("savedX", { name: b.item.name, amount: num(n), cur }));
+          if (ok) toast(t("savedX", { name: b.item.name, amount: num(n), cur }));
         });
       } })
     },
     ...!b.isPercent ? [{ icon: "back", k: t("backToPct", { pct: pct2 }).toUpperCase(), s: t("cLimitBack"), v: `${pct2}%`, onTap: async () => {
       if (await x.writeMonth((f) => {
         delete f[b.quotaKey];
-      })) new import_obsidian24.Notice(t("savedX", { name: b.item.name, amount: `${pct2}%`, cur: "" }));
+      })) toast(t("savedX", { name: b.item.name, amount: `${pct2}%`, cur: "" }));
     } }] : []
   ]);
   const rows = days.map((d) => ({ d, items: b.item.spending.map((p) => [p, Number(d.fm[p]) || 0]).filter(([, v]) => v > 0) })).filter((r) => r.items.length).sort((p, q) => q.d.name.localeCompare(p.d.name));
-  const dg = h(el, "div", "zl-c-group");
+  const dg = h(el2, "div", "zl-c-group");
   sec(dg, t("days").toUpperCase());
   if (rows.length) figures(dg, rows.map(({ d, items: items2 }) => ({ icon: "log", k: shortDate(d.name).toUpperCase(), s: items2.map(([k, v]) => `${cap2(k)} ${num(v)}`).join(" \xB7 "), v: num(items2.reduce((s2, [, v]) => s2 + v, 0)), onTap: () => void ctx.plugin.openDay(d.name) })));
   else figures(dg, [{ icon: "log", k: t("nothingSpent").toUpperCase(), v: "0", dim: true }]);
-  return { title: b.item.name, el };
+  return { title: b.item.name, el: el2 };
 };
 
 // src/pages/index.ts
@@ -13046,7 +13048,7 @@ var PAGES = {
 
 // src/view.ts
 var VIEW_TYPE = "ledgerline";
-var LedgerView = class extends import_obsidian25.ItemView {
+var LedgerView = class extends import_obsidian17.ItemView {
   // key of the page on screen
   constructor(leaf, plugin) {
     super(leaf);
@@ -13114,7 +13116,7 @@ var LedgerView = class extends import_obsidian25.ItemView {
     this.draw();
     window.setTimeout(() => this.logLayout(), 1e3);
     let turnT = 0;
-    if (import_obsidian25.Platform.isMobile) this.registerDomEvent(window, "resize", () => {
+    if (import_obsidian17.Platform.isMobile) this.registerDomEvent(window, "resize", () => {
       window.clearTimeout(turnT);
       turnT = window.setTimeout(() => {
         this.placeDock();
@@ -13125,9 +13127,9 @@ var LedgerView = class extends import_obsidian25.ItemView {
   // Debug: where the screen and each wrapper around it start, and the spacing they add (for layout gaps on phones)
   logLayout() {
     const lines = [`layout: window ${window.innerWidth}x${window.innerHeight}, body ${document.body.className.split(" ").filter((c) => /mobile|phone|ios|floating|zl-|ze-/.test(c)).join(" ")}`];
-    for (let el = this.topEl; el && el !== document.documentElement; el = el.parentElement) {
-      const r = el.getBoundingClientRect(), cs = getComputedStyle(el);
-      lines.push(`  ${el.tagName.toLowerCase()}.${[...el.classList].slice(0, 4).join(".")} top ${Math.round(r.top)} h ${Math.round(r.height)} pad-top ${cs.paddingTop} margin-top ${cs.marginTop} pos ${cs.position}${cs.transform !== "none" ? " transform " + cs.transform : ""}`);
+    for (let el2 = this.topEl; el2 && el2 !== document.documentElement; el2 = el2.parentElement) {
+      const r = el2.getBoundingClientRect(), cs = getComputedStyle(el2);
+      lines.push(`  ${el2.tagName.toLowerCase()}.${[...el2.classList].slice(0, 4).join(".")} top ${Math.round(r.top)} h ${Math.round(r.height)} pad-top ${cs.paddingTop} margin-top ${cs.marginTop} pos ${cs.position}${cs.transform !== "none" ? " transform " + cs.transform : ""}`);
     }
     const tr = this.topEl.getBoundingClientRect(), tt = this.scrollEl.querySelector(".zl-title")?.getBoundingClientRect();
     lines.push(`  top bar ${Math.round(tr.top)}-${Math.round(tr.bottom)}, large title at ${tt ? Math.round(tt.top) : "-"}, tabs at ${Math.round(this.tabsEl.getBoundingClientRect().top)}`);
@@ -13135,16 +13137,16 @@ var LedgerView = class extends import_obsidian25.ItemView {
     probe.style.cssText = "position:fixed;visibility:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)";
     const ps = getComputedStyle(probe), ins = `safe l ${ps.paddingLeft} r ${ps.paddingRight} b ${ps.paddingBottom}`;
     probe.remove();
-    const box = (el) => {
-      if (!el) return "-";
-      const b = el.getBoundingClientRect();
+    const box = (el2) => {
+      if (!el2) return "-";
+      const b = el2.getBoundingClientRect();
       return `${Math.round(b.left)}..${Math.round(b.right)} y ${Math.round(b.top)}..${Math.round(b.bottom)}`;
     };
     const as = getComputedStyle(this.appEl);
     lines.push(`  across: ${ins}; app ${box(this.appEl)} pad-l ${as.paddingLeft} app-x ${as.getPropertyValue("--zl-app-x")}; left col ${box(this.scrollEl.querySelector(".zl-page > .zl-c-top"))}; dock ${box(this.fabEl)}; tabs ${box(this.tabsEl)}`);
-    for (let el = this.appEl.parentElement; el && el !== document.documentElement; el = el.parentElement) {
-      const cs = getComputedStyle(el);
-      if (cs.paddingLeft !== "0px" || cs.marginLeft !== "0px") lines.push(`  ${el.tagName.toLowerCase()}.${[...el.classList].slice(0, 3).join(".")} pad-l ${cs.paddingLeft} margin-l ${cs.marginLeft}`);
+    for (let el2 = this.appEl.parentElement; el2 && el2 !== document.documentElement; el2 = el2.parentElement) {
+      const cs = getComputedStyle(el2);
+      if (cs.paddingLeft !== "0px" || cs.marginLeft !== "0px") lines.push(`  ${el2.tagName.toLowerCase()}.${[...el2.classList].slice(0, 3).join(".")} pad-l ${cs.paddingLeft} margin-l ${cs.marginLeft}`);
     }
     this.plugin.debug.note(lines.join("\n"));
     void this.plugin.debug.flush();
@@ -13156,7 +13158,7 @@ var LedgerView = class extends import_obsidian25.ItemView {
   // Phone full screen is a property of the screen itself (set when it is built), not of which tab Obsidian says is active:
   // that news arrives a moment after the screen shows, and the layout jumped in between.
   setFull() {
-    this.appEl.toggleClass("is-full", import_obsidian25.Platform.isMobile && this.plugin.settings.fullScreen);
+    this.appEl.toggleClass("is-full", import_obsidian17.Platform.isMobile && this.plugin.settings.fullScreen);
   }
   // ---- capture for Vellum (capture.ts): the page on screen as named parts, and where it sits in the screen map
   shot() {
@@ -13164,8 +13166,8 @@ var LedgerView = class extends import_obsidian25.ItemView {
     const idOf = (fr) => fr && fr.key !== "root" ? `${tab}-${fr.key.split(":")[0].replace(/[^a-z0-9-]+/gi, "-")}` : tab;
     let pageEl = this.scrollEl.firstElementChild;
     while (pageEl && pageEl.children.length === 1) pageEl = pageEl.firstElementChild;
-    const nameOf = (el) => (el.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 24) || ([...el.classList].find((c) => c.startsWith("zl-")) ?? "section").replace(/^zl-/, "");
-    const kindOf = (el) => el.querySelector("canvas, svg.zl-chart, .zl-fchart") ? "card" : el.querySelector(".zl-flap, .zl-board") ? "hero" : el.querySelector("button, input") && !el.querySelector(".zl-row") ? "action" : "list";
+    const nameOf = (el2) => (el2.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 24) || ([...el2.classList].find((c) => c.startsWith("zl-")) ?? "section").replace(/^zl-/, "");
+    const kindOf = (el2) => el2.querySelector("canvas, svg.zl-chart, .zl-fchart") ? "card" : el2.querySelector(".zl-flap, .zl-board") ? "hero" : el2.querySelector("button, input") && !el2.querySelector(".zl-row") ? "action" : "list";
     const parts = [["Top bar", "nav", this.topEl]];
     for (const c of Array.from(pageEl?.children ?? [])) parts.push([nameOf(c), kindOf(c), c]);
     parts.push(["Dock", "action", this.fabEl], ["Tab bar", "nav", this.tabsEl]);
@@ -13259,19 +13261,19 @@ var LedgerView = class extends import_obsidian25.ItemView {
     g.appendChild(c);
     return g;
   }
-  animateIn(el) {
+  animateIn(el2) {
     if (!this.enter) return;
-    el.dataset.enter = this.enter;
+    el2.dataset.enter = this.enter;
     let i = 0;
-    for (const c of Array.from(el.children)) {
+    for (const c of Array.from(el2.children)) {
       if (c.hasClass("zl-title-row")) continue;
       c.style.setProperty("--e", String(Math.min(i++, 6)));
     }
-    el.removeClass("zl-enter");
-    void el.offsetWidth;
-    el.addClass("zl-enter");
-    if (this.enter === "tab") el.querySelectorAll(".zl-board").forEach((b) => b.dispatchEvent(new Event("zl-replay")));
-    el.querySelectorAll(".zl-flap").forEach((f) => {
+    el2.removeClass("zl-enter");
+    void el2.offsetWidth;
+    el2.addClass("zl-enter");
+    if (this.enter === "tab") el2.querySelectorAll(".zl-board").forEach((b) => b.dispatchEvent(new Event("zl-replay")));
+    el2.querySelectorAll(".zl-flap").forEach((f) => {
       if (!(this.enter === "tab" && f.closest(".zl-board"))) f.dispatchEvent(new Event("zl-flap-replay"));
     });
   }
@@ -13412,10 +13414,10 @@ var LedgerView = class extends import_obsidian25.ItemView {
     this.setFab(e.out.fab, acts.filter((a) => a.dock));
     if (e.out.el.hasClass("zl-c-stack")) window.requestAnimationFrame(() => this.fit(e.out.el, key, e.out.trim));
     else {
-      const el = e.out.el;
-      el.removeClass("is-short");
+      const el2 = e.out.el;
+      el2.removeClass("is-short");
       window.requestAnimationFrame(() => {
-        if (el.isConnected && el.scrollHeight < this.scrollEl.clientHeight * 0.7) el.addClass("is-short");
+        if (el2.isConnected && el2.scrollHeight < this.scrollEl.clientHeight * 0.7) el2.addClass("is-short");
       });
     }
     if (!this.firstShown) {
@@ -13426,19 +13428,19 @@ var LedgerView = class extends import_obsidian25.ItemView {
   // A one-screen page must never scroll (Design Rules, Room). Phones differ by a few px, so after it is drawn: if it is taller
   // than the room, tighten its spacing one step at a time (gaps, then row padding) until it fits; only past the last step does
   // it scroll. The step is kept on the page, so a redraw starts from it.
-  fit(el, key, trim) {
+  fit(el2, key, trim) {
     const s2 = this.scrollEl;
-    if (!el.isConnected) return;
-    const over = () => el.scrollHeight - s2.clientHeight;
+    if (!el2.isConnected) return;
+    const over = () => el2.scrollHeight - s2.clientHeight;
     for (const step of ["", "is-tight", "is-tighter"]) {
-      if (step) el.addClass(step);
+      if (step) el2.addClass(step);
       if (over() <= 0) break;
     }
     for (let i = 0; i < 20 && over() > 0 && trim?.(); i++) {
     }
     s2.toggleClass("is-fit", over() <= 0);
     s2.scrollTop = 0;
-    this.plugin.debug.note(`fit ${key}: content ${el.scrollHeight} / room ${s2.clientHeight}${el.hasClass("is-tighter") ? " (tighter)" : el.hasClass("is-tight") ? " (tight)" : ""}`);
+    this.plugin.debug.note(`fit ${key}: content ${el2.scrollHeight} / room ${s2.clientHeight}${el2.hasClass("is-tighter") ? " (tighter)" : el2.hasClass("is-tight") ? " (tight)" : ""}`);
   }
   mountSkeleton(key) {
     const prev = this.cache.get(this.shown);
@@ -13519,8 +13521,8 @@ var LedgerView = class extends import_obsidian25.ItemView {
     fill2(this.actsEl);
   }
   errorPage(e, key) {
-    const el = h(null, "div", "zl-page");
-    const box = h(el, "div", "zl-empty");
+    const el2 = h(null, "div", "zl-page");
+    const box = h(el2, "div", "zl-empty");
     icon(box, "alert-triangle", "zl-empty-ic");
     h(box, "div", "zl-empty-t", t("pageFailed"));
     h(box, "div", "zl-empty-s", String(e instanceof Error ? e.message : e).slice(0, 200));
@@ -13528,12 +13530,12 @@ var LedgerView = class extends import_obsidian25.ItemView {
     retry.addEventListener("click", () => {
       void this.render(key);
     });
-    return { title: t("pageFailed"), el };
+    return { title: t("pageFailed"), el: el2 };
   }
 };
 
 // src/capture.ts
-var import_obsidian26 = require("obsidian");
+var import_obsidian18 = require("obsidian");
 var SCREENS = "Docs/Design/Screens";
 var DEVICES = [["iphone-12-pro-max", 428, 926], ["iphone-16-pro-max", 440, 956], ["iphone-16-pro", 402, 874], ["iphone-16", 393, 852], ["iphone-14", 390, 844], ["iphone-12-mini", 375, 812], ["iphone-se", 375, 667]];
 var TOP3 = 47;
@@ -13578,8 +13580,8 @@ var named = (pal, p) => {
   }
   return d <= 12 && (p[3] ?? 1) >= 0.98 ? best : hex(p);
 };
-function block(el, name, kind, origin, k, pal, view) {
-  const br = el.getBoundingClientRect();
+function block(el2, name, kind, origin, k, pal, view) {
+  const br = el2.getBoundingClientRect();
   if (br.width < 2 || br.height < 2 || br.bottom < view.top || br.top > view.bottom) return null;
   const bx = br.left, by = Math.max(br.top, view.top), items2 = [], shapes = [];
   const at = (r) => ({ g: "tl", dx: Math.round((r.left - bx) * k), dy: Math.round((r.top - by) * k) });
@@ -13605,12 +13607,12 @@ function block(el, name, kind, origin, k, pal, view) {
     const fill2 = rgb(cs.backgroundColor), sw = all4 ? sides.Top.w : 0, stroke = all4 ? sides.Top.c : null;
     const drawn = n instanceof SVGElement || n.tagName === "CANVAS" || n.tagName === "IMG";
     const px = n instanceof SVGElement ? n.dataset.px : void 0;
-    if (px && n !== el) {
+    if (px && n !== el2) {
       const flip = /^matrix\(-/.test(cs.transform), col = rgb(cs.color);
       items2.push({ type: "icon", ...at(r), name: `zlpx-${px === "back" && flip ? "go" : px}`, size: Math.round(Math.max(r.width, r.height) * k), color: col ? named(pal, col) : "text" });
       return;
     }
-    if (n !== el && (fill2 || stroke || drawn) && r.width * k >= 2 && r.height * k >= 1) {
+    if (n !== el2 && (fill2 || stroke || drawn) && r.width * k >= 2 && r.height * k >= 1) {
       const s2 = { type: "rect", ...at(r), w: Math.round(r.width * k), h: Math.round(r.height * k) };
       if (fill2) s2.fill = named(pal, fill2);
       if (stroke) {
@@ -13656,8 +13658,8 @@ function block(el, name, kind, origin, k, pal, view) {
     }
     for (const c of Array.from(n.children)) walk(c);
   };
-  walk(el);
-  const tabs = Array.from(el.querySelectorAll(":scope > .zl-tab"));
+  walk(el2);
+  const tabs = Array.from(el2.querySelectorAll(":scope > .zl-tab"));
   let row2 = null;
   if (tabs.length) {
     const tr = tabs[0].getBoundingClientRect(), down = tabs.length > 1 && tabs[1].getBoundingClientRect().top > tr.bottom - 1;
@@ -13677,7 +13679,7 @@ function block(el, name, kind, origin, k, pal, view) {
     it.id = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 6) || "b"}${i}`;
   });
   if (row2) all.push(row2);
-  const ef = rgb(getComputedStyle(el).backgroundColor);
+  const ef = rgb(getComputedStyle(el2).backgroundColor);
   if (ef) all.unshift({ id: "bg" + Math.round(by), type: "rect", g: "tl", dx: 0, dy: 0, w: "fill", h: "fill", fill: named(pal, ef) });
   return { id: (name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "b") + "-" + Math.round(by), name, kind, x: Math.round((bx - origin.x) * k), y: Math.round((by - origin.y) * k), w: Math.round(br.width * k), h: Math.round((Math.min(br.bottom, view.bottom) - by) * k), items: all };
 }
@@ -13696,37 +13698,37 @@ async function capture(app, shot) {
   }
   const ar = shot.appEl.getBoundingClientRect();
   if (ar.width < 1) {
-    new import_obsidian26.Notice("Capture: the Ledgerline pane is not on screen.");
+    new import_obsidian18.Notice("Capture: the Ledgerline pane is not on screen.");
     return null;
   }
-  if (!import_obsidian26.Platform.isMobile && (ar.width < 340 || ar.width > 480)) {
-    new import_obsidian26.Notice(`Capture: make the Ledgerline pane about a phone's width (it is ${Math.round(ar.width)} px; 360\u2013470), or capture on the phone.`);
+  if (!import_obsidian18.Platform.isMobile && (ar.width < 340 || ar.width > 480)) {
+    new import_obsidian18.Notice(`Capture: make the Ledgerline pane about a phone's width (it is ${Math.round(ar.width)} px; 360\u2013470), or capture on the phone.`);
     return null;
   }
-  const W = import_obsidian26.Platform.isMobile ? window.innerWidth : 428, H = import_obsidian26.Platform.isMobile ? window.innerHeight : 926;
-  const land = import_obsidian26.Platform.isMobile && W > H;
+  const W = import_obsidian18.Platform.isMobile ? window.innerWidth : 428, H = import_obsidian18.Platform.isMobile ? window.innerHeight : 926;
+  const land = import_obsidian18.Platform.isMobile && W > H;
   const emuLand = land && W === 832 && H === 407;
   const [PW, PH] = emuLand ? [428, 926] : land ? [H, W] : [W, H];
-  const dev = DEVICES.find(([, w, h2]) => w === PW && h2 === PH)?.[0] ?? (import_obsidian26.Platform.isMobile ? DEVICES.find(([, w]) => w === PW)?.[0] : null) ?? "iphone-12-pro-max";
+  const dev = DEVICES.find(([, w, h2]) => w === PW && h2 === PH)?.[0] ?? (import_obsidian18.Platform.isMobile ? DEVICES.find(([, w]) => w === PW)?.[0] : null) ?? "iphone-12-pro-max";
   const [, DW] = DEVICES.find(([d]) => d === dev);
-  const k = import_obsidian26.Platform.isMobile ? 1 : DW / ar.width;
+  const k = import_obsidian18.Platform.isMobile ? 1 : DW / ar.width;
   const probe = shot.appEl.createDiv();
   probe.style.cssText = "position:absolute;visibility:hidden;padding-top:env(safe-area-inset-top)";
   const safe = parseFloat(getComputedStyle(probe).paddingTop) || 0;
   probe.remove();
-  const emu = import_obsidian26.Platform.isMobile && !safe;
-  const origin = !import_obsidian26.Platform.isMobile ? { x: ar.left, y: ar.top - TOP3 / k } : emu ? land ? { x: ar.left - TOP3, y: ar.top } : { x: 0, y: ar.top - TOP3 } : { x: 0, y: Math.max(0, ar.top - safe) };
-  const view = new DOMRect(ar.left, ar.top, ar.width, import_obsidian26.Platform.isMobile ? Math.min(ar.height, H) : Math.min(ar.height, (H - TOP3) / k));
+  const emu = import_obsidian18.Platform.isMobile && !safe;
+  const origin = !import_obsidian18.Platform.isMobile ? { x: ar.left, y: ar.top - TOP3 / k } : emu ? land ? { x: ar.left - TOP3, y: ar.top } : { x: 0, y: ar.top - TOP3 } : { x: 0, y: Math.max(0, ar.top - safe) };
+  const view = new DOMRect(ar.left, ar.top, ar.width, import_obsidian18.Platform.isMobile ? Math.min(ar.height, H) : Math.min(ar.height, (H - TOP3) / k));
   const pal = palette(app, shot.appEl);
-  const blocks2 = shot.parts.map(([name, kind, el]) => block(el, name, kind, origin, k, pal, view)).filter((b) => !!b);
-  const page3 = { id: shot.id, name: mask(shot.name), ...shot.parent ? { parent: shot.parent } : {}, ...shot.link ? { link: mask(shot.link) } : {}, note: `Captured from the app ${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}${import_obsidian26.Platform.isMobile ? " on the phone" : ""}.`, blocks: blocks2 };
+  const blocks2 = shot.parts.map(([name, kind, el2]) => block(el2, name, kind, origin, k, pal, view)).filter((b) => !!b);
+  const page3 = { id: shot.id, name: mask(shot.name), ...shot.parent ? { parent: shot.parent } : {}, ...shot.link ? { link: mask(shot.link) } : {}, note: `Captured from the app ${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}${import_obsidian18.Platform.isMobile ? " on the phone" : ""}.`, blocks: blocks2 };
   const v = app.vault;
-  if (!(v.getAbstractFileByPath(SCREENS) instanceof import_obsidian26.TFolder)) await v.createFolder(SCREENS);
+  if (!(v.getAbstractFileByPath(SCREENS) instanceof import_obsidian18.TFolder)) await v.createFolder(SCREENS);
   const folder = v.getAbstractFileByPath(SCREENS);
   let file = null;
-  for (const f of folder.children) if (f instanceof import_obsidian26.TFile && f.extension === "json" && f.name !== "_doc.json" && (await v.read(f)).startsWith(`{"id":${JSON.stringify(shot.id)},`)) file = f;
-  let path = file?.path ?? (0, import_obsidian26.normalizePath)(`${SCREENS}/${fileName(String(page3.name))}.json`), n = 2;
-  while (!file && v.getAbstractFileByPath(path)) path = (0, import_obsidian26.normalizePath)(`${SCREENS}/${fileName(String(page3.name))} ${n++}.json`);
+  for (const f of folder.children) if (f instanceof import_obsidian18.TFile && f.extension === "json" && f.name !== "_doc.json" && (await v.read(f)).startsWith(`{"id":${JSON.stringify(shot.id)},`)) file = f;
+  let path = file?.path ?? (0, import_obsidian18.normalizePath)(`${SCREENS}/${fileName(String(page3.name))}.json`), n = 2;
+  while (!file && v.getAbstractFileByPath(path)) path = (0, import_obsidian18.normalizePath)(`${SCREENS}/${fileName(String(page3.name))} ${n++}.json`);
   let had = {};
   if (file) {
     try {
@@ -13742,26 +13744,26 @@ async function capture(app, shot) {
   else await v.create(path, pageText(page3));
   const dp = `${SCREENS}/_doc.json`, df = v.getAbstractFileByPath(dp);
   let meta = { id: "ledgerline", device: dev, order: [] };
-  if (df instanceof import_obsidian26.TFile) {
+  if (df instanceof import_obsidian18.TFile) {
     try {
       meta = { ...meta, ...JSON.parse(await v.read(df)) };
     } catch {
     }
   }
   if (!meta.order.includes(shot.id)) meta.order.push(shot.id);
-  if (import_obsidian26.Platform.isMobile) meta.device = dev;
+  if (import_obsidian18.Platform.isMobile) meta.device = dev;
   const text2 = JSON.stringify(meta, null, 2) + "\n";
-  if (df instanceof import_obsidian26.TFile) await v.modify(df, text2);
+  if (df instanceof import_obsidian18.TFile) await v.modify(df, text2);
   else await v.create(dp, text2);
   return path;
 }
 
 // src/diagramicons.ts
-var import_obsidian27 = require("obsidian");
+var import_obsidian19 = require("obsidian");
 var fill = (root) => {
   root.querySelectorAll("svg[data-icon]").forEach((s2) => {
     if (s2.childElementCount) return;
-    const ic = (0, import_obsidian27.getIcon)((s2.getAttribute("data-icon") ?? "").replace(/^lucide[:-]/, ""));
+    const ic = (0, import_obsidian19.getIcon)((s2.getAttribute("data-icon") ?? "").replace(/^lucide[:-]/, ""));
     if (ic) s2.append(...Array.from(ic.childNodes).map((n) => n.cloneNode(true)));
   });
   align(root);
@@ -13860,17 +13862,17 @@ function registerDiagramIcons(plugin) {
   });
   obs.observe(document.body, { childList: true, subtree: true });
   plugin.register(() => obs.disconnect());
-  plugin.registerMarkdownPostProcessor((el) => {
-    if (!el.querySelector("pre > code.language-mermaid, .mermaid") && !el.matches(".mermaid")) return;
-    const o = new MutationObserver(() => fill(el));
-    o.observe(el, { childList: true, subtree: true });
+  plugin.registerMarkdownPostProcessor((el2) => {
+    if (!el2.querySelector("pre > code.language-mermaid, .mermaid") && !el2.matches(".mermaid")) return;
+    const o = new MutationObserver(() => fill(el2));
+    o.observe(el2, { childList: true, subtree: true });
     window.setTimeout(() => o.disconnect(), 2e4);
   });
 }
 
 // src/main.ts
 var FUGLE_KEY2 = "ledgerline-fugle-key";
-var LedgerlinePlugin = class extends import_obsidian28.Plugin {
+var LedgerlinePlugin = class extends import_obsidian20.Plugin {
   constructor() {
     super(...arguments);
     this.settings = DEFAULTS;
@@ -13881,7 +13883,7 @@ var LedgerlinePlugin = class extends import_obsidian28.Plugin {
   async onload() {
     await this.loadSettings();
     this.debug = new DebugLog(this);
-    spriteIcons().forEach(([name, svg]) => (0, import_obsidian28.addIcon)(name, svg));
+    spriteIcons().forEach(([name, svg]) => (0, import_obsidian20.addIcon)(name, svg));
     this.router = new Router(this.app, () => this.enabledTabs());
     this.store = new Store(this);
     this.prices = new Prices(() => this.app.loadLocalStorage(Prices.KEY), (v) => this.app.saveLocalStorage(Prices.KEY, v), () => this.dataChanged(), pickSource(() => this.fugleKey()), () => this.settings.taiwan);
@@ -13905,7 +13907,7 @@ var LedgerlinePlugin = class extends import_obsidian28.Plugin {
     this.registerInterval(window.setInterval(() => {
       void this.alerts.tick();
     }, 60 * 1e3));
-    this.debug.note(`plugin load ${this.manifest.version} (${import_obsidian28.Platform.isMobile ? "mobile" : "desktop"})`);
+    this.debug.note(`plugin load ${this.manifest.version} (${import_obsidian20.Platform.isMobile ? "mobile" : "desktop"})`);
     this.registerView(VIEW_TYPE, (leaf) => new LedgerView(leaf, this));
     this.addRibbonIcon("wallet", t("open"), () => {
       void this.activate(false);
@@ -13919,7 +13921,7 @@ var LedgerlinePlugin = class extends import_obsidian28.Plugin {
     const shoot = async (all) => {
       const v = this.views().find((x) => x.contentEl.offsetWidth > 0);
       if (!v) {
-        new import_obsidian28.Notice(t("capNoApp"));
+        toast(t("capNoApp"));
         return;
       }
       const done = [];
@@ -13929,7 +13931,7 @@ var LedgerlinePlugin = class extends import_obsidian28.Plugin {
       };
       if (all) await v.eachTab(one);
       else await one();
-      if (done.length) new import_obsidian28.Notice(t("capDone", { n: done.length, dir: SCREENS }));
+      if (done.length) toast(t("capDone", { n: done.length, dir: SCREENS }));
     };
     this.addCommand({ id: "capture-page", name: t("capPage"), callback: () => {
       void shoot(false);
@@ -13949,14 +13951,14 @@ var LedgerlinePlugin = class extends import_obsidian28.Plugin {
     this.registerEvent(this.app.workspace.on("file-open", () => this.updateBody()));
     this.registerEvent(this.app.workspace.on("layout-change", () => this.placeHome()));
     this.home = createEl("button", { cls: "zl-home", attr: { "aria-label": t("open") } });
-    (0, import_obsidian28.setIcon)(this.home, "wallet");
+    (0, import_obsidian20.setIcon)(this.home, "wallet");
     this.home.addEventListener("click", (e) => {
       e.preventDefault();
       this.debug.note("home button");
       void this.activate(false);
     });
     this.register(() => this.home.remove());
-    if (import_obsidian28.Platform.isMobile) {
+    if (import_obsidian20.Platform.isMobile) {
       let touchAt = 0;
       const onDay = (e) => e.target?.closest?.(".calendar .day, #calendar-container .day") != null;
       this.registerDomEvent(document, "touchstart", () => {
@@ -14015,7 +14017,7 @@ var LedgerlinePlugin = class extends import_obsidian28.Plugin {
     const ws = this.app.workspace;
     let leaf = ws.getLeavesOfType(VIEW_TYPE)[0] ?? null;
     if (!leaf) {
-      leaf = ws.getLeaf(startup || import_obsidian28.Platform.isMobile ? false : "tab");
+      leaf = ws.getLeaf(startup || import_obsidian20.Platform.isMobile ? false : "tab");
       await leaf.setViewState({ type: VIEW_TYPE, active: true });
     }
     await ws.revealLeaf(leaf);
@@ -14031,7 +14033,7 @@ var LedgerlinePlugin = class extends import_obsidian28.Plugin {
   // A note in a tab of its own; a tab that already shows it is brought forward instead of opening a second one
   async openPath(path, leafPath) {
     const f = this.app.vault.getAbstractFileByPath(path);
-    if (!(f instanceof import_obsidian28.TFile)) return;
+    if (!(f instanceof import_obsidian20.TFile)) return;
     const ws = this.app.workspace;
     const has = (p) => ws.getLeavesOfType("markdown").find((l) => l.view.file?.path === p);
     const open2 = has(path);
@@ -14049,7 +14051,7 @@ var LedgerlinePlugin = class extends import_obsidian28.Plugin {
       if (!this.store.day(date)) await this.store.createDay(date);
       await this.showInApp("log", dayFrame(date));
     } catch (e) {
-      new import_obsidian28.Notice(String(e instanceof Error ? e.message : e));
+      toast(String(e instanceof Error ? e.message : e), true);
     }
   }
   // body classes: zl-on while the app is the active screen; zl-full additionally hides Obsidian's phone toolbars
@@ -14057,12 +14059,12 @@ var LedgerlinePlugin = class extends import_obsidian28.Plugin {
     this.placeHome();
     const on = !!this.app.workspace.getActiveViewOfType(LedgerView);
     document.body.toggleClass("zl-on", on);
-    document.body.toggleClass("zl-full", on && import_obsidian28.Platform.isMobile && this.settings.fullScreen);
+    document.body.toggleClass("zl-full", on && import_obsidian20.Platform.isMobile && this.settings.fullScreen);
   }
   // Put the return button into the page on screen (a note in the main area), or take it away while the app is on screen
   placeHome() {
-    if (!import_obsidian28.Platform.isMobile) return;
-    const ws = this.app.workspace, v = ws.getActiveViewOfType(import_obsidian28.View);
+    if (!import_obsidian20.Platform.isMobile) return;
+    const ws = this.app.workspace, v = ws.getActiveViewOfType(import_obsidian20.View);
     if (!v || v instanceof LedgerView || v.leaf.getRoot() !== ws.rootSplit) {
       if (!v || v instanceof LedgerView) this.home.remove();
       return;

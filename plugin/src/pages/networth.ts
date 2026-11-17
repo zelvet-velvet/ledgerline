@@ -40,7 +40,7 @@ export const netWorth = (plugin: LedgerlinePlugin): { parts: NetPart[]; total: n
     return { parts, total: assets - debts, assets, debts };
 };
 
-const signed = (n: number) => `${n < 0 ? "-" : ""}${num(Math.abs(n))}`;
+const signed = (n: number) => num(n);
 
 // C detail: net worth, what you have / owe, one row per part (a tap opens its tab)
 export const netWorthPage = (ctx: PageCtx): PageOut => {

@@ -1,4 +1,5 @@
-import { addIcon, Notice, Platform, Plugin, TAbstractFile, TFile, View, WorkspaceLeaf, setIcon } from "obsidian";
+import { addIcon, Platform, Plugin, TAbstractFile, TFile, View, WorkspaceLeaf, setIcon } from "obsidian";
+import { toast } from "./ui/toast";
 import { spriteIcons } from "./ui/pixel";
 import { DebugLog } from "./debug";
 import { MarketCalendar } from "./prices/calendar";
@@ -72,11 +73,11 @@ export default class LedgerlinePlugin extends Plugin {
         this.addCommand({ id: "write-debug-log", name: t("writeDebug"), callback: () => { void this.debug.flush(true); } });
         // the app's pages as Vellum screens (capture.ts): the page on screen, or every tab's first page
         const shoot = async (all: boolean) => {
-            const v = this.views().find((x) => x.contentEl.offsetWidth > 0); if (!v) { new Notice(t("capNoApp")); return; }   // the pane on screen
+            const v = this.views().find((x) => x.contentEl.offsetWidth > 0); if (!v) { toast(t("capNoApp")); return; }   // the pane on screen
             const done: string[] = [];
             const one = async () => { const p = await capture(this.app, v.shot()); if (p) done.push(p); };
             if (all) await v.eachTab(one); else await one();
-            if (done.length) new Notice(t("capDone", { n: done.length, dir: SCREENS }));
+            if (done.length) toast(t("capDone", { n: done.length, dir: SCREENS }));
         };
         this.addCommand({ id: "capture-page", name: t("capPage"), callback: () => { void shoot(false); } });
         this.addCommand({ id: "capture-tabs", name: t("capTabs"), callback: () => { void shoot(true); } });
@@ -192,7 +193,7 @@ export default class LedgerlinePlugin extends Plugin {
         try {
             if (!this.store.day(date)) await this.store.createDay(date);
             await this.showInApp("log", dayFrame(date));
-        } catch (e) { new Notice(String(e instanceof Error ? e.message : e)); }
+        } catch (e) { toast(String(e instanceof Error ? e.message : e), true); }
     }
 
     // body classes: zl-on while the app is the active screen; zl-full additionally hides Obsidian's phone toolbars

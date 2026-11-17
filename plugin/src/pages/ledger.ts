@@ -1,4 +1,4 @@
-import { Notice } from "obsidian";
+import { toast } from "../ui/toast";
 import { Action, ACTIONS, balanceAfter, buildLedger, daysSince, findRecord, Friend, Rec, settleOf } from "../calc/ledger";
 import { FILES, FM } from "../data/store";
 import { num, parseNum, shortDate, today } from "../format";
@@ -53,7 +53,7 @@ export const ledgerPage: PageDef = {
                         list.push({ friend, action: v.action, amount, date: v.date || today(), note: v.note });
                         f.ledger = list;
                     });
-                    new Notice(t("savedTx", { friend, what: t(act(v.action).label).toLowerCase(), amount: num(amount), cur }));
+                    toast(t("savedTx", { friend, what: t(act(v.action).label).toLowerCase(), amount: num(amount), cur }));
                 },
             }).open();
         };
@@ -74,7 +74,7 @@ export const ledgerPage: PageDef = {
                     e.amount = parseNum(v.amount); e.date = v.date; e.note = v.note;
                     ok = true;
                 });
-                new Notice(ok ? t("updatedTx", { friend: r.friend, amount: num(parseNum(v.amount)), cur }) : t("txGone"));
+                toast(ok ? t("updatedTx", { friend: r.friend, amount: num(parseNum(v.amount)), cur }) : t("txGone"), !ok);
             },
             danger: {
                 text: t("deleteTx"),
@@ -82,7 +82,7 @@ export const ledgerPage: PageDef = {
                     if (!(await confirmSheet(ctx.app, t("deleteTx"), t("deleteTxQ", { amount: num(r.amount), cur, date: r.date || "-" }), t("delete")))) return false;
                     let ok = false;
                     await store.update(CFG, (f) => { const i = findRecord(f.ledger, r); if (i >= 0) { (f.ledger as FM[]).splice(i, 1); ok = true; } });
-                    new Notice(ok ? t("deletedTx", { friend: r.friend, amount: num(r.amount), cur }) : t("txGone"));
+                    toast(ok ? t("deletedTx", { friend: r.friend, amount: num(r.amount), cur }) : t("txGone"), !ok);
                     return true;
                 },
             },

@@ -112,7 +112,7 @@
 .zl-app .zl-tab { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 7px 0 5px; color: var(--zl-muted); }
 .zl-tab .zl-ic { display: flex; }
 .zl-tab .zl-ic svg { width: 25px; height: 25px; }
-.zl-tab-l { font-size: 10px; font-weight: 500; }
+.zl-tab-l { font-size: 11px; font-weight: 500; }
 .zl-app .zl-tab.is-on { color: var(--zl-accent); }
 
 /* ---- phone full screen: Obsidian's own bars hide while the app is the active screen */
@@ -325,7 +325,7 @@ body.is-mobile:not(.zl-on) .zl-home:active { transform: scale(0.94); }
 
 /* ==== Redesign C: bold editorial (approved 2026-11-03). Warm paper by day, charcoal at night, one loud colour, huge display
    type, pixel icons and pixel charts, flat blocks with thick rules, no shadows or rounded corners. Built on top of app.css. */
-.zl-app, .zl-sheet, .zl-sheet-host, .zl-fchart {
+.zl-app, .zl-sheet, .zl-sheet-host, .zl-fchart, .zl-toast {
     --zl-paper: #ECE9E1; --zl-ink: #1C1B19; --zl-mut: #6D6A63; --zl-dim: #D5D1C7; --zl-loud: #E8461F; --zl-on-loud: #F6F3EC;
     /* split-flap cards: the same in light and dark mode (owner, 2026-11-06), the dark-mode cards; only the page around them changes */
     --zl-tile: #121214; --zl-tile-fg: #E6E3DC; --zl-tile-hot: #FF5C38; --zl-tile-mut: #96969B; --zl-tile-seam: #3A3A40;
@@ -342,7 +342,7 @@ body.is-mobile:not(.zl-on) .zl-home:active { transform: scale(0.94); }
     --zl-pixel: "ZL Silkscreen", ui-monospace, monospace;
     --zl-disp: "ZL Anton", Impact, "Arial Narrow", sans-serif;
 }
-.theme-dark .zl-app, .theme-dark .zl-sheet, .theme-dark .zl-sheet-host, .zl-app.theme-dark, .theme-dark .zl-fchart, .zl-fchart.theme-dark {
+.theme-dark .zl-app, .theme-dark .zl-sheet, .theme-dark .zl-sheet-host, .zl-app.theme-dark, .theme-dark .zl-fchart, .zl-fchart.theme-dark, .theme-dark .zl-toast {
     --zl-paper: #1F1F22; --zl-ink: #E6E3DC; --zl-mut: #96969B; --zl-dim: #36363B; --zl-loud: #FF5C38; --zl-on-loud: #1F1F22;
     --zl-mb: #F5B83D; --zl-ma60: #7DB3C9;
     --zl-up: #3FC29C; --zl-down: #FF7A63; --zl-mark: #7FBCD6; --zl-spark: #F4F1EA;
@@ -404,7 +404,7 @@ body :is(.zl-app, .zl-sheet-host) button:not(.clickable-icon):not(.zl-pill) { bo
 .zl-app .zl-tabs { border-top: 4px solid var(--zl-text); background: var(--zl-bg); padding-top: 4px; }
 .zl-app .zl-tab { gap: 6px; padding: 8px 0 6px; color: var(--zl-muted); }
 .zl-tab .zl-px { width: 26px; height: 26px; transition: transform .15s steps(3); }
-.zl-tab-l { font: 400 10px var(--zl-pixel); text-transform: uppercase; }
+.zl-tab-l { font: 400 11px var(--zl-pixel); text-transform: uppercase; }
 .zl-app .zl-tab.is-on { color: var(--zl-text); }
 .zl-app .zl-tab.is-on .zl-px { color: var(--zl-loud); transform: translateY(-3px); }
 
@@ -816,6 +816,14 @@ body.zl-calm.is-phone .modal.zl-sheet, body.zl-calm .modal-container:has(> .zl-s
 .zl-sheet-host .zl-sheet-msg { display: block; position: fixed; left: 16px; right: 16px; top: calc(env(safe-area-inset-top) + 8px); z-index: 80; margin: 0; padding: 10px 12px;
     background: var(--zl-loud); color: var(--zl-on-loud); box-shadow: 0 4px 0 var(--zl-text); font: 700 16px/1.3 var(--zl-ui); text-align: center; pointer-events: none; opacity: 0; transform: translateY(-6px); transition: opacity .15s, transform .15s; }
 .zl-sheet-host .zl-sheet-msg.is-on { opacity: 1; transform: none; }
+/* the app's own toast (ui/toast.ts), never Obsidian's rounded Notice: floats at the top like the save hint, covers nothing that
+   matters and never moves the page. Ink for a done thing ("Saved Food 300"), loud only when something went wrong. */
+.zl-toast { position: fixed; left: 16px; right: 16px; top: calc(env(safe-area-inset-top) + 8px); z-index: 1000; padding: 10px 12px; max-width: 560px; margin: 0 auto;
+    background: var(--zl-ink); color: var(--zl-paper); box-shadow: 0 4px 0 var(--zl-loud); font: 700 15px/1.3 var(--zl-ui); text-align: center; white-space: pre-line;
+    pointer-events: none; opacity: 0; transform: translateY(-6px); transition: opacity .15s, transform .15s; }
+.zl-toast.is-loud { background: var(--zl-loud); color: var(--zl-on-loud); box-shadow: 0 4px 0 var(--zl-ink); }
+.zl-toast.is-on { opacity: 1; transform: none; }
+body.zl-calm .zl-toast { transition: none; }
 .zl-sheet .zl-field.zl-text { cursor: text; }
 .zl-text-v { font: 400 17px var(--zl-ui); padding: 6px 0; border-bottom: 2px solid var(--zl-text); overflow-wrap: anywhere; }
 .zl-text-v.is-empty { color: var(--zl-muted); }

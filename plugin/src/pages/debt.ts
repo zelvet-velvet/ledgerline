@@ -1,4 +1,4 @@
-import { Notice } from "obsidian";
+import { toast } from "../ui/toast";
 import { computeDebt, Debt, findPayment, Payment, projectDebt } from "../calc/debt";
 import { FILES } from "../data/store";
 import { dateStr, MONTHS, num, parseNum, shortDate, today } from "../format";
@@ -41,7 +41,7 @@ export const debtPage: PageDef = {
                     list.push({ date: v.date || today(), amount, note: v.note || t("defaultPaymentNote") });
                     f.payments = list;
                 });
-                new Notice(t("loggedPayment", { amount: num(amount), left: num(Math.max(0, d.balance - amount)), cur }));
+                toast(t("loggedPayment", { amount: num(amount), left: num(Math.max(0, d.balance - amount)), cur }));
             },
         }).open();
 
@@ -61,7 +61,7 @@ export const debtPage: PageDef = {
                     x.amount = parseNum(v.amount); x.date = v.date; x.note = v.note;
                     ok = true;
                 });
-                new Notice(ok ? t("updatedPayment", { amount: num(parseNum(v.amount)), cur }) : t("txGone"));
+                toast(ok ? t("updatedPayment", { amount: num(parseNum(v.amount)), cur }) : t("txGone"), !ok);
             },
             danger: {
                 text: t("deletePayment"),
@@ -69,7 +69,7 @@ export const debtPage: PageDef = {
                     if (!(await confirmSheet(ctx.app, t("deletePayment"), t("deletePaymentQ", { amount: num(p.amount), cur, date: p.date || "-" }), t("delete")))) return false;
                     let ok = false;
                     await store.update(CFG, (f) => { const i = findPayment(f.payments, p); if (i >= 0) { (f.payments as unknown[]).splice(i, 1); ok = true; } });
-                    new Notice(ok ? t("deletedPayment", { amount: num(p.amount), cur }) : t("txGone"));
+                    toast(ok ? t("deletedPayment", { amount: num(p.amount), cur }) : t("txGone"), !ok);
                     return true;
                 },
             },
@@ -82,7 +82,7 @@ export const debtPage: PageDef = {
             onSubmit: async (v) => {
                 const n = parseNum(v.v);
                 await store.update(CFG, (f) => { f[key] = percent ? +(n / 100).toFixed(8) : n; });
-                new Notice(t("updated", { what, value: percent ? `${n}%` : money(n) }));
+                toast(t("updated", { what, value: percent ? `${n}%` : money(n) }));
             },
         }).open();
 
@@ -91,7 +91,7 @@ export const debtPage: PageDef = {
             fields: [{ key: "v", label: t("date"), type: "date", value: d.start || today(), required: true }],
             onSubmit: async (v) => {
                 await store.update(CFG, (f) => { f.start_date = v.v; });
-                new Notice(t("updated", { what: t("repaymentStarts"), value: v.v }));
+                toast(t("updated", { what: t("repaymentStarts"), value: v.v }));
             },
         }).open();
 
@@ -169,7 +169,7 @@ const first = (ctx: PageCtx, d: Debt, money: (n: number) => string, cur: string,
     figures(h(el, "div", "zl-c-group"), [
         { icon: "wallet", k: t("dSaved"), s: t("dSavedSub"), v: money(saved), onTap: () => ctx.push({ key: "loan", title: t("loanDetails") }) },
         ...(n ? [{ icon: "receipt", k: t("dPayments"), s: n === 1 ? t("cPayment1") : t("cPayments", { n }), v: money(d.paid), onTap: () => ctx.push({ key: "history", title: t("repaymentHistory") }) }] : []),
-        { icon: "wallet", k: t("nwTitle"), s: t("nwSub"), v: `${nw < 0 ? "-" : ""}${money(Math.abs(nw))}`, hot: nw < 0, onTap: () => ctx.push({ key: "networth", title: t("nwTitle") }) },
+        { icon: "wallet", k: t("nwTitle"), s: t("nwSub"), v: `${nw < 0 ? "\u2212" : ""}${money(Math.abs(nw))}`, hot: nw < 0, onTap: () => ctx.push({ key: "networth", title: t("nwTitle") }) },
     ]);
     return { title, el, fab: { icon: "plus", text: t("recordPayment").toUpperCase(), label: t("recordPayment"), onTap: a.recordPayment } };
 };

@@ -106,7 +106,7 @@
 .zl-app .zl-tab { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 7px 0 5px; color: var(--zl-muted); }
 .zl-tab .zl-ic { display: flex; }
 .zl-tab .zl-ic svg { width: 25px; height: 25px; }
-.zl-tab-l { font-size: 10px; font-weight: 500; }
+.zl-tab-l { font-size: 11px; font-weight: 500; }
 .zl-app .zl-tab.is-on { color: var(--zl-accent); }
 
 /* ---- phone full screen: Obsidian's own bars hide while the app is the active screen */

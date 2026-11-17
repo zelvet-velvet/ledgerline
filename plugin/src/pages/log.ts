@@ -1,4 +1,4 @@
-import { Notice } from "obsidian";
+import { toast } from "../ui/toast";
 import { BudgetRow, computeMonth, countsAs, investBuckets, monthIncome, slug, spentOnDay } from "../calc/log";
 import { FILES, FM } from "../data/store";
 import { MONTHS, num, parseNum, shortDate, today } from "../format";
@@ -48,7 +48,7 @@ export const logPage: PageDef = {
 
         // writes to this month's note (it must exist: it is created with the month's first daily note)
         const writeMonth = async (fn: (f: FM) => void): Promise<boolean> => {
-            if (!month) { new Notice(t("needMonth", { month: label })); return false; }
+            if (!month) { toast(t("needMonth", { month: label }), true); return false; }
             await store.update(monthPath, fn);
             return true;
         };
@@ -188,7 +188,7 @@ const thisMonthPage = (x: X, nFixed: number): PageOut => {
         onSubmit: async (v) => {
             const k = slug(v.name), amount = parseNum(v.amount);
             if (!(await x.writeMonth((f) => { const e = { ...((f.extra_expenses as FM) ?? {}) }; e[k] = amount + (Number(e[k]) || 0); f.extra_expenses = e; }))) return false;
-            new Notice(t("savedX", { name: v.name.trim(), amount: num(amount), cur }));
+            toast(t("savedX", { name: v.name.trim(), amount: num(amount), cur }));
         },
     }).open();
     return { title: t("cThisMonth"), el, fab: { icon: "plus", text: t("cAddOneOff").toUpperCase(), label: t("cAddOneOff"), onTap: add } };
@@ -214,12 +214,12 @@ const incomePage = (x: X): PageOut => {
             title: name, subtitle: r.kind === "extra" ? label : `${label} · ${t("thisMonthOnly").toLowerCase()}`, submitText: t("save"),
             fields: [{ key: "v", label: t("amount"), type: "number", suffix: cur, value: r.amount }],
             validate: (v) => (v.v === "" || isNaN(parseNum(v.v)) ? t("invalidNumber") : null),
-            onSubmit: async (v) => { if (!(await write(parseNum(v.v)))) return false; new Notice(t("savedX", { name, amount: num(parseNum(v.v)), cur })); },
+            onSubmit: async (v) => { if (!(await write(parseNum(v.v)))) return false; toast(t("savedX", { name, amount: num(parseNum(v.v)), cur })); },
             danger: {
                 text: r.kind === "extra" ? t("removeIncome") : t("skipMonth"),
                 onTap: async () => {
-                    if (r.kind === "extra") { if (!(await x.writeMonth((f) => del(f, "extra_income", r.key)))) return false; new Notice(t("removedX", { name })); }
-                    else { if (!(await write(0))) return false; new Notice(t("skippedX", { name, month: label })); }
+                    if (r.kind === "extra") { if (!(await x.writeMonth((f) => del(f, "extra_income", r.key)))) return false; toast(t("removedX", { name })); }
+                    else { if (!(await write(0))) return false; toast(t("skippedX", { name, month: label })); }
                     return true;
                 },
             },
@@ -245,7 +245,7 @@ const incomePage = (x: X): PageOut => {
             if (v.kind === "extra") {
                 const k = slug(v.name);
                 if (!(await x.writeMonth((f) => { const e = { ...((f.extra_income as FM) ?? {}) }; e[k] = amount + (Number(e[k]) || 0); f.extra_income = e; }))) return false;
-                new Notice(t("savedX", { name: v.name, amount: num(amount), cur }));
+                toast(t("savedX", { name: v.name, amount: num(amount), cur }));
             } else if (v.kind === "bonus") {
                 const m = Number(v.bmonth);
                 await store.update(store.path(FILES.income), (f) => {
@@ -253,7 +253,7 @@ const incomePage = (x: X): PageOut => {
                     list.push({ name: v.name.trim(), month: m, amount });
                     f.bonuses = list;
                 });
-                new Notice(t("bonusSaved", { name: v.name.trim(), month: MONTHS[m - 1], amount: num(amount), cur }));
+                toast(t("bonusSaved", { name: v.name.trim(), month: MONTHS[m - 1], amount: num(amount), cur }));
             } else {
                 const r = inc.rows.find((y) => y.key === v.which);
                 if (!r) return false;
@@ -263,7 +263,7 @@ const incomePage = (x: X): PageOut => {
                     await store.update(n.path, (f) => { f.income_override = { ...((f.income_override as FM) ?? {}), [r.key]: r.base }; });
                 }
                 await store.update(store.path(FILES.income), (f) => { f[r.key] = amount; });
-                new Notice(t("baseChanged", { name: cap(r.label), from: num(r.base), to: num(amount), cur, month: label }));
+                toast(t("baseChanged", { name: cap(r.label), from: num(r.base), to: num(amount), cur, month: label }));
             }
         },
     }).open();
@@ -300,7 +300,7 @@ const savingsPage = (x: X): PageOut => {
 // ---- fixed expenses: tick to mark paid (at the default amount); a row opens its page
 const setPaid = async (x: X, r: ReturnType<typeof computeMonth>["fixedRows"][number], on: boolean, amount?: number) => {
     if (!(await x.writeMonth((f) => { f[r.prop] = on ? amount ?? r.def : 0; }))) return;
-    new Notice(on ? t("markedPaid", { name: r.item.name }) : t("markedUnpaid", { name: r.item.name }));
+    toast(on ? t("markedPaid", { name: r.item.name }) : t("markedUnpaid", { name: r.item.name }));
 };
 const fixedPage = (x: X): PageOut => {
     const { ctx, cur, M } = x;
@@ -323,7 +323,7 @@ const fixedItemPage = (x: X, r: ReturnType<typeof computeMonth>["fixedRows"][num
     hero(el, { label: on ? t("paidThisMonth") : t("notPaid"), value: num(r.paid), unit: cur, color: on ? C.neg : C.faint });
     const g = group(el);
     row(g, { check: { on, color: C.pos, onToggle: (v) => { void setPaid(x, r, v); } }, title: t("paidThisMonth"), onTap: () => { void setPaid(x, r, !on); } });
-    row(g, { icon: "pencil", tint: C.accent, title: t("paidAmount"), value: num(r.paid), chevron: true, onTap: () => x.editAmount(t("paidAmount"), r.paid, async (n) => { if (!(await x.writeMonth((f) => { f[r.prop] = n; }))) return false; new Notice(t("savedX", { name: r.item.name, amount: num(n), cur })); }) });
+    row(g, { icon: "pencil", tint: C.accent, title: t("paidAmount"), value: num(r.paid), chevron: true, onTap: () => x.editAmount(t("paidAmount"), r.paid, async (n) => { if (!(await x.writeMonth((f) => { f[r.prop] = n; }))) return false; toast(t("savedX", { name: r.item.name, amount: num(n), cur })); }) });
     row(g, { icon: "pin", tint: C.faint, title: t("defaultAmount"), value: num(r.def) });
     return { title: r.item.name, el };
 };
@@ -347,10 +347,10 @@ const extraItemPage = (x: X, e: ReturnType<typeof computeMonth>["extras"][number
     hero(el, { label: t("extraTotal"), value: num(e.total), unit: cur, color: C.warn });
     if (e.fromMonth > 0) {
         const g = group(el, t("monthlyEntry"));
-        row(g, { icon: "pencil", tint: C.warn, title: t("monthlyEntry"), value: num(e.fromMonth), chevron: true, onTap: () => x.editAmount(t("monthlyEntry"), e.fromMonth, async (n) => { if (!(await x.writeMonth((f) => { f.extra_expenses = { ...((f.extra_expenses as FM) ?? {}), [e.prop]: n }; }))) return false; new Notice(t("savedX", { name, amount: num(n), cur })); }) });
+        row(g, { icon: "pencil", tint: C.warn, title: t("monthlyEntry"), value: num(e.fromMonth), chevron: true, onTap: () => x.editAmount(t("monthlyEntry"), e.fromMonth, async (n) => { if (!(await x.writeMonth((f) => { f.extra_expenses = { ...((f.extra_expenses as FM) ?? {}), [e.prop]: n }; }))) return false; toast(t("savedX", { name, amount: num(n), cur })); }) });
         row(g, { icon: "trash-2", tint: C.neg, title: t("removeEntry"), titleColor: C.neg, onTap: async () => {
             if (!(await confirmSheet(ctx.app, t("removeEntry"), `${name} · ${num(e.fromMonth)} ${cur}`, t("delete")))) return;
-            if (await x.writeMonth((f) => del(f, "extra_expenses", e.prop))) new Notice(t("removedX", { name }));
+            if (await x.writeMonth((f) => del(f, "extra_expenses", e.prop))) toast(t("removedX", { name }));
         } });
     }
     if (e.days.length) {
@@ -379,12 +379,12 @@ const budgetPage = (x: X, b: BudgetRow, days: { name: string; path: string; fm: 
     const lim = h(el, "div", "zl-c-group");
     const pct = b.item.quota;
     const setLimit = () => x.editAmount(t("cLimitOf", { name: b.item.name }), b.quota,
-        async (n) => { if (!(await x.writeMonth((f) => { f[b.quotaKey] = n; }))) return false; new Notice(t("savedX", { name: b.item.name, amount: num(n), cur })); },
+        async (n) => { if (!(await x.writeMonth((f) => { f[b.quotaKey] = n; }))) return false; toast(t("savedX", { name: b.item.name, amount: num(n), cur })); },
         false, t("cLimitNote", { name: b.item.name, month: label, pct }));
     figures(lim, [
         { icon: "wallet", k: t("cLimit").toUpperCase(), s: b.isPercent ? t("cLimitPct", { pct }) : t("cLimitFixed", { pct }), v: num(b.quota), onTap: setLimit,
-            scrub: () => ({ value: b.quota, step: notchFor(cur) * 10, label: t("cLimit"), fmt: num, done: (n: number) => { void x.writeMonth((f) => { f[b.quotaKey] = n; }).then((ok) => { if (ok) new Notice(t("savedX", { name: b.item.name, amount: num(n), cur })); }); } }) },
-        ...(!b.isPercent ? [{ icon: "back", k: t("backToPct", { pct }).toUpperCase(), s: t("cLimitBack"), v: `${pct}%`, onTap: async () => { if (await x.writeMonth((f) => { delete f[b.quotaKey]; })) new Notice(t("savedX", { name: b.item.name, amount: `${pct}%`, cur: "" })); } }] : []),
+            scrub: () => ({ value: b.quota, step: notchFor(cur) * 10, label: t("cLimit"), fmt: num, done: (n: number) => { void x.writeMonth((f) => { f[b.quotaKey] = n; }).then((ok) => { if (ok) toast(t("savedX", { name: b.item.name, amount: num(n), cur })); }); } }) },
+        ...(!b.isPercent ? [{ icon: "back", k: t("backToPct", { pct }).toUpperCase(), s: t("cLimitBack"), v: `${pct}%`, onTap: async () => { if (await x.writeMonth((f) => { delete f[b.quotaKey]; })) toast(t("savedX", { name: b.item.name, amount: `${pct}%`, cur: "" })); } }] : []),
     ]);
     const rows = days.map((d) => ({ d, items: b.item.spending.map((p): [string, number] => [p, Number(d.fm[p]) || 0]).filter(([, v]) => v > 0) }))
         .filter((r) => r.items.length).sort((p, q) => q.d.name.localeCompare(p.d.name));

@@ -1,4 +1,4 @@
-import { Notice } from "obsidian";
+import { toast } from "../ui/toast";
 import { buildAccounts } from "../calc/accounts";
 import { findTrade, addTradingDays, autoFee, autoTax, grossOf, isTwBondEtf, isTwEtf, legacyFields, tickOf, tradeTotal, toP, toQ, buildPortfolio, capOf, checkRules, investCash, newWarnings, journalPath, minorOf, newTradeId, nextDca, readJournal, Position, syncEntries, tickerOf, Trade, tradeLinks } from "../calc/invest";
 import { ACCOUNTS_FILE } from "./accounts";
@@ -64,7 +64,7 @@ export const investPage: PageDef = {
                 n = out.length;
                 if (n) a.entries = [...list(a.entries), ...out];
             });
-            if (n) new Notice(t("iBooked"));
+            if (n) toast(t("iBooked"));
         };
 
         const updateAsset = async (ticker: string, fn: (a: FM) => void): Promise<FM> => { let fresh: FM = {}; await store.update(CFG, (f) => { const a = list(f.assets).find((x) => tickerOf(x) === ticker); if (a) fn(a); fresh = snap(f); }); return fresh; };
@@ -165,9 +165,9 @@ export const investPage: PageDef = {
                     await book(fresh, [id]);
                     // S5: say which rule this trade newly broke (a warning, the trade is saved)
                     const broke = newWarnings(checkRules(P, cap, () => true), checkRules(buildPortfolio(fresh, (q) => prices.price(q), (c) => prices.fx(c, cur, fb), today(), cur), cap, () => true));
-                    if (broke.length) new Notice(broke.map(warnText).join("\n"), 8000);
+                    if (broke.length) toast(broke.map(warnText).join("\n"), true, 8000);
                     if (v.why?.trim()) await think(tk, { date: tr.date, trade: id, why: v.why.trim() });
-                    new Notice(t("iSaved", { what: v.type === "SELL" ? t("iSell") : t("iBuy"), n: qty(parseNum(v.shares)), tk }));
+                    toast(t("iSaved", { what: v.type === "SELL" ? t("iSell") : t("iBuy"), n: qty(parseNum(v.shares)), tk }));
                 },
             }).open();
         };
@@ -194,7 +194,7 @@ export const investPage: PageDef = {
                     recalc(a);
                 });
                 await book(fresh, [tr.id]);
-                new Notice(t("iUpdated", { tk: p.ticker }));
+                toast(t("iUpdated", { tk: p.ticker }));
             },
             danger: { text: t("iDeleteTrade"), onTap: async () => {
                 if (!(await confirmSheet(ctx.app, t("iDeleteTrade"), t("iDeleteTradeQ", { n: qty(tr.shares), tk: p.ticker, date: tr.date || "-" }), t("delete")))) return false;
@@ -234,13 +234,13 @@ export const investPage: PageDef = {
                     if (v.broker.trim()) a.broker = v.broker.trim(); else delete a.broker;
                     if (parseNum(v.amount) > 0) a.dca = { amount: Math.round(parseNum(v.amount)), day: Math.round(parseNum(v.day)) || 1 }; else delete a.dca;
                 });
-                new Notice(t("iUpdated", { tk: p.ticker }));
+                toast(t("iUpdated", { tk: p.ticker }));
             },
         }).open();
 
         // + WATCH: the ticker from the search (it knows every listing; a typed one could be a typo with no price)
         const addWatch = (from: HTMLElement) => search(from, (tk) => {
-            if (xs.P.watch.includes(tk)) { new Notice(t("iExists")); return; }
+            if (xs.P.watch.includes(tk)) { toast(t("iExists"), true); return; }
             void store.update(CFG, (f) => { f.watchlist = [...list(f.watchlist), { ticker: tk }]; });
         }, t("sWatchWhat"));
         const dropWatch = async (tk: string) => {

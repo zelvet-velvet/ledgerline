@@ -48,7 +48,7 @@ export const rulesPage = (x: X): PageOut => {
     const g = h(el, "div", "zl-c-group");
     sec(g, t("iRulesNow").toUpperCase());
     figures(g, x.warns.length ? x.warns.map((w) => ({
-        icon: w.rule === "reason" ? "list" : "invest", k: w.key, s: warnText(w), v: w.rule === "cap" ? `+${num(w.over)}` : w.rule === "mix" ? `${w.over > 0 ? "+" : ""}${w.over}%` : "", hot: true,
+        icon: w.rule === "reason" ? "list" : "invest", k: w.key, s: warnText(w), v: w.rule === "cap" ? `+${num(w.over)}` : w.rule === "mix" ? `${w.over > 0 ? "+" : w.over < 0 ? "\u2212" : ""}${Math.abs(w.over)}%` : "", hot: true,
         onTap: w.rule === "reason" ? () => ctx.push({ key: "journal:" + w.key, title: t("iJournal") }) : w.rule === "cap" ? () => ctx.push({ key: "asset:" + w.key, title: w.key }) : undefined,
     })) : [{ k: t("iRulesOk").toUpperCase(), v: "-", dim: true }]);
     const r = h(el, "div", "zl-c-group");

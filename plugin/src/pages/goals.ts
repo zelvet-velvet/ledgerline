@@ -1,4 +1,4 @@
-import { Notice } from "obsidian";
+import { toast } from "../ui/toast";
 import { buildAccounts } from "../calc/accounts";
 import { buildGoals, doneBy, Expense, findExpense, Fund, Goal, Goals, lineHeld, planSaved, Track, trackFund } from "../calc/goals";
 import { FILES, FM } from "../data/store";
@@ -31,13 +31,13 @@ export const goalsPage: PageDef = {
             if (g) fn(g);
         });
 
-        // "🏖 Trip" → emoji 🏖, label Trip; no leading emoji → 🎯
-        const splitFund = (s0: string | undefined) => { const m0 = /^\s*(\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*)\s*(.*)$/u.exec(s0 ?? ""); return m0 ? { emoji: m0[1], label: m0[2].trim() } : { emoji: "🎯", label: (s0 ?? "").trim() }; };
+        // "🏖 Trip" → emoji 🏖 (kept in the data, never shown: pixel icons only), label Trip; no leading emoji → none
+        const splitFund = (s0: string | undefined) => { const m0 = /^\s*(\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*)\s*(.*)$/u.exec(s0 ?? ""); return m0 ? { emoji: m0[1], label: m0[2].trim() } : { emoji: "", label: (s0 ?? "").trim() }; };
         const newGoal = (fundKey?: string) => new FormSheet(ctx.app, {
             title: t("newGoal"), submitText: t("save"),
             fields: [
                 // + New fund asks its name in the writing window (a leading emoji becomes the fund's); the sheet keeps its rows (owner)
-                { key: "fund", label: t("fund"), type: "select", value: fundKey ?? G.funds[0]?.key ?? NEW, options: [...G.funds.map((f): [string, string] => [f.key, `${f.emoji} ${f.label}`.trim()]), [NEW, t("newFund")]],
+                { key: "fund", label: t("fund"), type: "select", value: fundKey ?? G.funds[0]?.key ?? NEW, options: [...G.funds.map((f): [string, string] => [f.key, f.label]), [NEW, t("newFund")]],
                     ask: { value: NEW, into: "fundIn", title: t("fundName"), placeholder: t("fundNameHint") } },
                 { key: "fundIn", label: t("fundName"), type: "text", off: true },
                 { key: "name", label: t("goalName"), type: "text", required: true },
@@ -55,24 +55,24 @@ export const goalsPage: PageDef = {
                 v.fundName = nf.label; v.emoji = nf.emoji;
                 const isNew = v.fund === NEW;
                 const key = isNew ? keyOf(v.fundName) : v.fund;
-                const emoji = isNew ? v.emoji || "🎯" : G.funds.find((f) => f.key === key)?.emoji || "🎯";
+                const emoji = isNew ? v.emoji : G.funds.find((f) => f.key === key)?.emoji ?? "";
                 const amount = parseNum(v.goal);
                 await store.update(CFG, (f) => {
-                    if (isNew) f.funds = [...(Array.isArray(f.funds) ? f.funds : f.funds ? [f.funds] : []), { key, label: v.fundName.trim(), emoji }];
-                    const entry: FM = { name: v.name.trim(), fund: key, emoji, goal: amount };
+                    if (isNew) f.funds = [...(Array.isArray(f.funds) ? f.funds : f.funds ? [f.funds] : []), { key, label: v.fundName.trim(), ...(emoji ? { emoji } : {}) }];
+                    const entry: FM = { name: v.name.trim(), fund: key, ...(emoji ? { emoji } : {}), goal: amount };
                     if (v.date) entry.target_date = v.date;
                     entry.expenses = [];
                     f.goals = [...(Array.isArray(f.goals) ? f.goals : f.goals ? [f.goals] : []), entry];
                 });
                 if (isNew) {
                     await store.update(store.path(FILES.savings), (f) => { if (f[key] === undefined) f[key] = 0; });
-                    new Notice(t("addedFund", { name: v.fundName.trim() }));
-                } else new Notice(t("addedGoal", { name: v.name.trim(), amount: num(amount), cur }));
+                    toast(t("addedFund", { name: v.fundName.trim() }));
+                } else toast(t("addedGoal", { name: v.name.trim(), amount: num(amount), cur }));
             },
         }).open();
 
         const addExpense = (g: Goal) => new FormSheet(ctx.app, {
-            title: t("addExpense"), subtitle: `${g.emoji} ${g.name}`.trim(), submitText: t("save"),
+            title: t("addExpense"), subtitle: g.name, submitText: t("save"),
             fields: [
                 { key: "amount", label: t("amount"), type: "number", suffix: cur, placeholder: "0", required: true },
                 { key: "item", label: t("note"), type: "text", placeholder: t("optional") },
@@ -81,7 +81,7 @@ export const goalsPage: PageDef = {
             onSubmit: async (v) => {
                 const amount = parseNum(v.amount);
                 await updateGoal(g.name, (x) => { x.expenses = [...(Array.isArray(x.expenses) ? x.expenses : []), { item: v.item || t("expenseDefault"), amount, date: v.date }]; });
-                new Notice(t("addedExpense", { amount: num(amount), cur, name: g.name }));
+                toast(t("addedExpense", { amount: num(amount), cur, name: g.name }));
             },
         }).open();
 
@@ -101,7 +101,7 @@ export const goalsPage: PageDef = {
                     e.item = v.item || t("expenseDefault"); e.amount = parseNum(v.amount); e.date = v.date;
                     ok = true;
                 });
-                new Notice(ok ? t("updatedExpense", { item: v.item || x.item, amount: num(parseNum(v.amount)), cur }) : t("expenseGone"));
+                toast(ok ? t("updatedExpense", { item: v.item || x.item, amount: num(parseNum(v.amount)), cur }) : t("expenseGone"), !ok);
             },
             danger: {
                 text: t("deleteExpense"),
@@ -109,7 +109,7 @@ export const goalsPage: PageDef = {
                     if (!(await confirmSheet(ctx.app, t("deleteExpense"), t("deleteExpenseQ", { item: x.item, amount: num(x.amount), cur }), t("delete")))) return false;
                     let ok = false;
                     await updateGoal(g.name, (y) => { const i = findExpense(y.expenses, x); if (i >= 0) { (y.expenses as FM[]).splice(i, 1); ok = true; } });
-                    new Notice(ok ? t("deletedExpense", { item: x.item }) : t("expenseGone"));
+                    toast(ok ? t("deletedExpense", { item: x.item }) : t("expenseGone"), !ok);
                     return true;
                 },
             },
@@ -118,19 +118,19 @@ export const goalsPage: PageDef = {
         const editGoalAmount = (g: Goal) => new FormSheet(ctx.app, {
             title: t("goalAmount"), subtitle: g.name, submitText: t("save"),
             fields: [{ key: "v", label: t("goalAmount"), type: "number", suffix: cur, value: g.amount, required: true }],
-            onSubmit: async (v) => { await updateGoal(g.name, (x) => { x.goal = parseNum(v.v); }); new Notice(t("updatedGoal", { what: t("goalAmount"), value: num(parseNum(v.v)) })); },
+            onSubmit: async (v) => { await updateGoal(g.name, (x) => { x.goal = parseNum(v.v); }); toast(t("updatedGoal", { what: t("goalAmount"), value: num(parseNum(v.v)) })); },
         }).open();
 
         const editTarget = (g: Goal) => new FormSheet(ctx.app, {
             title: t("targetDate"), subtitle: g.name, submitText: t("save"),
             fields: [{ key: "v", label: t("date"), type: "date", value: g.target || today(), required: true }],
-            onSubmit: async (v) => { await updateGoal(g.name, (x) => { x.target_date = v.v; }); new Notice(t("updatedGoal", { what: t("targetDate"), value: shortDate(v.v) })); },
+            onSubmit: async (v) => { await updateGoal(g.name, (x) => { x.target_date = v.v; }); toast(t("updatedGoal", { what: t("targetDate"), value: shortDate(v.v) })); },
         }).open();
 
         const deleteGoal = async (g: Goal) => {
             if (!(await confirmSheet(ctx.app, t("deleteGoal"), t("deleteGoalQ", { name: g.name }), t("delete")))) return;
             await store.update(CFG, (f) => { if (Array.isArray(f.goals)) f.goals = (f.goals as FM[]).filter((x) => x.name !== g.name); });
-            new Notice(t("deletedGoal", { name: g.name }));
+            toast(t("deletedGoal", { name: g.name }));
             ctx.pop();
         };
 
@@ -163,7 +163,6 @@ export const goalsPage: PageDef = {
 // "Japan trip" → "japan_trip_fund" (the key of a new fund in the savings plan)
 const keyOf = (name: string) => `${name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || "new"}_fund`;
 const fundTitle = (f: Fund) => f.label;
-const emojiAvatar = (e: string) => e || "🎯";
 
 // Redesign S (2026-11-05, owner picked from Layouts mocks): every block answers one question. How much is saved, is each fund on
 // track, what comes next. A fund row already says its monthly amount and its next goal; COMING UP gives each goal a verdict.

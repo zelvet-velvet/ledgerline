@@ -1,4 +1,4 @@
-import { Notice } from "obsidian";
+import { toast } from "../ui/toast";
 import { num } from "../format";
 import { t } from "../i18n";
 import { h, page } from "../ui";
@@ -136,7 +136,7 @@ export const openPad = (_ctx: PageCtx, o: AmountSpec): void => {
     let busy = false;
     async function doSave(): Promise<void> {
         if (busy) return;
-        if (!st.s) { new Notice(t("cTypeAmount")); return; }
+        if (!st.s) { toast(t("cTypeAmount"), true); return; }
         busy = true;
         try { await o.save(total()); close(); } finally { busy = false; }
     }
