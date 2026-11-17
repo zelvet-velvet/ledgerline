@@ -2,7 +2,7 @@
 // and the date alerts that come by themselves (revenue out, report deadlines, ex-dividend, thesis checks), soonest first;
 // SENT: the last 7 days. + NEW ALERT sets a price alert. Checking and sending: src/alerts.ts.
 import type { FM } from "../data/store";
-import { away, PriceAlert } from "../calc/alerts";
+import { away, findAlert, PriceAlert } from "../calc/alerts";
 import { tickOf, toP } from "../calc/invest";
 import { daysBetween } from "../calc/thesis";
 import { parseNum, shortDate, today } from "../format";
@@ -38,13 +38,14 @@ export const alertSheet = (x: X, a?: PriceAlert, preset?: string): void => {
             await store.update(path, (f) => {
                 const xs = list(f.alerts);
                 const row = { id: a?.id ?? `a${Date.now().toString(36)}`, ticker: tk, kind: v.kind === "above" ? "above" : "below", price: parseNum(v.price) };
-                if (a && xs[a.index]) xs[a.index] = row; else xs.push(row);
+                const i = a ? findAlert(xs, a) : -1;   // the alert itself, not its old position
+                if (i >= 0) xs[i] = row; else xs.push(row);
                 f.alerts = xs;
             });
         },
         danger: a ? { text: t("alRemove"), onTap: async () => {
             if (!(await confirmSheet(x.ctx.app, t("alRemove"), t("alRemoveQ", { tk: a.ticker, p: p2(a.price) }), t("remove")))) return false;
-            await store.update(path, (f) => { const xs = list(f.alerts); xs.splice(a.index, 1); f.alerts = xs; });
+            await store.update(path, (f) => { const xs = list(f.alerts), i = findAlert(xs, a); if (i >= 0) xs.splice(i, 1); f.alerts = xs; });
             return true;
         } } : undefined,
     }).open();

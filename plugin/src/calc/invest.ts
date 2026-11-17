@@ -32,6 +32,7 @@ export interface Position {
     exit: number;         // what selling it all now would cost (base): Taiwan broker fee + securities tax, as brokers' 預估損益 count
     pl: number;           // value − exit − cost: the gain or loss if sold now
     index: number;        // position in the `assets` list
+    dropped: number;      // shares of sales the maths could not count (sold before any was bought, or more than was held)
 }
 export interface Bucket { key: string; label: string; target: number; value: number; pct: number; drift: number }
 export interface Portfolio { positions: Position[]; buckets: Bucket[]; value: number; cost: number; pl: number; realized: number; fees: number; bought: number; priced: boolean; missing: string[]; threshold: number; watch: string[] }   // priced: every holding has a price and an FX rate; missing: the tickers that do not
@@ -87,13 +88,15 @@ export const buildPortfolio = (fm: FM | null, price: (t: string) => number | nul
             const settled = dateStr(t.settled, "");
             return { id: ids[i], type, date: dateStr(t.date, ""), settled, broker: String(t.broker ?? broker), index: i, rate, shares: num(t.shares), price: num(t.price), fx: num(t.fx), q, p, gross, fee, tax, cash, pending: !!today && !!settled && settled > today } as Trade;
         });
-        let held = 0, cost = 0, own = 0, realized = 0, fees = 0, bought = 0;   // own: the cost of what is held in the asset's own minor units
+        let held = 0, cost = 0, own = 0, realized = 0, fees = 0, bought = 0, dropped = 0;   // own: the cost of what is held in the asset's own minor units
         [...trades].sort((x, y) => x.date.localeCompare(y.date) || x.index - y.index).forEach((t) => {
             fees += toBase(t.fee + t.tax, currency, t.rate);
             bought -= t.cash;
             if (t.type === "BUY") { held += t.q; cost -= t.cash; own += t.gross + t.fee; }
-            else if (held > 0) {
+            else if (!(held > 0)) dropped += t.q;
+            else {
                 const sold = Math.min(t.q, held);
+                dropped += t.q - sold;
                 const out = sold === held ? cost : Math.round((cost * sold) / held);   // the last share takes what is left: no cent lost
                 const proceeds = sold === t.q ? t.cash : Math.round((t.cash * sold) / t.q);
                 realized += proceeds - out; own -= sold === held ? own : Math.round((own * sold) / held); held -= sold; cost -= out;
@@ -107,7 +110,7 @@ export const buildPortfolio = (fm: FM | null, price: (t: string) => number | nul
         const exit = held > 0 && last !== null && fxOk ? toBase(autoFee(g, currency) + autoTax(g, currency, ticker), currency, fxNow) : 0;
         const d = a.dca && typeof a.dca === "object" ? (a.dca as FM) : null;
         const dca = d && num(d.amount) > 0 ? { amount: Math.round(num(d.amount)), day: Math.round(num(d.day)) || 1 } : null;
-        return { ticker, name: String(a.name ?? ticker), category: String(a.category ?? "other").toLowerCase(), currency, broker, dca, trades, shares: held / 10000, q: held, cost, avg: held > 0 ? (cost * 10000) / held : 0, avgP: held > 0 ? Math.round((own * 1e6) / (minorOf(currency) * held)) : 0, fxMissing, realized, fees, bought, price: last, value, exit, pl: value - exit - cost, index };
+        return { ticker, name: String(a.name ?? ticker), category: String(a.category ?? "other").toLowerCase(), currency, broker, dca, trades, shares: held / 10000, q: held, cost, avg: held > 0 ? (cost * 10000) / held : 0, avgP: held > 0 ? Math.round((own * 1e6) / (minorOf(currency) * held)) : 0, fxMissing, realized, fees, bought, price: last, value, exit, pl: value - exit - cost, index, dropped: dropped / 10000 };
     });
     const value = positions.reduce((s, p) => s + p.value, 0);
     const buckets: Bucket[] = alloc.map((b) => {
@@ -133,6 +136,17 @@ export const tradeLinks = (P: Portfolio, entries: { trade?: string; amount: numb
         const own = entries.filter((e) => e.trade === t.id), booked = own.reduce((s, e) => s + e.amount, 0);
         return { id: t.id, ticker: p.ticker, cash: t.cash, booked, diff: t.pending && !own.length ? 0 : booked - t.cash, pending: t.pending };
     }));
+
+// The stored row of a displayed trade (the raw `transactions` list): by its id; a row without one by its position if it is
+// still the same trade, else the first identical row (-1: gone). Never by position alone: a sync may have changed the note.
+export const findTrade = (rows: unknown, t: Pick<Trade, "id" | "index" | "type" | "shares" | "price" | "date">): number => {
+    const a = Array.isArray(rows) ? (rows as FM[]) : [];
+    const byId = a.findIndex((r) => r && typeof r === "object" && r.id !== undefined && r.id !== "" && String(r.id) === t.id);
+    if (byId >= 0) return byId;
+    const same = (r: FM | undefined) => !!r && typeof r === "object" && (r.id === undefined || r.id === "") && (String(r.type).toUpperCase() === "SELL" ? "SELL" : "BUY") === t.type
+        && num(r.shares) === t.shares && num(r.price) === t.price && dateStr(r.date, "") === t.date;
+    return same(a[t.index]) ? t.index : a.findIndex((r) => same(r));
+};
 
 // A new trade's id, kept in the trade so it never shifts: TICKER-date, then -2, -3 … when taken.
 export const newTradeId = (ticker: string, date: string, taken: string[]): string => {

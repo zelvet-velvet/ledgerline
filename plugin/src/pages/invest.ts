@@ -1,6 +1,6 @@
 import { Notice } from "obsidian";
 import { buildAccounts } from "../calc/accounts";
-import { addTradingDays, autoFee, autoTax, grossOf, isTwBondEtf, isTwEtf, legacyFields, tickOf, tradeTotal, toP, toQ, buildPortfolio, capOf, checkRules, investCash, newWarnings, journalPath, minorOf, newTradeId, nextDca, readJournal, Position, syncEntries, tickerOf, Trade, tradeLinks } from "../calc/invest";
+import { findTrade, addTradingDays, autoFee, autoTax, grossOf, isTwBondEtf, isTwEtf, legacyFields, tickOf, tradeTotal, toP, toQ, buildPortfolio, capOf, checkRules, investCash, newWarnings, journalPath, minorOf, newTradeId, nextDca, readJournal, Position, syncEntries, tickerOf, Trade, tradeLinks } from "../calc/invest";
 import { ACCOUNTS_FILE } from "./accounts";
 import { FILES, FM } from "../data/store";
 import { num, parseNum, shortDate, today } from "../format";
@@ -179,7 +179,7 @@ export const investPage: PageDef = {
             ],
             onSubmit: async (v) => {
                 const fresh = await updateAsset(p.ticker, (a) => {
-                    const x = list(a.transactions)[tr.index]; if (!x) return;
+                    const x = list(a.transactions)[findTrade(a.transactions, tr)]; if (!x) return;   // the trade itself, not its old position
                     x.id = tr.id;   // keep the id the Accounts entries link to, even when the date changes
                     x.shares = parseNum(v.shares); x.price = parseNum(v.price); x.date = v.date;
                     if (v.fx !== undefined) { if (parseNum(v.fx) > 0) x.fx = parseNum(v.fx); else delete x.fx; }
@@ -193,7 +193,7 @@ export const investPage: PageDef = {
             danger: { text: t("iDeleteTrade"), onTap: async () => {
                 if (!(await confirmSheet(ctx.app, t("iDeleteTrade"), t("iDeleteTradeQ", { n: qty(tr.shares), tk: p.ticker, date: tr.date || "-" }), t("delete")))) return false;
                 // the other trades keep their ids: write the default ids before one is taken out
-                const fresh = await updateAsset(p.ticker, (a) => { const xs = list(a.transactions); p.trades.forEach((q) => { if (xs[q.index]) xs[q.index].id = q.id; }); if (xs[tr.index]) { xs.splice(tr.index, 1); a.transactions = xs; recalc(a); } });
+                const fresh = await updateAsset(p.ticker, (a) => { const xs = list(a.transactions); p.trades.forEach((q) => { const j = findTrade(xs, q); if (j >= 0) xs[j].id = q.id; }); const k = findTrade(xs, tr); if (k >= 0) { xs.splice(k, 1); a.transactions = xs; recalc(a); } });
                 await book(fresh, [tr.id]);
                 return true;
             } },

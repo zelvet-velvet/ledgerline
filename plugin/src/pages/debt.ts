@@ -1,5 +1,5 @@
 import { Notice } from "obsidian";
-import { computeDebt, Debt, Payment, projectDebt } from "../calc/debt";
+import { computeDebt, Debt, findPayment, Payment, projectDebt } from "../calc/debt";
 import { FILES } from "../data/store";
 import { dateStr, MONTHS, num, parseNum, shortDate, today } from "../format";
 import { t } from "../i18n";
@@ -52,19 +52,23 @@ export const debtPage: PageDef = {
                 { key: "note", label: t("note"), type: "text", value: p.note, placeholder: t("optional") },
             ],
             onSubmit: async (v) => {
+                let ok = false;
                 await store.update(CFG, (f) => {
-                    const x = Array.isArray(f.payments) ? (f.payments[p.index] as Record<string, unknown> | undefined) : undefined;
-                    if (!x) return;
+                    const i = findPayment(f.payments, p);   // the payment itself, not its old position (calc/debt.ts)
+                    if (i < 0) return;
+                    const x = (f.payments as Record<string, unknown>[])[i];
                     x.amount = parseNum(v.amount); x.date = v.date; x.note = v.note;
+                    ok = true;
                 });
-                new Notice(t("updatedPayment", { amount: num(parseNum(v.amount)), cur }));
+                new Notice(ok ? t("updatedPayment", { amount: num(parseNum(v.amount)), cur }) : t("txGone"));
             },
             danger: {
                 text: t("deletePayment"),
                 onTap: async () => {
                     if (!(await confirmSheet(ctx.app, t("deletePayment"), t("deletePaymentQ", { amount: num(p.amount), cur, date: p.date || "-" }), t("delete")))) return false;
-                    await store.update(CFG, (f) => { if (Array.isArray(f.payments) && f.payments[p.index] !== undefined) f.payments.splice(p.index, 1); });
-                    new Notice(t("deletedPayment", { amount: num(p.amount), cur }));
+                    let ok = false;
+                    await store.update(CFG, (f) => { const i = findPayment(f.payments, p); if (i >= 0) { (f.payments as unknown[]).splice(i, 1); ok = true; } });
+                    new Notice(ok ? t("deletedPayment", { amount: num(p.amount), cur }) : t("txGone"));
                     return true;
                 },
             },

@@ -75,7 +75,7 @@ export const tradesPage = (x: X, p: Position): PageOut => {
     const title = t("iTrades");
     const el = page(title);
     el.addClass("zl-c-list");
-    summary(el, { key: "trades-" + p.ticker, label: `${p.ticker} · ${t("iRealized")}`, value: signed(p.realized), hot: p.realized < 0, items: [[t("iFees"), num(p.fees)], [t("iTrades"), String(p.trades.length)]] });
+    summary(el, { key: "trades-" + p.ticker, label: `${p.ticker} · ${t("iRealized")}`, value: signed(p.realized), hot: p.realized < 0, items: [[t("iFees"), num(p.fees)], [t("iTrades"), String(p.trades.length)], ...(p.dropped > 0 ? [[t("iDropped"), qty(p.dropped), true] as [string, string, boolean]] : [])] });
     const g = h(el, "div", "zl-c-group");
     // S2: a trade whose Accounts entries do not add up to it says so (not booked at all, or off by how much)
     const gap = (tr: Trade): string => { const l = x.links.get(tr.id); return !l || !l.diff ? "" : ` · ${l.booked ? t("iBooksOff", { n: num(l.diff) }) : t("iNotBooked")}`; };

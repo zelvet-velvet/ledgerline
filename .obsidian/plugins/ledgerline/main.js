@@ -432,6 +432,12 @@ var parseNum = (v) => {
   return s2 === "" ? NaN : Number(s2);
 };
 
+// src/calc/money.ts
+var int = (v) => {
+  const n = typeof v === "string" ? v.trim() === "" ? NaN : Number(v.replace(/,/g, "")) : typeof v === "number" ? v : NaN;
+  return Number.isFinite(n) ? Math.round(n) : 0;
+};
+
 // src/calc/invest.ts
 var arr = (v) => (Array.isArray(v) ? v : v ? [v] : []).filter((x) => x && typeof x === "object");
 var num2 = (v) => {
@@ -479,7 +485,7 @@ var buildPortfolio = (fm, price, fx, today3 = "", base2 = "TWD") => {
       const settled = dateStr(t2.settled, "");
       return { id: ids[i], type, date: dateStr(t2.date, ""), settled, broker: String(t2.broker ?? broker), index: i, rate, shares: num2(t2.shares), price: num2(t2.price), fx: num2(t2.fx), q, p, gross, fee, tax, cash, pending: !!today3 && !!settled && settled > today3 };
     });
-    let held = 0, cost = 0, own = 0, realized = 0, fees = 0, bought = 0;
+    let held = 0, cost = 0, own = 0, realized = 0, fees = 0, bought = 0, dropped = 0;
     [...trades].sort((x, y) => x.date.localeCompare(y.date) || x.index - y.index).forEach((t2) => {
       fees += toBase(t2.fee + t2.tax, currency, t2.rate);
       bought -= t2.cash;
@@ -487,8 +493,10 @@ var buildPortfolio = (fm, price, fx, today3 = "", base2 = "TWD") => {
         held += t2.q;
         cost -= t2.cash;
         own += t2.gross + t2.fee;
-      } else if (held > 0) {
+      } else if (!(held > 0)) dropped += t2.q;
+      else {
         const sold = Math.min(t2.q, held);
+        dropped += t2.q - sold;
         const out = sold === held ? cost : Math.round(cost * sold / held);
         const proceeds = sold === t2.q ? t2.cash : Math.round(t2.cash * sold / t2.q);
         realized += proceeds - out;
@@ -509,7 +517,7 @@ var buildPortfolio = (fm, price, fx, today3 = "", base2 = "TWD") => {
     const exit = held > 0 && last !== null && fxOk ? toBase(autoFee(g, currency) + autoTax(g, currency, ticker), currency, fxNow) : 0;
     const d = a.dca && typeof a.dca === "object" ? a.dca : null;
     const dca = d && num2(d.amount) > 0 ? { amount: Math.round(num2(d.amount)), day: Math.round(num2(d.day)) || 1 } : null;
-    return { ticker, name: String(a.name ?? ticker), category: String(a.category ?? "other").toLowerCase(), currency, broker, dca, trades, shares: held / 1e4, q: held, cost, avg: held > 0 ? cost * 1e4 / held : 0, avgP: held > 0 ? Math.round(own * 1e6 / (minorOf(currency) * held)) : 0, fxMissing, realized, fees, bought, price: last, value: value2, exit, pl: value2 - exit - cost, index };
+    return { ticker, name: String(a.name ?? ticker), category: String(a.category ?? "other").toLowerCase(), currency, broker, dca, trades, shares: held / 1e4, q: held, cost, avg: held > 0 ? cost * 1e4 / held : 0, avgP: held > 0 ? Math.round(own * 1e6 / (minorOf(currency) * held)) : 0, fxMissing, realized, fees, bought, price: last, value: value2, exit, pl: value2 - exit - cost, index, dropped: dropped / 1e4 };
   });
   const value = positions.reduce((s2, p) => s2 + p.value, 0);
   const buckets = alloc.map((b) => {
@@ -538,6 +546,13 @@ var tradeLinks = (P, entries) => P.positions.flatMap((p) => p.trades.map((t2) =>
   const own = entries.filter((e) => e.trade === t2.id), booked = own.reduce((s2, e) => s2 + e.amount, 0);
   return { id: t2.id, ticker: p.ticker, cash: t2.cash, booked, diff: t2.pending && !own.length ? 0 : booked - t2.cash, pending: t2.pending };
 }));
+var findTrade = (rows, t2) => {
+  const a = Array.isArray(rows) ? rows : [];
+  const byId = a.findIndex((r) => r && typeof r === "object" && r.id !== void 0 && r.id !== "" && String(r.id) === t2.id);
+  if (byId >= 0) return byId;
+  const same = (r) => !!r && typeof r === "object" && (r.id === void 0 || r.id === "") && (String(r.type).toUpperCase() === "SELL" ? "SELL" : "BUY") === t2.type && num2(r.shares) === t2.shares && num2(r.price) === t2.price && dateStr(r.date, "") === t2.date;
+  return same(a[t2.index]) ? t2.index : a.findIndex((r) => same(r));
+};
 var newTradeId = (ticker, date, taken) => {
   const base2 = `${ticker}-${date}`;
   if (!taken.includes(base2)) return base2;
@@ -663,7 +678,7 @@ var monthIncome = (incomeCfg, month, monthNumber) => {
 };
 var LIVING = "living";
 var allocation = (plan, month, income) => {
-  const val = (k) => month && month[k] !== void 0 ? Number(month[k]) || 0 : Number(plan[k]) || 0;
+  const val = (k) => int(month && month[k] !== void 0 ? month[k] : plan[k]);
   const saved = Object.keys(plan).filter((k) => !k.startsWith("file") && k !== LIVING && typeof plan[k] === "number").reduce((s2, k) => s2 + val(k), 0);
   const hasLiving = month ? month[LIVING] !== void 0 : plan[LIVING] !== void 0;
   const living = hasLiving ? val(LIVING) : income - saved;
@@ -671,7 +686,7 @@ var allocation = (plan, month, income) => {
 };
 var computeMonth = ({ month, days, plan, daily, fixed, income }) => {
   const has = (k) => !!month && month[k] !== void 0;
-  const savings = Object.keys(plan).filter((k) => !k.startsWith("file") && k !== LIVING && typeof plan[k] === "number").map((k) => [k, has(k) ? Number(month[k]) : Number(plan[k]) || 0]);
+  const savings = Object.keys(plan).filter((k) => !k.startsWith("file") && k !== LIVING && typeof plan[k] === "number").map((k) => [k, int(has(k) ? month[k] : plan[k])]);
   const alloc = allocation(plan, month, income);
   const saved = alloc.saved;
   const dailyProps = [...new Set(daily.flatMap((x) => x.spending))];
@@ -682,19 +697,19 @@ var computeMonth = ({ month, days, plan, daily, fixed, income }) => {
   const fixedRows = fixed.map((item) => {
     let total = 0;
     for (const p of item.spending) {
-      const v = has(p) ? Number(month[p]) : item.quota;
+      const v = has(p) ? int(month[p]) : item.quota;
       spending[p] = (spending[p] || 0) + v;
       total += v;
     }
     const prop = item.spending[0] ?? "";
-    return { item, prop, def: item.quota, paid: has(prop) ? Number(month[prop]) || 0 : 0 };
+    return { item, prop, def: item.quota, paid: has(prop) ? int(month[prop]) : 0 };
   });
-  const fixedTotal = fixed.reduce((s2, item) => s2 + item.spending.reduce((t2, p) => t2 + (has(p) ? Number(month[p]) : item.quota), 0), 0);
+  const fixedTotal = fixed.reduce((s2, item) => s2 + item.spending.reduce((t2, p) => t2 + (has(p) ? int(month[p]) : item.quota), 0), 0);
   const extraMonth = Object.entries(month?.extra_expenses ?? {});
   const extras = [];
   for (const prop of /* @__PURE__ */ new Set([...custom, ...extraMonth.map(([k]) => k)])) {
     const fromDays = spending[prop] || 0;
-    const fromMonth = Number((month?.extra_expenses ?? {})[prop]) || 0;
+    const fromMonth = int((month?.extra_expenses ?? {})[prop]);
     spending[prop] = fromDays + fromMonth;
     if (fromDays + fromMonth > 0) extras.push({ prop, total: fromDays + fromMonth, fromDays, fromMonth, days: days.filter((d) => Number(d.fm[prop]) > 0).map((d) => ({ name: d.name, path: d.path, amount: Number(d.fm[prop]) })).sort((a, b) => a.name.localeCompare(b.name)) });
   }
@@ -703,7 +718,7 @@ var computeMonth = ({ month, days, plan, daily, fixed, income }) => {
   const budget = daily.map((item, index) => {
     const quotaKey = (item.spending[0] ?? "") + "_quota";
     const isPercent = !has(quotaKey);
-    const quota = isPercent ? Math.floor(spendable * item.quota / 100) : Number(month[quotaKey]) || 0;
+    const quota = isPercent ? Math.floor(spendable * item.quota / 100) : int(month[quotaKey]);
     const s2 = item.spending.reduce((t2, p) => t2 + (spending[p] || 0), 0);
     const remain = quota - s2;
     const progress = quota > 0 ? Math.min(s2 / quota * 100, 100) : 0;
@@ -1984,7 +1999,7 @@ var import_obsidian5 = require("obsidian");
 
 // src/calc/flows.ts
 var ZERO = { f: 0, t: 0, ds: 0, dh: 0, fb: 0, fs: 0, tb: 0, ts: 0, dsb: 0, dss: 0, dhb: 0, dhs: 0 };
-var int = (s2) => {
+var int2 = (s2) => {
   const n = Number(String(s2 ?? "").replace(/,/g, "").trim());
   return Number.isFinite(n) ? Math.round(n) : 0;
 };
@@ -1995,15 +2010,15 @@ var parseT86 = (json, codes) => {
   const fx = col("\u5916\u9678\u8CC7\u8CB7\u8CE3\u8D85"), fd = col("\u5916\u8CC7\u81EA\u71DF\u5546\u8CB7\u8CE3\u8D85"), tr = col("\u6295\u4FE1\u8CB7\u8CE3\u8D85"), ds = col("\u81EA\u71DF\u5546\u8CB7\u8CE3\u8D85\u80A1\u6578(\u81EA\u884C"), dh = col("\u81EA\u71DF\u5546\u8CB7\u8CE3\u8D85\u80A1\u6578(\u907F\u96AA");
   const G = { fb: col("\u5916\u9678\u8CC7\u8CB7\u9032"), fs: col("\u5916\u9678\u8CC7\u8CE3\u51FA"), fdb: col("\u5916\u8CC7\u81EA\u71DF\u5546\u8CB7\u9032"), fds: col("\u5916\u8CC7\u81EA\u71DF\u5546\u8CE3\u51FA"), tb: col("\u6295\u4FE1\u8CB7\u9032"), ts: col("\u6295\u4FE1\u8CE3\u51FA"), dsb: col("\u81EA\u71DF\u5546\u8CB7\u9032\u80A1\u6578(\u81EA\u884C"), dss: col("\u81EA\u71DF\u5546\u8CE3\u51FA\u80A1\u6578(\u81EA\u884C"), dhb: col("\u81EA\u71DF\u5546\u8CB7\u9032\u80A1\u6578(\u907F\u96AA"), dhs: col("\u81EA\u71DF\u5546\u8CE3\u51FA\u80A1\u6578(\u907F\u96AA") };
   if ([fx, tr, ds, dh].some((i) => i < 0)) return null;
-  const at = (r, i) => i >= 0 ? int(r[i]) : 0;
+  const at = (r, i) => i >= 0 ? int2(r[i]) : 0;
   const want = new Set(codes), out = {};
   for (const r of j.data) {
     const c = String(r[0] ?? "").trim();
     if (want.has(c)) out[c] = {
-      f: int(r[fx]) + at(r, fd),
-      t: int(r[tr]),
-      ds: int(r[ds]),
-      dh: int(r[dh]),
+      f: int2(r[fx]) + at(r, fd),
+      t: int2(r[tr]),
+      ds: int2(r[ds]),
+      dh: int2(r[dh]),
       fb: at(r, G.fb) + at(r, G.fdb),
       fs: at(r, G.fs) + at(r, G.fds),
       tb: at(r, G.tb),
@@ -2315,6 +2330,13 @@ var readAlerts = (fm) => ({
   alerts: arr3(fm?.alerts).map((a, index) => ({ id: String(a.id ?? `a${index}`), ticker: String(a.ticker ?? "").toUpperCase(), kind: a.kind === "above" ? "above" : "below", price: Math.round(Number(a.price) * 100), index })).filter((a) => a.ticker && a.price > 0),
   sent: arr3(fm?.sent).map((s2) => ({ key: String(s2.key ?? ""), date: dateStr(s2.date, ""), text: String(s2.text ?? "") })).filter((s2) => s2.key)
 });
+var findAlert = (rows, a) => {
+  const xs2 = Array.isArray(rows) ? rows : [];
+  const byId = xs2.findIndex((r2) => r2 && typeof r2 === "object" && r2.id !== void 0 && String(r2.id) === a.id);
+  if (byId >= 0) return byId;
+  const r = xs2[a.index];
+  return r && typeof r === "object" && r.id === void 0 && String(r.ticker ?? "").toUpperCase() === a.ticker && Math.round(Number(r.price) * 100) === a.price ? a.index : -1;
+};
 var hit = (a, price) => a.kind === "below" ? price <= a.price : price >= a.price;
 var away = (a, price) => price > 0 ? (a.kind === "below" ? price - a.price : a.price - price) / price * 100 : 0;
 var keepSent = (sent, today3) => sent.filter((s2) => s2.date && daysBetween(s2.date, today3) <= 7);
@@ -2899,6 +2921,7 @@ var en = {
   iNoPrice: "No price: {tk}",
   iNoFx: "No FX rate: {tk}",
   iNoSource: "NO SOURCE HAS A PRICE",
+  iDropped: "Sold, never held",
   iPL: "Net profit",
   iCash: "Cash to invest",
   iNone: "No holdings yet",
@@ -3880,7 +3903,7 @@ var import_obsidian9 = require("obsidian");
 var SPAN_PAGE = { 1: 1, 5: 2, 20: 4 };
 var ent = (s2) => s2.replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
 var txt = (s2) => ent(s2.replace(/<[^>]*>/g, "")).trim();
-var int2 = (s2) => {
+var int3 = (s2) => {
   const n = Number(s2.replace(/,/g, ""));
   return Number.isFinite(n) ? Math.round(n) : NaN;
 };
@@ -3894,8 +3917,8 @@ var parseZco = (html) => {
   for (const tr of html.split(/<tr\b/i).slice(1)) {
     const cells = [...tr.split(/<\/tr>/i)[0].matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)].map((m) => txt(m[1]));
     if (cells[0] === "\u5408\u8A08\u8CB7\u8D85\u5F35\u6578") {
-      out.buyTotal = int2(cells[1]) || 0;
-      out.sellTotal = int2(cells[3]) || 0;
+      out.buyTotal = int3(cells[1]) || 0;
+      out.sellTotal = int3(cells[3]) || 0;
       continue;
     }
     if (cells[0] === "\u5E73\u5747\u8CB7\u8D85\u6210\u672C") {
@@ -3905,7 +3928,7 @@ var parseZco = (html) => {
     }
     if (cells.length < 10) continue;
     const side = (c, sign) => {
-      const [name, b, s2, n] = [c[0], int2(c[1]), int2(c[2]), int2(c[3])];
+      const [name, b, s2, n] = [c[0], int3(c[1]), int3(c[2]), int3(c[3])];
       return name && Number.isFinite(b) && Number.isFinite(s2) && Number.isFinite(n) ? { name, b, s: s2, net: sign * Math.abs(n), pct: hund(c[4]) } : null;
     };
     const a = side(cells.slice(0, 5), 1), z = side(cells.slice(5, 10), -1);
@@ -5628,7 +5651,7 @@ var import_obsidian17 = require("obsidian");
 // src/calc/accounts.ts
 var KINDS = ["opening", "adjust", "expense", "deposit", "transfer", "buy", "sell", "fee"];
 var arr4 = (v) => (Array.isArray(v) ? v : v ? [v] : []).filter((x) => x && typeof x === "object");
-var int3 = (v) => {
+var int4 = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? Math.round(n) : 0;
 };
@@ -5639,12 +5662,12 @@ var buildAccounts = (fm, upTo) => {
     bank: String(a.bank ?? ""),
     line: String(a.line ?? ""),
     bucket: String(a.bucket ?? ""),
-    target: int3(a.target)
+    target: int4(a.target)
   })).filter((a) => a.key);
   const entries = arr4(fm?.entries).map((e, index) => ({
     date: dateStr(e.date, ""),
     account: String(e.account ?? ""),
-    amount: int3(e.amount),
+    amount: int4(e.amount),
     kind: KINDS.includes(e.kind) ? e.kind : "adjust",
     note: String(e.note ?? ""),
     planned: e.planned === true,
@@ -10002,7 +10025,7 @@ var tradesPage = (x, p) => {
   const title = t("iTrades");
   const el = page(title);
   el.addClass("zl-c-list");
-  summary(el, { key: "trades-" + p.ticker, label: `${p.ticker} \xB7 ${t("iRealized")}`, value: signed3(p.realized), hot: p.realized < 0, items: [[t("iFees"), num(p.fees)], [t("iTrades"), String(p.trades.length)]] });
+  summary(el, { key: "trades-" + p.ticker, label: `${p.ticker} \xB7 ${t("iRealized")}`, value: signed3(p.realized), hot: p.realized < 0, items: [[t("iFees"), num(p.fees)], [t("iTrades"), String(p.trades.length)], ...p.dropped > 0 ? [[t("iDropped"), qty(p.dropped), true]] : []] });
   const g = h(el, "div", "zl-c-group");
   const gap = (tr) => {
     const l = x.links.get(tr.id);
@@ -10227,7 +10250,8 @@ var alertSheet = (x, a, preset) => {
       await store.update(path, (f) => {
         const xs2 = list2(f.alerts);
         const row2 = { id: a?.id ?? `a${Date.now().toString(36)}`, ticker: tk, kind: v.kind === "above" ? "above" : "below", price: parseNum(v.price) };
-        if (a && xs2[a.index]) xs2[a.index] = row2;
+        const i = a ? findAlert(xs2, a) : -1;
+        if (i >= 0) xs2[i] = row2;
         else xs2.push(row2);
         f.alerts = xs2;
       });
@@ -10235,8 +10259,8 @@ var alertSheet = (x, a, preset) => {
     danger: a ? { text: t("alRemove"), onTap: async () => {
       if (!await confirmSheet(x.ctx.app, t("alRemove"), t("alRemoveQ", { tk: a.ticker, p: p22(a.price) }), t("remove"))) return false;
       await store.update(path, (f) => {
-        const xs2 = list2(f.alerts);
-        xs2.splice(a.index, 1);
+        const xs2 = list2(f.alerts), i = findAlert(xs2, a);
+        if (i >= 0) xs2.splice(i, 1);
         f.alerts = xs2;
       });
       return true;
@@ -10711,7 +10735,7 @@ var investPage = {
       ],
       onSubmit: async (v) => {
         const fresh = await updateAsset(p.ticker, (a) => {
-          const x2 = list3(a.transactions)[tr.index];
+          const x2 = list3(a.transactions)[findTrade(a.transactions, tr)];
           if (!x2) return;
           x2.id = tr.id;
           x2.shares = parseNum(v.shares);
@@ -10737,10 +10761,12 @@ var investPage = {
         const fresh = await updateAsset(p.ticker, (a) => {
           const xs2 = list3(a.transactions);
           p.trades.forEach((q) => {
-            if (xs2[q.index]) xs2[q.index].id = q.id;
+            const j = findTrade(xs2, q);
+            if (j >= 0) xs2[j].id = q.id;
           });
-          if (xs2[tr.index]) {
-            xs2.splice(tr.index, 1);
+          const k = findTrade(xs2, tr);
+          if (k >= 0) {
+            xs2.splice(k, 1);
             a.transactions = xs2;
             recalc(a);
           }
@@ -11436,13 +11462,13 @@ var import_obsidian21 = require("obsidian");
 var DEFAULT_RATE = 775e-5;
 var computeDebt = (fm, planAmount, months, now) => {
   const f = fm ?? {};
-  const principal = Number(f.initial_principal) || 0;
+  const principal = int(f.initial_principal);
   const rate = f.interest_rate === void 0 || f.interest_rate === null || f.interest_rate === "" ? DEFAULT_RATE : Number(f.interest_rate) || 0;
   const start = dateStr(f.start_date, "");
   const raw = Array.isArray(f.payments) ? f.payments : f.payments ? [f.payments] : [];
   const payments = raw.map((p, index) => {
     const o = p ?? {};
-    return { date: dateStr(o.date, ""), amount: Number(o.amount) || 0, note: String(o.note ?? ""), index };
+    return { date: dateStr(o.date, ""), amount: int(o.amount), note: String(o.note ?? ""), index };
   });
   const paid = payments.reduce((s2, p) => s2 + p.amount, 0);
   const day = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -11459,7 +11485,7 @@ var computeDebt = (fm, planAmount, months, now) => {
     principal,
     rate,
     start,
-    monthlyMin: Number(f.monthly_min_payment) || 0,
+    monthlyMin: int(f.monthly_min_payment),
     payments,
     paid,
     balance: Math.max(0, principal - paid),
@@ -11467,10 +11493,15 @@ var computeDebt = (fm, planAmount, months, now) => {
     daysUntilStart,
     grace,
     planAmount,
-    repayment: Number(f.repayment) || planAmount,
+    repayment: int(f.repayment) || planAmount,
     toInvestment,
     loanPrep
   };
+};
+var findPayment = (list5, p) => {
+  const a = Array.isArray(list5) ? list5 : [];
+  const same = (e) => !!e && typeof e === "object" && int(e.amount) === p.amount && dateStr(e.date, "") === p.date && String(e.note ?? "") === p.note;
+  return same(a[p.index]) ? p.index : a.findIndex((e) => same(e));
 };
 var projectDebt = (d, pay, now) => {
   const from = d.start && d.grace ? /* @__PURE__ */ new Date(d.start + "T00:00:00") : new Date(now.getFullYear(), now.getMonth(), 1);
@@ -11522,15 +11553,20 @@ var list4 = (v) => (Array.isArray(v) ? v : v ? [v] : []).filter((x) => x && type
 var buildGoals = (fm, savedOf) => {
   const funds = list4(fm?.funds).map((f) => ({ key: String(f.key ?? ""), label: String(f.label ?? f.key ?? ""), emoji: String(f.emoji ?? ""), goals: [], saved: 0, target: 0, surplus: 0 }));
   const goals = list4(fm?.goals).map((g) => {
-    const expenses = list4(g.expenses).map((e, index) => ({ item: String(e.item ?? ""), amount: Number(e.amount) || 0, date: dateStr(e.date, ""), index }));
-    return { name: String(g.name ?? ""), fundKey: String(g.fund ?? ""), emoji: String(g.emoji ?? ""), amount: Number(g.goal) || 0, target: dateStr(g.target_date, ""), expenses, alloc: 0, spent: expenses.reduce((s2, e) => s2 + e.amount, 0), cash: 0, pct: 0 };
+    const expenses = list4(g.expenses).map((e, index) => ({ item: String(e.item ?? ""), amount: int(e.amount), date: dateStr(e.date, ""), index }));
+    return { name: String(g.name ?? ""), fundKey: String(g.fund ?? ""), emoji: String(g.emoji ?? ""), amount: int(g.goal), target: dateStr(g.target_date, ""), expenses, alloc: 0, spent: expenses.reduce((s2, e) => s2 + e.amount, 0), cash: 0, pct: 0 };
   }).sort((a, b) => (a.target || "9999").localeCompare(b.target || "9999"));
   for (const g of goals) (funds.find((f) => f.key === g.fundKey) ?? funds[0])?.goals.push(g);
   for (const f of funds) {
     f.saved = Number(savedOf(f.key)) || 0;
     let pool = f.saved;
     for (const g of f.goals) {
-      const amount = g.amount || 1;
+      if (!(g.amount > 0)) {
+        g.alloc = 0;
+        g.pct = 100;
+        continue;
+      }
+      const amount = g.amount;
       g.alloc = Math.min(pool, amount);
       pool -= g.alloc;
       g.pct = g.alloc / amount * 100;
@@ -11549,7 +11585,7 @@ var buildGoals = (fm, savedOf) => {
 };
 var findExpense = (arr5, x) => {
   const a = Array.isArray(arr5) ? arr5 : [];
-  const same = (e) => !!e && String(e.item ?? "") === x.item && Number(e.amount) === x.amount && dateStr(e.date, "") === x.date;
+  const same = (e) => !!e && String(e.item ?? "") === x.item && int(e.amount) === x.amount && dateStr(e.date, "") === x.date;
   return same(a[x.index]) ? x.index : a.findIndex((e) => same(e));
 };
 var mIdx = (d) => Number(d.slice(0, 4)) * 12 + Number(d.slice(5, 7)) - 1;
@@ -11584,7 +11620,7 @@ var buildLedger = (list5) => {
   raw.forEach((x, index) => {
     const r = x ?? {};
     if (!r.friend) return;
-    const rec = { friend: String(r.friend), action: String(r.action ?? ""), amount: Number(r.amount) || 0, date: dateStr(r.date, ""), note: String(r.note ?? ""), index };
+    const rec = { friend: String(r.friend), action: String(r.action ?? ""), amount: int(r.amount), date: dateStr(r.date, ""), note: String(r.note ?? ""), index };
     if (!people.has(rec.friend)) people.set(rec.friend, []);
     people.get(rec.friend).push(rec);
   });
@@ -11595,12 +11631,14 @@ var buildLedger = (list5) => {
     const queue = [];
     const consume = (t2, amt) => {
       let rem = amt;
-      while (rem > 0 && queue.length && queue[0].t === t2) {
-        if (queue[0].a <= rem) {
-          rem -= queue[0].a;
-          queue.shift();
+      while (rem > 0) {
+        const i = queue.findIndex((e) => e.t === t2);
+        if (i < 0) break;
+        if (queue[i].a <= rem) {
+          rem -= queue[i].a;
+          queue.splice(i, 1);
         } else {
-          queue[0].a -= rem;
+          queue[i].a -= rem;
           rem = 0;
         }
       }
@@ -11624,7 +11662,7 @@ var buildLedger = (list5) => {
     const net = me - them;
     if (net > 0) oweMe += net;
     else if (net < 0) oweThem -= net;
-    friends.push({ name, net, activeSince: queue[0]?.d || null, records: recs.reverse() });
+    friends.push({ name, net, activeSince: (queue.find((e) => e.t === (net >= 0 ? "me" : "them")) ?? queue[0])?.d || null, records: recs.reverse() });
   }
   friends.sort((a, b) => Math.abs(b.net) - Math.abs(a.net));
   return { friends, oweMe, oweThem, net: oweMe - oweThem, count: raw.length };
@@ -11634,7 +11672,7 @@ var balanceAfter2 = (recs) => {
   const out = /* @__PURE__ */ new Map();
   let b = 0;
   for (const r of [...recs].sort((x, y) => x.date.localeCompare(y.date) || x.index - y.index)) {
-    b += (SIGN[r.action] ?? -1) * r.amount;
+    b += (SIGN[r.action] ?? 0) * r.amount;
     out.set(r, b);
   }
   return out;
@@ -11642,7 +11680,7 @@ var balanceAfter2 = (recs) => {
 var settleOf = (f) => f.net > 0 ? { action: "paid_to_me", amount: f.net } : f.net < 0 ? { action: "paid_to_them", amount: -f.net } : null;
 var findRecord = (list5, r) => {
   const arr5 = Array.isArray(list5) ? list5 : [];
-  const same = (e) => !!e && String(e.friend) === r.friend && String(e.action) === r.action && Number(e.amount) === r.amount && dateStr(e.date, "") === r.date && String(e.note ?? "") === r.note;
+  const same = (e) => !!e && String(e.friend) === r.friend && String(e.action) === r.action && int(e.amount) === r.amount && dateStr(e.date, "") === r.date && String(e.note ?? "") === r.note;
   return same(arr5[r.index]) ? r.index : arr5.findIndex((e) => same(e));
 };
 var daysSince = (d, now = /* @__PURE__ */ new Date()) => {
@@ -11731,23 +11769,31 @@ var debtPage = {
         { key: "note", label: t("note"), type: "text", value: p.note, placeholder: t("optional") }
       ],
       onSubmit: async (v) => {
+        let ok = false;
         await store.update(CFG, (f) => {
-          const x = Array.isArray(f.payments) ? f.payments[p.index] : void 0;
-          if (!x) return;
+          const i = findPayment(f.payments, p);
+          if (i < 0) return;
+          const x = f.payments[i];
           x.amount = parseNum(v.amount);
           x.date = v.date;
           x.note = v.note;
+          ok = true;
         });
-        new import_obsidian21.Notice(t("updatedPayment", { amount: num(parseNum(v.amount)), cur }));
+        new import_obsidian21.Notice(ok ? t("updatedPayment", { amount: num(parseNum(v.amount)), cur }) : t("txGone"));
       },
       danger: {
         text: t("deletePayment"),
         onTap: async () => {
           if (!await confirmSheet(ctx.app, t("deletePayment"), t("deletePaymentQ", { amount: num(p.amount), cur, date: p.date || "-" }), t("delete"))) return false;
+          let ok = false;
           await store.update(CFG, (f) => {
-            if (Array.isArray(f.payments) && f.payments[p.index] !== void 0) f.payments.splice(p.index, 1);
+            const i = findPayment(f.payments, p);
+            if (i >= 0) {
+              f.payments.splice(i, 1);
+              ok = true;
+            }
           });
-          new import_obsidian21.Notice(t("deletedPayment", { amount: num(p.amount), cur }));
+          new import_obsidian21.Notice(ok ? t("deletedPayment", { amount: num(p.amount), cur }) : t("txGone"));
           return true;
         }
       }

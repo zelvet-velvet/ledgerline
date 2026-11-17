@@ -1,5 +1,6 @@
 import { dateStr, localDate } from "../format";
 import type { FM } from "../data/store";
+import { int } from "./money";
 
 export interface Payment { date: string; amount: number; note: string; index: number }
 export interface Debt {
@@ -28,13 +29,13 @@ export const DEFAULT_RATE = 0.00775;
 // Pure: the debt picture from the debt note, the savings-plan amount and the number of month notes.
 export const computeDebt = (fm: FM | null, planAmount: number, months: LoanMonth[], now: Date): Debt => {
     const f = fm ?? {};
-    const principal = Number(f.initial_principal) || 0;
+    const principal = int(f.initial_principal);
     const rate = f.interest_rate === undefined || f.interest_rate === null || f.interest_rate === "" ? DEFAULT_RATE : Number(f.interest_rate) || 0;
     const start = dateStr(f.start_date, "");
     const raw = Array.isArray(f.payments) ? f.payments : f.payments ? [f.payments] : [];
     const payments: Payment[] = raw.map((p: unknown, index: number) => {
         const o = (p ?? {}) as FM;
-        return { date: dateStr(o.date, ""), amount: Number(o.amount) || 0, note: String(o.note ?? ""), index };
+        return { date: dateStr(o.date, ""), amount: int(o.amount), note: String(o.note ?? ""), index };
     });
     const paid = payments.reduce((s, p) => s + p.amount, 0);
     const day = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -46,10 +47,18 @@ export const computeDebt = (fm: FM | null, planAmount: number, months: LoanMonth
         loanPrep += keep; toInvestment += m.amount - keep;
     }
     return {
-        exists: !!fm, principal, rate, start, monthlyMin: Number(f.monthly_min_payment) || 0, payments, paid,
+        exists: !!fm, principal, rate, start, monthlyMin: int(f.monthly_min_payment), payments, paid,
         balance: Math.max(0, principal - paid), progress: principal > 0 ? (paid / principal) * 100 : 0,
-        daysUntilStart, grace, planAmount, repayment: Number(f.repayment) || planAmount, toInvestment, loanPrep,
+        daysUntilStart, grace, planAmount, repayment: int(f.repayment) || planAmount, toInvestment, loanPrep,
     };
+};
+
+// The stored payment for a displayed one: the same position if it still matches, else the first identical one (-1: gone).
+// A note changed by a sync between drawing and saving must never make Save or Delete hit another row.
+export const findPayment = (list: unknown, p: Payment): number => {
+    const a = Array.isArray(list) ? (list as FM[]) : [];
+    const same = (e: FM | undefined) => !!e && typeof e === "object" && int(e.amount) === p.amount && dateStr(e.date, "") === p.date && String(e.note ?? "") === p.note;
+    return same(a[p.index]) ? p.index : a.findIndex((e) => same(e));
 };
 
 // Pure: the balance at the end of each year if `pay` goes in every month from the repayment start (or now, if it already began),

@@ -551,6 +551,7 @@ const en = {
     iNoPrice: "No price: {tk}",
     iNoFx: "No FX rate: {tk}",
     iNoSource: "NO SOURCE HAS A PRICE",
+    iDropped: "Sold, never held",
     iPL: "Net profit",
     iCash: "Cash to invest",
     iNone: "No holdings yet",
