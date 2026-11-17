@@ -383,8 +383,9 @@ const budgetPage = (x: X, b: BudgetRow, days: { name: string; path: string; fm: 
         items: [[t("cLimit"), num(b.quota)], [t("spent"), num(b.spent)], isNow ? [t("cPerDayLeft"), num(Math.max(0, b.remain) / Math.max(1, daysLeft)), b.remain < 0] : [t("used"), `${b.quota > 0 ? Math.round((b.spent / b.quota) * 100) : 0}%`]],
     });
     const bar = h(el, "div", "zl-c-group");
-    sec(bar, (isNow ? t("cVsPace") : t("spent")).toUpperCase());
+    sec(bar, t("spent").toUpperCase());
     budgetBar(bar, b.spent, b.quota, isNow ? now.getDate() / dim : 0, 30, 10, 18);
+    if (isNow) h(bar, "p", "zl-c-note", t("cPaceNote"));   // what the line means is a footnote, never the head
     const lim = h(el, "div", "zl-c-group");
     const pct = b.item.quota;
     const setLimit = () => x.editAmount(t("cLimitOf", { name: b.item.name }), b.quota,

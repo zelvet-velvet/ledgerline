@@ -137,6 +137,8 @@ export const dayPage = (ctx: PageCtx, date: string, notePath?: string): PageOut 
         live: (n) => { const d = n - (Number(fm[prop]) || 0); big.textContent = num(total + d); big.toggleClass("is-dim", total + d <= 0); },
         done: (n) => { void write((f) => { f[prop] = n; }).then(() => toast(t("savedX", { name: cap(prop), amount: num(n), cur }))); },
     });
+    // every tile on the day page is one width, three across, whatever the group's size (review 2026-11: one or two tiles came half wide)
+    const same = (g: HTMLElement) => g.removeClass("is-2", "is-4");
     // every daily item is a tile, grouped under its budget group (what is left this month on the right)
     daily.forEach((bg, i) => {
         const left = M.budget[i];
@@ -144,20 +146,20 @@ export const dayPage = (ctx: PageCtx, date: string, notePath?: string): PageOut 
         const head = sec(g, (bg.name || t("groupN", { n: i + 1 })).toUpperCase());
         if (left) { const r = h(head, "span", "zl-sec-go" + (left.remain < 0 ? " is-hot" : ""), `${num(left.remain)} ${t("cLeft").toUpperCase()}`); r.setAttribute("aria-label", t("leftMonthN", { left: num(left.remain) })); }
         if (!bg.spending.length) { h(g, "div", "zl-gf", t("noItems")); return; }
-        tileGrid(g, bg.spending.map((p) => { const v = Number(fm[p]) || 0; return { k: cap(p).toUpperCase(), v: num(v), dim: !v, onTap: () => edit(p, false), scrub: drag(p) }; }));
+        same(tileGrid(g, bg.spending.map((p) => { const v = Number(fm[p]) || 0; return { k: cap(p).toUpperCase(), v: num(v), dim: !v, onTap: () => edit(p, false), scrub: drag(p) }; })));
     });
     if (custom.length) {
         const g = h(el, "div", "zl-c-group");
         sec(g, t("oneTime").toUpperCase());
-        tileGrid(g, custom.map((p) => ({ k: cap(p).toUpperCase(), v: num(fm[p]), hot: true, onTap: () => edit(p, true), scrub: drag(p) })));
+        same(tileGrid(g, custom.map((p) => ({ k: cap(p).toUpperCase(), v: num(fm[p]), hot: true, onTap: () => edit(p, true), scrub: drag(p) }))));
     }
     // numbers in the note that are not spending (a rating, another plugin's count): shown, never added; a tap counts one
     if (skipped.length) {
         const g = h(el, "div", "zl-c-group");
         sec(g, t("notCounted").toUpperCase());
-        tileGrid(g, skipped.map((p) => ({ k: cap(p).toUpperCase(), v: num(fm[p]), dim: true, onTap: async () => {
+        same(tileGrid(g, skipped.map((p) => ({ k: cap(p).toUpperCase(), v: num(fm[p]), dim: true, onTap: async () => {
             if (await confirmSheet(ctx.app, t("countQ", { name: cap(p) }), t("countSub"), t("count"))) { await countOneTime(ctx, p); toast(t("countedX", { name: cap(p) })); }
-        } })));
+        } }))));
     }
     if (daily.length || custom.length) h(el, "div", "zl-c-note zl-scrub-hint", t("cScrubHint"));
     if (!daily.length && !custom.length) empty(el, { icon: "list", title: t("noItems"), button: t("dailyItems"), onTap: () => ctx.push({ key: "items", title: t("dailyItems") }) });

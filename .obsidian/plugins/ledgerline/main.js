@@ -2715,7 +2715,7 @@ var en = {
   dailyItems: "Daily items",
   noGroups: "No budget groups yet",
   newGroup: "New group",
-  groupSub: "A share of what is left after savings and fixed expenses",
+  groupSub: "A share of the money to live on",
   share: "Share",
   pctTotal: "Total {n}%",
   over100: "Groups add up to {n}%, keep them at 100% or less",
@@ -2888,7 +2888,7 @@ var en = {
   cLimitBack: "Use the share again",
   cLimitNote: "How much {name} may spend in {month}. Normally it is {pct}% of the money left to spend after savings and fixed costs; a number typed here is used for this month only.",
   cPerDayLeft: "Per day left",
-  cVsPace: "Spent \xB7 the line is where you should be today",
+  cPaceNote: "The line is where you should be today.",
   nwTitle: "Net worth",
   nwSub: "Every tab added up",
   nwLabel: "Net worth \xB7 {cur}",
@@ -11053,6 +11053,7 @@ var dayPage = (ctx, date, notePath) => {
       }).then(() => toast(t("savedX", { name: cap(prop), amount: num(n), cur })));
     }
   });
+  const same = (g) => g.removeClass("is-2", "is-4");
   daily.forEach((bg, i) => {
     const left = M.budget[i];
     const g = h(el2, "div", "zl-c-group");
@@ -11065,25 +11066,25 @@ var dayPage = (ctx, date, notePath) => {
       h(g, "div", "zl-gf", t("noItems"));
       return;
     }
-    tileGrid(g, bg.spending.map((p) => {
+    same(tileGrid(g, bg.spending.map((p) => {
       const v = Number(fm[p]) || 0;
       return { k: cap(p).toUpperCase(), v: num(v), dim: !v, onTap: () => edit(p, false), scrub: drag(p) };
-    }));
+    })));
   });
   if (custom.length) {
     const g = h(el2, "div", "zl-c-group");
     sec(g, t("oneTime").toUpperCase());
-    tileGrid(g, custom.map((p) => ({ k: cap(p).toUpperCase(), v: num(fm[p]), hot: true, onTap: () => edit(p, true), scrub: drag(p) })));
+    same(tileGrid(g, custom.map((p) => ({ k: cap(p).toUpperCase(), v: num(fm[p]), hot: true, onTap: () => edit(p, true), scrub: drag(p) }))));
   }
   if (skipped.length) {
     const g = h(el2, "div", "zl-c-group");
     sec(g, t("notCounted").toUpperCase());
-    tileGrid(g, skipped.map((p) => ({ k: cap(p).toUpperCase(), v: num(fm[p]), dim: true, onTap: async () => {
+    same(tileGrid(g, skipped.map((p) => ({ k: cap(p).toUpperCase(), v: num(fm[p]), dim: true, onTap: async () => {
       if (await confirmSheet(ctx.app, t("countQ", { name: cap(p) }), t("countSub"), t("count"))) {
         await countOneTime(ctx, p);
         toast(t("countedX", { name: cap(p) }));
       }
-    } })));
+    } }))));
   }
   if (daily.length || custom.length) h(el2, "div", "zl-c-note zl-scrub-hint", t("cScrubHint"));
   if (!daily.length && !custom.length) empty(el2, { icon: "list", title: t("noItems"), button: t("dailyItems"), onTap: () => ctx.push({ key: "items", title: t("dailyItems") }) });
@@ -12916,8 +12917,9 @@ var budgetPage = (x, b, days) => {
     items: [[t("cLimit"), num(b.quota)], [t("spent"), num(b.spent)], isNow ? [t("cPerDayLeft"), num(Math.max(0, b.remain) / Math.max(1, daysLeft)), b.remain < 0] : [t("used"), `${b.quota > 0 ? Math.round(b.spent / b.quota * 100) : 0}%`]]
   });
   const bar = h(el2, "div", "zl-c-group");
-  sec(bar, (isNow ? t("cVsPace") : t("spent")).toUpperCase());
+  sec(bar, t("spent").toUpperCase());
   budgetBar(bar, b.spent, b.quota, isNow ? now.getDate() / dim : 0, 30, 10, 18);
+  if (isNow) h(bar, "p", "zl-c-note", t("cPaceNote"));
   const lim = h(el2, "div", "zl-c-group");
   const pct2 = b.item.quota;
   const setLimit = () => x.editAmount(
