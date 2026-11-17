@@ -6,7 +6,7 @@ import { h, page } from "../ui";
 import { liveOf, price2 } from "../ui/chart";
 import { Flap } from "../ui/flap";
 import { dayChange } from "../calc/chart";
-import { isTwSym } from "../calc/quotes";
+import { closedInHours, isTwSym, nextOpen } from "../calc/quotes";
 import type { PageCtx } from "./index";
 
 export const PLAN_KEY = "investment";   // the savings-plan line that feeds investing
@@ -36,6 +36,19 @@ export const liveBadge = (x: X): { text: string; live: boolean } | undefined => 
     const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     const when = day === today() ? hm : `${d.toLocaleDateString("en-US", { weekday: "short" })} ${hm}`;
     return { text: t("liveOff", { m: s.next.mkt, t: when }).toUpperCase(), live: false };
+};
+// a ticker's own page says its own market (owner's rule: the badge names the market that trades): "TW TRADING" on VOO read as
+// if VOO traded. Same words as the tab's badge, for this ticker's market only.
+export const tickerBadge = (x: X, tk: string): { text: string; live: boolean } | undefined => {
+    const pr = x.ctx.plugin.prices, sym = pr.symbol(tk), mkt = isTwSym(sym) ? "TW" : "US", now = new Date(), cal = pr.calendar?.cal;
+    if (pr.isOpen(tk, now)) return { text: t("liveOn", { m: mkt }).toUpperCase(), live: true };
+    const why = closedInHours(sym, now, cal);
+    if (why) return { text: t("liveClosed", { m: mkt, w: t(WHY[why]) }).toUpperCase(), live: false };
+    const d = nextOpen(sym, now, cal);
+    if (!d) return undefined;
+    const hm = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    return { text: t("liveOff", { m: mkt, t: day === today() ? hm : `${d.toLocaleDateString("en-US", { weekday: "short" })} ${hm}` }).toUpperCase(), live: false };
 };
 export const findAct = (x: X, el: HTMLElement) => ({ icon: "search", label: t("iFind"), dock: true, onTap: () => x.search(el) });   // beside + TRADE in the bottom bar
 

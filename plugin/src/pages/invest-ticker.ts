@@ -11,7 +11,7 @@ import { DrawingsSheet } from "./drawings";
 import { flowModes, sectorLine } from "./invest-flow";
 import { flowCodes, flowsTile } from "./flows";
 import type { PageOut } from "./index";
-import { signed, pctS, qty, X, todayOf, atNow, flowTickers, guessCur } from "./invest-shared";
+import { signed, pctS, qty, X, todayOf, atNow, flowTickers, guessCur, tickerBadge } from "./invest-shared";
 import { buyCheck, thesisCard, thesisLine } from "./invest-thesis";
 import { revenueTile } from "./invest-revenue";
 
@@ -67,7 +67,7 @@ export const assetPage = (x: X, p: Position): PageOut => {
         { k: t("iJournal"), icon: "receipt", v: String(thoughts.length), dim: !thoughts.length, onTap: () => ctx.push({ key: "journal:" + p.ticker, title: t("iJournal") }) },
     ].filter((v): v is NonNullable<typeof v> => !!v);
     tileGrid(h(el, "div", "zl-c-group"), tiles);
-    return { title: p.ticker, el, still: true, actions: [drawAct(x, p.ticker)], fab: tradeFab(x, p.ticker) };
+    return { title: p.ticker, el, still: true, actions: [drawAct(x, p.ticker)], fab: tradeFab(x, p.ticker), badge: tickerBadge(x, p.ticker) };
 };
 
 // C list: one holding's trades, newest first (the list grows: it may scroll), with realized profit and fees in the summary
@@ -174,7 +174,7 @@ export const tickerPage = (x: X, tk: string): PageOut => {
         revenueTile(x, tk),
     ].filter((v): v is NonNullable<typeof v> => !!v);
     tileGrid(h(el, "div", "zl-c-group"), tiles);
-    return { title: tk, el, still: true, actions: [drawAct(x, tk)], fab: tradeFab(x, tk) };
+    return { title: tk, el, still: true, actions: [drawAct(x, tk)], fab: tradeFab(x, tk), badge: tickerBadge(x, tk) };
 };
 
 // S4 C list: the holding's journal, newest first (each trade's "why" and loose thoughts); the last row opens the note itself

@@ -16,6 +16,7 @@ import { mixPage, rulesPage } from "./invest-mix";
 import { assetPage, tradesPage, tickerPage, journalPage } from "./invest-ticker";
 import { holdingsPage } from "./invest-holdings";
 import { editThesis } from "./invest-thesis";
+import { readThesis } from "../calc/thesis";
 import { revenuePage } from "./invest-revenue";
 import { alertsPage } from "./invest-alerts";
 import { mapPage } from "./invest-flow";
@@ -113,7 +114,7 @@ export const investPage: PageDef = {
                     { key: "price", label: t("iPrice"), type: "number", required: true, dec: 2, ...(pre.price ? { value: pre.price } : {}),
                         step: (v) => tickOf(toP(v.price), curOf(v), tkOf(v)) / 100,
                         auto: (v) => { const q = live(v); return q === null ? "" : String(q); },
-                        tag: (v) => (live(v) !== null && parseNum(v.price) === live(v) ? t("iLive") : "") },
+                        tag: (v) => (live(v) !== null && parseNum(v.price) === live(v) && prices.isOpen(tkOf(v)) ? t("iLive") : "") },   // LIVE only while its market trades: a closed market's last price is not live
                     { key: "date", label: t("date"), type: "date", value: today(), required: true },
                     { key: "fee", label: t("iFee"), type: "number", required: false, fold: true, dec: (v) => (minorOf(curOf(v)) > 1 ? 2 : 0), step: (v) => (minorOf(curOf(v)) > 1 ? 0.01 : 1),
                         auto: (v) => { const c = curOf(v); return major(autoFee(grossV(v), c), c); },
@@ -201,7 +202,8 @@ export const investPage: PageDef = {
 
         // S5: rules (warnings only)
         const cap = capOf(fm);
-        const warns = checkRules(P, cap, (tk) => readJournal(store.fm(journalPath(tk))).length > 0);
+        // a reason = a line in the journal or a written thesis (the thesis is the reason, kept in the same note)
+        const warns = checkRules(P, cap, (tk) => { const f = store.fm(journalPath(tk)); return readJournal(f).length > 0 || !!readThesis(f)?.why; });
 
         // S4: one line in the holding's journal (the note is made on the first line)
         const think = (tk: string, j: FM) => store.update(journalPath(tk), (f) => { f.ticker = tk; f.journal = [...list(f.journal), j]; });

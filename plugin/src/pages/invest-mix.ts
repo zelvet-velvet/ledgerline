@@ -27,7 +27,7 @@ export const mixPage = (x: X): PageOut => {
     const toRules = () => ctx.push({ key: "rules", title: t("iRules") });
     if (P.buckets.length && P.value > 0) {
         const g = h(el, "div", "zl-c-group");
-        sec(g, t("iMixT").toUpperCase(), x.warns.length ? toRules : undefined, x.warns.length ? (x.warns.length === 1 ? t("iWarn1") : t("iWarnN", { n: x.warns.length })).toUpperCase() : undefined);
+        sec(g, t("iMixT").toUpperCase(), x.warns.length ? toRules : undefined, x.warns.length ? (x.warns.length === 1 ? t("iWarn1") : t("iWarnN", { n: x.warns.length })).toUpperCase() : undefined, x.warns.length > 0);
         for (const b of P.buckets) bline(g, { name: b.label, spent: b.pct, quota: 100, pace: b.target / 100, value: `${Math.round(b.pct)}%`, of: t("iTargetN", { n: b.target }), hot: Math.abs(b.drift) > P.threshold, mix: true, onTap: toHoldings });
     }
     if (bs?.length) {

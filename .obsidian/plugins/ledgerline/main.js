@@ -6211,11 +6211,11 @@ var reads = (parent, list5) => {
   }
   return box;
 };
-var sec = (parent, label, onMore, moreText = "MORE") => {
+var sec = (parent, label, onMore, moreText = "MORE", hot = false) => {
   const s2 = h(parent, onMore ? "button" : "div", "zl-sec");
   h(s2, "span", "", label);
   if (onMore) {
-    const g = h(s2, "span", "zl-sec-go", moreText);
+    const g = h(s2, "span", "zl-sec-go" + (hot ? " is-hot" : ""), moreText);
     sprite(g, "back");
     s2.addEventListener("click", (e) => {
       e.preventDefault();
@@ -8347,6 +8347,17 @@ var liveBadge = (x) => {
   const when = day === today() ? hm2 : `${d.toLocaleDateString("en-US", { weekday: "short" })} ${hm2}`;
   return { text: t("liveOff", { m: s2.next.mkt, t: when }).toUpperCase(), live: false };
 };
+var tickerBadge = (x, tk) => {
+  const pr = x.ctx.plugin.prices, sym = pr.symbol(tk), mkt = isTwSym(sym) ? "TW" : "US", now = /* @__PURE__ */ new Date(), cal = pr.calendar?.cal;
+  if (pr.isOpen(tk, now)) return { text: t("liveOn", { m: mkt }).toUpperCase(), live: true };
+  const why = closedInHours(sym, now, cal);
+  if (why) return { text: t("liveClosed", { m: mkt, w: t(WHY[why]) }).toUpperCase(), live: false };
+  const d = nextOpen(sym, now, cal);
+  if (!d) return void 0;
+  const hm2 = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return { text: t("liveOff", { m: mkt, t: day === today() ? hm2 : `${d.toLocaleDateString("en-US", { weekday: "short" })} ${hm2}` }).toUpperCase(), live: false };
+};
 var findAct = (x, el) => ({ icon: "search", label: t("iFind"), dock: true, onTap: () => x.search(el) });
 var CHG_KEY = "ledgerline-chg";
 var CHG = -1;
@@ -8712,7 +8723,7 @@ var mixPage = (x) => {
   const toRules = () => ctx.push({ key: "rules", title: t("iRules") });
   if (P.buckets.length && P.value > 0) {
     const g = h(el, "div", "zl-c-group");
-    sec(g, t("iMixT").toUpperCase(), x.warns.length ? toRules : void 0, x.warns.length ? (x.warns.length === 1 ? t("iWarn1") : t("iWarnN", { n: x.warns.length })).toUpperCase() : void 0);
+    sec(g, t("iMixT").toUpperCase(), x.warns.length ? toRules : void 0, x.warns.length ? (x.warns.length === 1 ? t("iWarn1") : t("iWarnN", { n: x.warns.length })).toUpperCase() : void 0, x.warns.length > 0);
     for (const b of P.buckets) bline(g, { name: b.label, spent: b.pct, quota: 100, pace: b.target / 100, value: `${Math.round(b.pct)}%`, of: t("iTargetN", { n: b.target }), hot: Math.abs(b.drift) > P.threshold, mix: true, onTap: toHoldings });
   }
   if (bs?.length) {
@@ -10019,7 +10030,7 @@ var assetPage = (x, p) => {
     { k: t("iJournal"), icon: "receipt", v: String(thoughts.length), dim: !thoughts.length, onTap: () => ctx.push({ key: "journal:" + p.ticker, title: t("iJournal") }) }
   ].filter((v) => !!v);
   tileGrid(h(el, "div", "zl-c-group"), tiles);
-  return { title: p.ticker, el, still: true, actions: [drawAct(x, p.ticker)], fab: tradeFab(x, p.ticker) };
+  return { title: p.ticker, el, still: true, actions: [drawAct(x, p.ticker)], fab: tradeFab(x, p.ticker), badge: tickerBadge(x, p.ticker) };
 };
 var tradesPage = (x, p) => {
   const title = t("iTrades");
@@ -10139,7 +10150,7 @@ var tickerPage = (x, tk) => {
     revenueTile(x, tk)
   ].filter((v) => !!v);
   tileGrid(h(el, "div", "zl-c-group"), tiles);
-  return { title: tk, el, still: true, actions: [drawAct(x, tk)], fab: tradeFab(x, tk) };
+  return { title: tk, el, still: true, actions: [drawAct(x, tk)], fab: tradeFab(x, tk), badge: tickerBadge(x, tk) };
 };
 var journalPage = (x, tk) => {
   const { ctx } = x;
@@ -10621,8 +10632,9 @@ var investPage = {
               const q = live(v);
               return q === null ? "" : String(q);
             },
-            tag: (v) => live(v) !== null && parseNum(v.price) === live(v) ? t("iLive") : ""
+            tag: (v) => live(v) !== null && parseNum(v.price) === live(v) && prices.isOpen(tkOf(v)) ? t("iLive") : ""
           },
+          // LIVE only while its market trades: a closed market's last price is not live
           { key: "date", label: t("date"), type: "date", value: today(), required: true },
           {
             key: "fee",
@@ -10776,7 +10788,10 @@ var investPage = {
       } }
     }).open();
     const cap3 = capOf(fm);
-    const warns = checkRules(P, cap3, (tk) => readJournal(store.fm(journalPath(tk))).length > 0);
+    const warns = checkRules(P, cap3, (tk) => {
+      const f = store.fm(journalPath(tk));
+      return readJournal(f).length > 0 || !!readThesis(f)?.why;
+    });
     const think = (tk, j) => store.update(journalPath(tk), (f) => {
       f.ticker = tk;
       f.journal = [...list3(f.journal), j];
