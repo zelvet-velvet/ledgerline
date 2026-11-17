@@ -1238,6 +1238,10 @@ body.zl-calm .zl-fl-svg.is-light .zl-fl-bar { animation: none; }
 .zl-page.zl-c-stack > .zl-c-fill.zl-chartg { max-height: none; min-height: 300px; }
 .zl-chartg > .zl-ch.is-fill { flex: 1 1 0; min-height: 0; }
 .zl-ch.is-fill .zl-ch-plot { flex: 1 1 0; min-height: 160px; }
+/* a tight one-screen page: the chart's own rows close up and the plot may go to 144 px, so the FULL CHART › line stays inside
+   the chart (it ran 15 px over the next group on every ticker page at 428 × 843) */
+.zl-page.is-tighter .zl-ch.is-fill { gap: 4px; }
+.zl-page.is-tighter .zl-ch.is-fill .zl-ch-plot { min-height: 144px; }
 .zl-c-group.zl-hold .zl-sum-items { margin-top: 0; padding-top: 0; border-top: 0; }
 .zl-tgrid.is-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .zl-tgrid.is-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1614,6 +1618,15 @@ body.zl-calm .zl-lastp.is-loading .zl-flap .t, body.zl-calm .zl-lastp.is-loading
 .zl-app button.zl-th-write { width: 100%; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0; border: 0; border-top: 2px solid var(--zl-text); border-bottom: 2px solid var(--zl-text); font: 400 12px var(--zl-pixel); letter-spacing: .06em; color: var(--zl-loud); text-align: left; }
 .zl-th-write .zl-px { width: 20px; height: 20px; }
 .zl-th-write .zl-th-go { margin-left: auto; width: 12px; height: 12px; transform: scaleX(-1); }
+/* a written thesis on the chart page: the same row as WRITE THE THESIS, in ink: THESIS and its why on one line, the state right */
+.zl-app button.zl-th-write.is-set { color: var(--zl-text); }
+.zl-th-write.is-set .zl-th-rm { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 10px; }
+.zl-th-rk { flex: none; }
+.zl-th-rw { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 400 13px var(--zl-ui); letter-spacing: 0; }
+.zl-th-write.is-set .zl-th-n { flex: none; font: 700 13px var(--zl-ui); letter-spacing: 0; color: var(--zl-text); }
+.zl-th-write.is-set .zl-th-n.is-due { color: var(--zl-loud); font: 400 11px var(--zl-pixel); letter-spacing: .06em; }
+.zl-invest .zl-th-write.is-set .zl-th-n.is-up { color: var(--zl-up); } .zl-invest .zl-th-write.is-set .zl-th-n.is-hot { color: var(--zl-down); }
+.zl-th-write.is-set .zl-th-go { margin-left: 0; color: var(--zl-muted); }
 /* the full chart: the thesis line beside the MA chips; a tap floats the card over the chart */
 .zl-ch-indrow { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .zl-ch-indrow .zl-ch-ind { flex: none; }

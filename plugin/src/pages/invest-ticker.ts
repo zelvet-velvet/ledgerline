@@ -12,7 +12,7 @@ import { flowModes, sectorLine } from "./invest-flow";
 import { flowCodes, flowsTile } from "./flows";
 import type { PageOut } from "./index";
 import { signed, pctS, qty, X, todayOf, atNow, flowTickers, guessCur, tickerBadge } from "./invest-shared";
-import { thesisCard, thesisLine } from "./invest-thesis";
+import { thesisCard, thesisLine, thesisOf, thesisRow } from "./invest-thesis";
 import { revenueTile } from "./invest-revenue";
 
 // TRADE on a chart page: the rules check first (a buy), then the trade sheet (x.buy, the same from every page)
@@ -36,12 +36,13 @@ export const assetPage = (x: X, p: Position): PageOut => {
     el.addClass("zl-c-stack");
     const costP = p.q > 0 ? p.avgP : null;   // cost per share in the asset's own currency, from its trades (calc/invest.ts: today's FX never moves it)
     chartBlock(x, el, p.ticker, p.currency, costP);
-    thesisCard(x, el, p.ticker);
+    const thesis = !!thesisOf(x, p.ticker);
+    thesisRow(x, el, p.ticker, () => ctx.push({ key: "journal:" + p.ticker, title: t("thHead") }));
     const hold = h(el, "div", "zl-c-group zl-hold");
     const items: [string, string, boolean][] = [
         [t("iYouHold"), qty(p.shares), false],
         [t("iAvgCost"), costP !== null ? price2(costP) : "-", false],
-        [p.price !== null ? `${t("iValueNow")} ${pctS(p.cost > 0 ? (p.pl / p.cost) * 100 : 0)}` : t("iValueNow"), num(p.value), p.pl < 0],
+        [p.price !== null ? `${t("iValue")} ${pctS(p.cost > 0 ? (p.pl / p.cost) * 100 : 0)}` : t("iValueNow"), num(p.value), p.pl < 0],
     ];
     const r = h(hold, "div", "zl-sum-items");
     const vals = items.map(([k, v, hot]) => { const it = h(r, "div"); return [h(it, "span", "zl-sum-k", k.toUpperCase()), h(it, "span", "zl-sum-v" + (hot ? " is-hot" : ""), v)]; });
@@ -52,7 +53,7 @@ export const assetPage = (x: X, p: Position): PageOut => {
         if (s !== sym) return true;
         const q = atNow(pr, p.ticker, p);
         if (q.price === null) return true;
-        vals[2][0].setText(`${t("iValueNow")} ${pctS(q.cost > 0 ? (q.pl / q.cost) * 100 : 0)}`.toUpperCase());
+        vals[2][0].setText(`${t("iValue")} ${pctS(q.cost > 0 ? (q.pl / q.cost) * 100 : 0)}`.toUpperCase());
         vals[2][1].setText(num(q.value));
         vals[2][1].toggleClass("is-hot", q.pl < 0); vals[2][1].toggleClass("is-up", q.pl > 0);
         return true;
@@ -64,7 +65,8 @@ export const assetPage = (x: X, p: Position): PageOut => {
         revenueTile(x, p.ticker),
         { k: t("iTrades"), icon: "list", v: String(p.trades.length), hot: off, onTap: () => ctx.push({ key: "trades:" + p.ticker, title: t("iTrades") }) },
         { k: t("iPlanT"), icon: "calendar", v: next ? shortDate(next) : "-", dim: !p.dca, onTap: () => x.editPlan(p) },
-        { k: t("iJournal"), icon: "receipt", v: String(thoughts.length), dim: !thoughts.length, onTap: () => ctx.push({ key: "journal:" + p.ticker, title: t("iJournal") }) },
+        // with a thesis the journal sits behind its row (the thesis page), so the tiles stay one row of four
+        thesis ? null : { k: t("iJournal"), icon: "receipt", v: String(thoughts.length), dim: !thoughts.length, onTap: () => ctx.push({ key: "journal:" + p.ticker, title: t("iJournal") }) },
     ].filter((v): v is NonNullable<typeof v> => !!v);
     tileGrid(h(el, "div", "zl-c-group"), tiles);
     return { title: p.ticker, el, still: true, actions: [drawAct(x, p.ticker)], fab: tradeFab(x, p.ticker), badge: tickerBadge(x, p.ticker) };
@@ -180,15 +182,18 @@ export const tickerPage = (x: X, tk: string): PageOut => {
 // S4 C list: the holding's journal, newest first (each trade's "why" and loose thoughts); the last row opens the note itself
 export const journalPage = (x: X, tk: string): PageOut => {
     const { ctx } = x;
-    const title = t("iJournal");
+    // with a thesis this is the thesis page: the whole card (why, the next check with its YES / NO, sell if, vs 0050), then the journal
+    const has = !!thesisOf(x, tk);
+    const title = has ? `${tk} · ${t("thHead")}` : t("iJournal");
     const el = page(title);
     el.addClass("zl-c-list");
+    if (has) thesisCard(x, el, tk);
     const g = h(el, "div", "zl-c-group");
-    sec(g, tk);
+    sec(g, has ? t("iJournal").toUpperCase() : tk);
     const js = x.journal(tk);
     figures(g, [
         ...(js.length ? js.map((j) => ({ icon: j.trade ? "invest" : "list", k: j.date ? shortDate(j.date).toUpperCase() : t("noDate").toUpperCase(), s: j.why, v: "" })) : [{ k: t("iJournalNone").toUpperCase(), v: "-", dim: true }]),
         ...(ctx.plugin.store.file(journalPath(tk)) ? [{ icon: "receipt", k: t("iOpenNote").toUpperCase(), v: "", onTap: () => { void ctx.plugin.openPath(journalPath(tk)); } }] : []),
     ]);
-    return { title, el, fab: { icon: "plus", text: t("iThought").toUpperCase(), label: t("iThought"), onTap: () => x.addThought(tk) } };
+    return { title, el, fab: { icon: "plus", text: t("iThought").toUpperCase(), label: t("iThought"), onTap: () => x.addThought(tk) }, badge: tickerBadge(x, tk) };
 };

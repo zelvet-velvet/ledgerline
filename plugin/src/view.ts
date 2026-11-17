@@ -365,10 +365,25 @@ export class LedgerView extends ItemView {
     // A one-screen page must never scroll (Design Rules, Room). Phones differ by a few px, so after it is drawn: if it is taller
     // than the room, tighten its spacing one step at a time (gaps, then row padding) until it fits; only past the last step does
     // it scroll. The step is kept on the page, so a redraw starts from it.
-    private fit(el: HTMLElement, key: string, trim?: () => boolean): void {
+    private fit(el: HTMLElement, key: string, trim?: () => boolean, again = false): void {
         const s = this.scrollEl;
         if (!el.isConnected) return;
-        const over = () => el.scrollHeight - s.clientHeight;
+        // too tall = the page past its room, or a stretching group (a chart) whose own parts need more than the room it was given:
+        // that one is no taller on the page, its parts just ran over the next group (2330's FULL CHART › on the thesis row)
+        const fills = [...el.querySelectorAll<HTMLElement>(":scope > .zl-c-fill")];
+        // (measured by the drawn parts, two levels down, not scrollHeight: an invisible 44 px tap target may reach past the edge)
+        const spill = (f: HTMLElement) => Math.max(0, ...[...f.querySelectorAll<HTMLElement>(":scope > *, :scope > * > *")].map((c) => c.getBoundingClientRect().bottom)) - f.getBoundingClientRect().bottom;
+        const over = () => Math.max(el.scrollHeight - s.clientHeight, ...fills.map(spill));
+        // a chart builds its rows a moment after the page is drawn: look once more then, and only tighten (never loosen) if needed
+        if (again && over() <= 0) return;
+        if (!again && fills.length) {
+            // watch the stretching groups for 4 s (a chart's rows come with its first quotes) and fit again when they change
+            let t0 = 0;
+            const ro = new ResizeObserver(() => { window.clearTimeout(t0); t0 = window.setTimeout(() => this.fit(el, key, trim, true), 120); });
+            const watch = (f: HTMLElement) => { ro.observe(f); f.querySelectorAll<HTMLElement>(":scope > *").forEach((c) => ro.observe(c)); };
+            fills.forEach(watch);
+            window.setTimeout(() => ro.disconnect(), 4000);
+        }
         for (const step of ["", "is-tight", "is-tighter"]) {
             if (step) el.addClass(step);
             if (over() <= 0) break;

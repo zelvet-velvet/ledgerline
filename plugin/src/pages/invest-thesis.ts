@@ -111,6 +111,33 @@ export const thesisCard = (x: X, parent: HTMLElement, tk: string): void => {
 };
 
 // the full chart (sideways): the thesis as one line beside the MA chips; a tap = the card as a floating panel
+// The thesis on a chart page (owner, 2026-11-17: the page with a thesis as clean as one without): one row the size of WRITE THE
+// THESIS: THESIS and why on one line, its state on the right (CHECK DUE loud, else vs 0050 ±%, else the next check), a tap opens
+// the thesis page (the whole card, then the journal). No thesis: the loud WRITE THE THESIS row.
+export const thesisRow = (x: X, parent: HTMLElement, tk: string, open: () => void): void => {
+    const th = thesisOf(x, tk);
+    if (!th) { thesisCard(x, parent, tk); return; }
+    const g = h(parent, "div", "zl-c-group zl-thesis is-row");
+    const b = h(g, "button", "zl-th-write is-set");
+    sprite(b, "receipt", "zl-px");
+    const m = h(b, "span", "zl-th-rm");
+    h(m, "span", "zl-th-rk", t("thHead").toUpperCase());
+    h(m, "span", "zl-th-rw", th.why);
+    const n = h(b, "span", "zl-th-n");
+    sprite(b, "back", "zl-px zl-th-go");
+    const st = checkState(th.check, today());
+    const paint = () => {
+        n.removeClass("is-up", "is-hot", "is-due");
+        if (st === "due") { n.setText(t("thDue").toUpperCase()); n.addClass("is-due"); return; }
+        const d = tk !== BENCH && th.since ? vs0050(x, tk, th.since) : null;
+        if (d) { n.setText(`${t("thVsShort", { b: BENCH })} ${pctS(d.diff)}`); n.toggleClass("is-up", d.diff > 0); n.toggleClass("is-hot", d.diff < 0); return; }
+        n.setText(st !== "none" ? shortDate(th.check).toUpperCase() : "");
+    };
+    paint();
+    if (st !== "due") x.ctx.plugin.prices.onSeries(() => { if (!b.isConnected) return false; paint(); return true; });
+    b.addEventListener("click", (e) => { e.preventDefault(); open(); });
+};
+
 export const thesisLine = (x: X, tk: string) => (parent: HTMLElement): void => {
     const th = thesisOf(x, tk);
     const b = h(parent, "button", "zl-th-strip");

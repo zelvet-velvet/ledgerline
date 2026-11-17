@@ -732,6 +732,7 @@ const en = {
     iAvgCost: "Average cost",
     iDashed: "dashed line",
     iValueNow: "Value now",
+    iValue: "Value",
     iChartSet: "CHART",
     close: "Close",
     dTitle: "Chart settings · {tk}",
@@ -791,6 +792,7 @@ const en = {
     sDebugPath: "Debug log file",
     // long-term tools (2026-11-10): thesis card, rules check before a buy, monthly revenue, alerts
     thHead: "Thesis",
+    thDue: "Check due",
     thEdit: "Edit",
     thTitle: "Thesis",
     thWrite: "Write the thesis",

@@ -3115,6 +3115,7 @@ var en = {
   iAvgCost: "Average cost",
   iDashed: "dashed line",
   iValueNow: "Value now",
+  iValue: "Value",
   iChartSet: "CHART",
   close: "Close",
   dTitle: "Chart settings \xB7 {tk}",
@@ -3174,6 +3175,7 @@ var en = {
   sDebugPath: "Debug log file",
   // long-term tools (2026-11-10): thesis card, rules check before a buy, monthly revenue, alerts
   thHead: "Thesis",
+  thDue: "Check due",
   thEdit: "Edit",
   thTitle: "Thesis",
   thWrite: "Write the thesis",
@@ -9800,6 +9802,48 @@ var thesisCard = (x, parent, tk) => {
     });
   }
 };
+var thesisRow = (x, parent, tk, open2) => {
+  const th = thesisOf(x, tk);
+  if (!th) {
+    thesisCard(x, parent, tk);
+    return;
+  }
+  const g = h(parent, "div", "zl-c-group zl-thesis is-row");
+  const b = h(g, "button", "zl-th-write is-set");
+  sprite(b, "receipt", "zl-px");
+  const m = h(b, "span", "zl-th-rm");
+  h(m, "span", "zl-th-rk", t("thHead").toUpperCase());
+  h(m, "span", "zl-th-rw", th.why);
+  const n = h(b, "span", "zl-th-n");
+  sprite(b, "back", "zl-px zl-th-go");
+  const st = checkState(th.check, today());
+  const paint = () => {
+    n.removeClass("is-up", "is-hot", "is-due");
+    if (st === "due") {
+      n.setText(t("thDue").toUpperCase());
+      n.addClass("is-due");
+      return;
+    }
+    const d = tk !== BENCH && th.since ? vs0050(x, tk, th.since) : null;
+    if (d) {
+      n.setText(`${t("thVsShort", { b: BENCH })} ${pctS(d.diff)}`);
+      n.toggleClass("is-up", d.diff > 0);
+      n.toggleClass("is-hot", d.diff < 0);
+      return;
+    }
+    n.setText(st !== "none" ? shortDate(th.check).toUpperCase() : "");
+  };
+  paint();
+  if (st !== "due") x.ctx.plugin.prices.onSeries(() => {
+    if (!b.isConnected) return false;
+    paint();
+    return true;
+  });
+  b.addEventListener("click", (e) => {
+    e.preventDefault();
+    open2();
+  });
+};
 var thesisLine = (x, tk) => (parent) => {
   const th = thesisOf(x, tk);
   const b = h(parent, "button", "zl-th-strip");
@@ -10022,12 +10066,13 @@ var assetPage = (x, p) => {
   el.addClass("zl-c-stack");
   const costP = p.q > 0 ? p.avgP : null;
   chartBlock(x, el, p.ticker, p.currency, costP);
-  thesisCard(x, el, p.ticker);
+  const thesis = !!thesisOf(x, p.ticker);
+  thesisRow(x, el, p.ticker, () => ctx.push({ key: "journal:" + p.ticker, title: t("thHead") }));
   const hold = h(el, "div", "zl-c-group zl-hold");
   const items2 = [
     [t("iYouHold"), qty(p.shares), false],
     [t("iAvgCost"), costP !== null ? price2(costP) : "-", false],
-    [p.price !== null ? `${t("iValueNow")} ${pctS(p.cost > 0 ? p.pl / p.cost * 100 : 0)}` : t("iValueNow"), num(p.value), p.pl < 0]
+    [p.price !== null ? `${t("iValue")} ${pctS(p.cost > 0 ? p.pl / p.cost * 100 : 0)}` : t("iValueNow"), num(p.value), p.pl < 0]
   ];
   const r = h(hold, "div", "zl-sum-items");
   const vals = items2.map(([k, v, hot]) => {
@@ -10040,7 +10085,7 @@ var assetPage = (x, p) => {
     if (s2 !== sym) return true;
     const q = atNow(pr, p.ticker, p);
     if (q.price === null) return true;
-    vals[2][0].setText(`${t("iValueNow")} ${pctS(q.cost > 0 ? q.pl / q.cost * 100 : 0)}`.toUpperCase());
+    vals[2][0].setText(`${t("iValue")} ${pctS(q.cost > 0 ? q.pl / q.cost * 100 : 0)}`.toUpperCase());
     vals[2][1].setText(num(q.value));
     vals[2][1].toggleClass("is-hot", q.pl < 0);
     vals[2][1].toggleClass("is-up", q.pl > 0);
@@ -10056,7 +10101,8 @@ var assetPage = (x, p) => {
     revenueTile(x, p.ticker),
     { k: t("iTrades"), icon: "list", v: String(p.trades.length), hot: off, onTap: () => ctx.push({ key: "trades:" + p.ticker, title: t("iTrades") }) },
     { k: t("iPlanT"), icon: "calendar", v: next ? shortDate(next) : "-", dim: !p.dca, onTap: () => x.editPlan(p) },
-    { k: t("iJournal"), icon: "receipt", v: String(thoughts.length), dim: !thoughts.length, onTap: () => ctx.push({ key: "journal:" + p.ticker, title: t("iJournal") }) }
+    // with a thesis the journal sits behind its row (the thesis page), so the tiles stay one row of four
+    thesis ? null : { k: t("iJournal"), icon: "receipt", v: String(thoughts.length), dim: !thoughts.length, onTap: () => ctx.push({ key: "journal:" + p.ticker, title: t("iJournal") }) }
   ].filter((v) => !!v);
   tileGrid(h(el, "div", "zl-c-group"), tiles);
   return { title: p.ticker, el, still: true, actions: [drawAct(x, p.ticker)], fab: tradeFab(x, p.ticker), badge: tickerBadge(x, p.ticker) };
@@ -10183,11 +10229,13 @@ var tickerPage = (x, tk) => {
 };
 var journalPage = (x, tk) => {
   const { ctx } = x;
-  const title = t("iJournal");
+  const has = !!thesisOf(x, tk);
+  const title = has ? `${tk} \xB7 ${t("thHead")}` : t("iJournal");
   const el = page(title);
   el.addClass("zl-c-list");
+  if (has) thesisCard(x, el, tk);
   const g = h(el, "div", "zl-c-group");
-  sec(g, tk);
+  sec(g, has ? t("iJournal").toUpperCase() : tk);
   const js = x.journal(tk);
   figures(g, [
     ...js.length ? js.map((j) => ({ icon: j.trade ? "invest" : "list", k: j.date ? shortDate(j.date).toUpperCase() : t("noDate").toUpperCase(), s: j.why, v: "" })) : [{ k: t("iJournalNone").toUpperCase(), v: "-", dim: true }],
@@ -10195,7 +10243,7 @@ var journalPage = (x, tk) => {
       void ctx.plugin.openPath(journalPath(tk));
     } }] : []
   ]);
-  return { title, el, fab: { icon: "plus", text: t("iThought").toUpperCase(), label: t("iThought"), onTap: () => x.addThought(tk) } };
+  return { title, el, fab: { icon: "plus", text: t("iThought").toUpperCase(), label: t("iThought"), onTap: () => x.addThought(tk) }, badge: tickerBadge(x, tk) };
 };
 
 // src/pages/invest-holdings.ts
@@ -13426,10 +13474,26 @@ var LedgerView = class extends import_obsidian25.ItemView {
   // A one-screen page must never scroll (Design Rules, Room). Phones differ by a few px, so after it is drawn: if it is taller
   // than the room, tighten its spacing one step at a time (gaps, then row padding) until it fits; only past the last step does
   // it scroll. The step is kept on the page, so a redraw starts from it.
-  fit(el, key, trim) {
+  fit(el, key, trim, again = false) {
     const s2 = this.scrollEl;
     if (!el.isConnected) return;
-    const over = () => el.scrollHeight - s2.clientHeight;
+    const fills = [...el.querySelectorAll(":scope > .zl-c-fill")];
+    const spill = (f) => Math.max(0, ...[...f.querySelectorAll(":scope > *, :scope > * > *")].map((c) => c.getBoundingClientRect().bottom)) - f.getBoundingClientRect().bottom;
+    const over = () => Math.max(el.scrollHeight - s2.clientHeight, ...fills.map(spill));
+    if (again && over() <= 0) return;
+    if (!again && fills.length) {
+      let t0 = 0;
+      const ro = new ResizeObserver(() => {
+        window.clearTimeout(t0);
+        t0 = window.setTimeout(() => this.fit(el, key, trim, true), 120);
+      });
+      const watch = (f) => {
+        ro.observe(f);
+        f.querySelectorAll(":scope > *").forEach((c) => ro.observe(c));
+      };
+      fills.forEach(watch);
+      window.setTimeout(() => ro.disconnect(), 4e3);
+    }
     for (const step of ["", "is-tight", "is-tighter"]) {
       if (step) el.addClass(step);
       if (over() <= 0) break;
