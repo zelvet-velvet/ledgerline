@@ -2620,6 +2620,9 @@ var en = {
   extraExpenses: "Extra expenses",
   paidN: "{n} of {m} paid",
   cLines: "Lines",
+  cShared: "Shared out of living",
+  cGroups: "Groups",
+  cShareOf: "Its share of living",
   cOfPlan: "of {n} planned",
   cNofM: "{n} of {m}",
   cPaidS: "Paid",
@@ -4223,51 +4226,6 @@ var page = (title) => {
   titleText(h(r, "h1", "zl-title"), title);
   h(r, "div", "zl-title-acts");
   return p;
-};
-var group2 = (parent, title, footer) => {
-  if (title) h(parent, "div", "zl-gh", title);
-  const g = h(parent, "div", "zl-group");
-  if (footer) h(parent, "div", "zl-gf", footer);
-  return g;
-};
-var row = (parent, r) => {
-  const el2 = h(parent, "div", "zl-row zl-in" + (r.onTap ? " is-tap" : "") + (r.muted ? " is-muted" : ""));
-  el2.style.setProperty("--i", String(parent.childElementCount - 1));
-  if (r.check) {
-    const c = r.check;
-    const b = h(el2, "button", "zl-check" + (c.on ? " is-on" : ""));
-    if (c.on && c.color) b.style.background = c.color;
-    if (c.on) icon(b, "check");
-    b.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      c.onToggle(!c.on);
-    });
-  }
-  if (!r.check) sprite(el2, r.avatar !== void 0 ? "person" : r.icon ? pixelFor(r.icon, r.title) : rowSprite(r.title), "zl-px zl-fig-ic");
-  const main = h(el2, "div", "zl-row-main");
-  const tt = h(main, "div", "zl-row-t", r.title);
-  if (r.titleColor) tt.style.color = r.titleColor;
-  if (r.sub) h(main, "div", "zl-row-s", r.sub);
-  if (r.progress) {
-    const bar = h(main, "div", "zl-prog zl-row-prog");
-    const f = h(bar, "div", "zl-prog-f");
-    f.style.width = `${Math.max(0, Math.min(100, r.progress[0]))}%`;
-    f.style.background = r.progress[1];
-  }
-  if (r.value) {
-    const v = h(el2, "div", "zl-row-v", r.value);
-    if (r.valueColor) v.style.color = r.valueColor;
-  }
-  if (r.chevron) sprite(el2, "back", "zl-px zl-fig-go");
-  if (r.onTap) {
-    const fn = r.onTap;
-    el2.addEventListener("click", (e) => {
-      e.preventDefault();
-      fn();
-    });
-  }
-  return el2;
 };
 var skeleton = (title) => {
   const p = page(title);
@@ -11183,19 +11141,15 @@ var groupSheet = (ctx, gs, i) => {
 var itemsPage = (ctx) => {
   const gs = rawGroups(ctx);
   const el2 = page(t("dailyItems"));
+  el2.addClass("zl-c-list");
   const total = pctTotal(gs);
+  summary(el2, { key: "items", label: t("cShared").toUpperCase(), value: `${total}%`, hot: total > 100, items: [[t("cGroups"), String(gs.length)], [t("items"), String(gs.reduce((n, x) => n + items(x).length, 0))]] });
   if (!gs.length) empty(el2, { icon: "list", title: t("noGroups") });
   else {
-    const g = group2(el2, void 0, t("pctTotal", { n: total }) + (total > 100 ? " \xB7 " + t("over100", { n: total }) : ""));
-    gs.forEach((x, i) => row(g, {
-      icon: "circle",
-      tint: colorFor(i),
-      title: x.name || t("groupN", { n: i + 1 }),
-      sub: items(x).map(cap).join(", ") || t("noItems"),
-      value: `${Number(x.quota) || 0}%`,
-      chevron: true,
-      onTap: () => ctx.push({ key: "items:" + i, title: x.name || t("groupN", { n: i + 1 }) })
-    }));
+    const g = h(el2, "div", "zl-c-group");
+    sec(g, t("cGroups").toUpperCase());
+    figures(g, gs.map((x, i) => ({ icon: "list", k: x.name || t("groupN", { n: i + 1 }), s: items(x).map(cap).join(", ") || t("noItems"), v: `${Number(x.quota) || 0}%`, onTap: () => ctx.push({ key: "items:" + i, title: x.name || t("groupN", { n: i + 1 }) }) })));
+    if (total > 100) h(el2, "p", "zl-c-note is-hot", t("over100", { n: total }));
   }
   return { title: t("dailyItems"), el: el2, fab: { icon: "plus", text: t("newGroup").toUpperCase(), label: t("newGroup"), onTap: () => groupSheet(ctx, gs, gs.length) } };
 };
@@ -11205,17 +11159,29 @@ var itemGroupPage = (ctx, i) => {
   if (!g) return itemsPage(ctx);
   const name = g.name || t("groupN", { n: i + 1 });
   const el2 = page(name);
-  const head = group2(el2);
-  row(head, { icon: "pencil", tint: C.accent, title: t("nameAndShare"), sub: t("shareHint"), value: `${Number(g.quota) || 0}%`, chevron: true, onTap: () => groupSheet(ctx, gs, i) });
-  const list5 = group2(el2, t("items"), t("itemsHint"));
-  for (const it of items(g)) row(list5, { icon: "circle-small,dot", tint: colorFor(i), title: cap(it), onTap: async () => {
+  el2.addClass("zl-c-list");
+  summary(el2, { key: "items-" + i, label: t("cShareOf").toUpperCase(), value: `${Number(g.quota) || 0}%`, items: [[t("items"), String(items(g).length)]] });
+  figures(h(el2, "div", "zl-c-group"), [{ icon: "pencil", k: t("nameAndShare"), s: t("shareHint"), v: `${Number(g.quota) || 0}%`, onTap: () => groupSheet(ctx, gs, i) }]);
+  const list5 = h(el2, "div", "zl-c-group");
+  sec(list5, t("items").toUpperCase());
+  if (items(g).length) figures(list5, items(g).map((it) => ({ k: cap(it), v: "", onTap: async () => {
     if (!await confirmSheet(ctx.app, t("removeItem", { name: cap(it) }), t("removeItemSub"), t("remove"))) return;
     await saveGroups(ctx, (all) => {
       all[i].spending = items(all[i]).filter((x) => x !== it);
     });
     toast(t("removedX", { name: cap(it) }));
-  } });
-  row(list5, { icon: "plus", tint: C.accent, title: t("addItem"), titleColor: C.accent, onTap: () => new FormSheet(ctx.app, {
+  } })));
+  else figures(list5, [{ k: t("noItems"), v: "-", dim: true }]);
+  h(list5, "p", "zl-c-note", t("itemsHint"));
+  figures(h(el2, "div", "zl-c-group"), [{ icon: "close", k: t("deleteGroup"), v: "", onTap: async () => {
+    if (!await confirmSheet(ctx.app, t("deleteGroup"), t("deleteGroupSub", { name }), t("delete"))) return;
+    await saveGroups(ctx, (all) => {
+      all.splice(i, 1);
+    });
+    toast(t("removedX", { name }));
+    ctx.pop();
+  } }]);
+  const add = () => new FormSheet(ctx.app, {
     title: t("addItem"),
     subtitle: name,
     submitText: t("add"),
@@ -11231,16 +11197,8 @@ var itemGroupPage = (ctx, i) => {
       });
       toast(t("itemsSaved"));
     }
-  }).open() });
-  row(group2(el2), { icon: "trash-2", tint: C.neg, title: t("deleteGroup"), titleColor: C.neg, onTap: async () => {
-    if (!await confirmSheet(ctx.app, t("deleteGroup"), t("deleteGroupSub", { name }), t("delete"))) return;
-    await saveGroups(ctx, (all) => {
-      all.splice(i, 1);
-    });
-    toast(t("removedX", { name }));
-    ctx.pop();
-  } });
-  return { title: name, el: el2 };
+  }).open();
+  return { title: name, el: el2, fab: { icon: "plus", text: t("addItem").toUpperCase(), label: t("addItem"), onTap: add } };
 };
 
 // src/settings.ts

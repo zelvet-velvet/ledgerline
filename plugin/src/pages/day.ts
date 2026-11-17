@@ -3,8 +3,8 @@ import { dayExtras, slug } from "../calc/log";
 import { FILES, FM } from "../data/store";
 import { localDate, num, parseNum, shortDate, today, ymd } from "../format";
 import { t } from "../i18n";
-import { C, colorFor, empty, group, h, monthBar, page, row } from "../ui";
-import { bigLabel, sec, tileGrid } from "../ui/c";
+import { empty, h, monthBar, page } from "../ui";
+import { bigLabel, Fig, figures, sec, summary, tileGrid } from "../ui/c";
 import { confirmSheet, FormSheet, openText } from "../ui/sheet";
 import type { PageCtx, PageOut } from "./index";
 import { openPad } from "./amount";
@@ -209,13 +209,17 @@ const groupSheet = (ctx: PageCtx, gs: Raw[], i: number) => {
 
 export const itemsPage = (ctx: PageCtx): PageOut => {
     const gs = rawGroups(ctx);
+    // C list: how much of the money to live on the groups share (loud past 100 %) → one row per group, its items under its name
     const el = page(t("dailyItems"));
+    el.addClass("zl-c-list");
     const total = pctTotal(gs);
+    summary(el, { key: "items", label: t("cShared").toUpperCase(), value: `${total}%`, hot: total > 100, items: [[t("cGroups"), String(gs.length)], [t("items"), String(gs.reduce((n, x) => n + items(x).length, 0))]] });
     if (!gs.length) empty(el, { icon: "list", title: t("noGroups") });
     else {
-        const g = group(el, undefined, t("pctTotal", { n: total }) + (total > 100 ? " · " + t("over100", { n: total }) : ""));
-        gs.forEach((x, i) => row(g, { icon: "circle", tint: colorFor(i), title: x.name || t("groupN", { n: i + 1 }), sub: items(x).map(cap).join(", ") || t("noItems"),
-            value: `${Number(x.quota) || 0}%`, chevron: true, onTap: () => ctx.push({ key: "items:" + i, title: x.name || t("groupN", { n: i + 1 }) }) }));
+        const g = h(el, "div", "zl-c-group");
+        sec(g, t("cGroups").toUpperCase());
+        figures(g, gs.map((x, i): Fig => ({ icon: "list", k: x.name || t("groupN", { n: i + 1 }), s: items(x).map(cap).join(", ") || t("noItems"), v: `${Number(x.quota) || 0}%`, onTap: () => ctx.push({ key: "items:" + i, title: x.name || t("groupN", { n: i + 1 }) }) })));
+        if (total > 100) h(el, "p", "zl-c-note is-hot", t("over100", { n: total }));
     }
     return { title: t("dailyItems"), el, fab: { icon: "plus", text: t("newGroup").toUpperCase(), label: t("newGroup"), onTap: () => groupSheet(ctx, gs, gs.length) } };
 };
@@ -225,28 +229,32 @@ export const itemGroupPage = (ctx: PageCtx, i: number): PageOut => {
     const g = gs[i];
     if (!g) return itemsPage(ctx);
     const name = g.name || t("groupN", { n: i + 1 });
+    // C list: the group's share → name and share (a tap changes them) → its items (a tap removes one) → delete the group.
+    // + ADD ITEM is the page's action in the bottom bar
     const el = page(name);
-    const head = group(el);
-    row(head, { icon: "pencil", tint: C.accent, title: t("nameAndShare"), sub: t("shareHint"), value: `${Number(g.quota) || 0}%`, chevron: true, onTap: () => groupSheet(ctx, gs, i) });
-
-    const list = group(el, t("items"), t("itemsHint"));
-    for (const it of items(g)) row(list, { icon: "circle-small,dot", tint: colorFor(i), title: cap(it), onTap: async () => {
+    el.addClass("zl-c-list");
+    summary(el, { key: "items-" + i, label: t("cShareOf").toUpperCase(), value: `${Number(g.quota) || 0}%`, items: [[t("items"), String(items(g).length)]] });
+    figures(h(el, "div", "zl-c-group"), [{ icon: "pencil", k: t("nameAndShare"), s: t("shareHint"), v: `${Number(g.quota) || 0}%`, onTap: () => groupSheet(ctx, gs, i) }]);
+    const list = h(el, "div", "zl-c-group");
+    sec(list, t("items").toUpperCase());
+    if (items(g).length) figures(list, items(g).map((it): Fig => ({ k: cap(it), v: "", onTap: async () => {
         if (!(await confirmSheet(ctx.app, t("removeItem", { name: cap(it) }), t("removeItemSub"), t("remove")))) return;
         await saveGroups(ctx, (all) => { all[i].spending = items(all[i]).filter((x) => x !== it); });
         toast(t("removedX", { name: cap(it) }));
-    } });
-    row(list, { icon: "plus", tint: C.accent, title: t("addItem"), titleColor: C.accent, onTap: () => new FormSheet(ctx.app, {
-        title: t("addItem"), subtitle: name, submitText: t("add"),
-        fields: [{ key: "name", label: t("name"), type: "text", required: true }],
-        validate: (v) => { const k = itemKey(v.name); return !k ? t("needName") : gs.some((x) => items(x).includes(k)) ? t("itemExists", { name: cap(k) }) : null; },
-        onSubmit: async (v) => { const k = itemKey(v.name); await saveGroups(ctx, (all) => { all[i].spending = [...items(all[i]), k]; }); toast(t("itemsSaved")); },
-    }).open() });
-
-    row(group(el), { icon: "trash-2", tint: C.neg, title: t("deleteGroup"), titleColor: C.neg, onTap: async () => {
+    } })));
+    else figures(list, [{ k: t("noItems"), v: "-", dim: true }]);
+    h(list, "p", "zl-c-note", t("itemsHint"));
+    figures(h(el, "div", "zl-c-group"), [{ icon: "close", k: t("deleteGroup"), v: "", onTap: async () => {
         if (!(await confirmSheet(ctx.app, t("deleteGroup"), t("deleteGroupSub", { name }), t("delete")))) return;
         await saveGroups(ctx, (all) => { all.splice(i, 1); });
         toast(t("removedX", { name }));
         ctx.pop();
-    } });
-    return { title: name, el };
+    } }]);
+    const add = () => new FormSheet(ctx.app, {
+        title: t("addItem"), subtitle: name, submitText: t("add"),
+        fields: [{ key: "name", label: t("name"), type: "text", required: true }],
+        validate: (v) => { const k = itemKey(v.name); return !k ? t("needName") : gs.some((x) => items(x).includes(k)) ? t("itemExists", { name: cap(k) }) : null; },
+        onSubmit: async (v) => { const k = itemKey(v.name); await saveGroups(ctx, (all) => { all[i].spending = [...items(all[i]), k]; }); toast(t("itemsSaved")); },
+    }).open();
+    return { title: name, el, fab: { icon: "plus", text: t("addItem").toUpperCase(), label: t("addItem"), onTap: add } };
 };
