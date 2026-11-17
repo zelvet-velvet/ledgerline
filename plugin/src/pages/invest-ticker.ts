@@ -34,7 +34,7 @@ export const assetPage = (x: X, p: Position): PageOut => {
     const { ctx } = x;
     const el = page(p.ticker);
     el.addClass("zl-c-stack");
-    const costP = p.q > 0 ? Math.round((p.avg / x.fx(p.currency)) * 100) : null;   // cost per share in the asset's own currency
+    const costP = p.q > 0 ? p.avgP : null;   // cost per share in the asset's own currency, from its trades (calc/invest.ts: today's FX never moves it)
     chartBlock(x, el, p.ticker, p.currency, costP);
     thesisCard(x, el, p.ticker);
     const hold = h(el, "div", "zl-c-group zl-hold");

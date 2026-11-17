@@ -3,6 +3,7 @@
 // SENT: the last 7 days. + NEW ALERT sets a price alert. Checking and sending: src/alerts.ts.
 import type { FM } from "../data/store";
 import { away, PriceAlert } from "../calc/alerts";
+import { tickOf, toP } from "../calc/invest";
 import { daysBetween } from "../calc/thesis";
 import { parseNum, shortDate, today } from "../format";
 import { t } from "../i18n";
@@ -10,7 +11,7 @@ import { h, page } from "../ui";
 import { figures, Fig, sec } from "../ui/c";
 import { confirmSheet, FormSheet } from "../ui/sheet";
 import type { PageOut } from "./index";
-import { X } from "./invest-shared";
+import { guessCur, X } from "./invest-shared";
 
 type Filter = "all" | "price" | "date";
 let FILTER: Filter = "all";
@@ -26,7 +27,8 @@ export const alertSheet = (x: X, a?: PriceAlert, preset?: string): void => {
         fields: [
             ...(a || preset ? [] : [{ key: "tk", label: t("iTicker"), type: "text" as const, required: true }]),
             { key: "kind", label: t("alKind"), type: "select", value: a?.kind ?? "below", options: [["below", t("alBelow")], ["above", t("alAbove")]] },
-            { key: "price", label: t("iPrice"), type: "number", required: true, dec: 2, step: 0.05, value: a ? a.price / 100 : "",
+            { key: "price", label: t("iPrice"), type: "number", required: true, dec: 2, value: a ? a.price / 100 : "",
+                step: (v) => { const tk = a?.ticker ?? preset ?? (v.tk ?? "").trim().toUpperCase(); return tickOf(toP(v.price), x.P.positions.find((p) => p.ticker === tk)?.currency ?? guessCur(prices.symbol(tk)), tk) / 100; },
                 auto: (v) => { const q = prices.price(a?.ticker ?? preset ?? (v.tk ?? "").trim().toUpperCase()); return q ? String(Math.round(q * 100) / 100) : ""; },
                 note: () => t("alPriceNote") },
         ],

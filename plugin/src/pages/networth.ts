@@ -26,7 +26,7 @@ export const netWorth = (plugin: LedgerlinePlugin): { parts: NetPart[]; total: n
     const G = buildGoals(store.fm(store.path(FILES.goals)), savedOf);
     const inv = store.fm(store.path(FILES.invest));
     const fb = (inv?.fx_fallback ?? {}) as Record<string, number>;
-    const P = buildPortfolio(inv, (tk) => prices.price(tk), (c) => prices.fx(c, cur, fb));
+    const P = buildPortfolio(inv, (tk) => prices.price(tk), (c) => prices.fx(c, cur, fb), "", cur);
     const d = computeDebt(store.fm(store.path(FILES.debt)), Number(plan.student_loan) || 0, store.monthLines("student_loan"), new Date());
     const L = buildLedger(store.fm(store.path(FILES.ledger))?.ledger);
     const parts: NetPart[] = [

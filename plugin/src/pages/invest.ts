@@ -1,6 +1,6 @@
 import { Notice } from "obsidian";
 import { buildAccounts } from "../calc/accounts";
-import { addTradingDays, autoFee, autoTax, grossOf, isTwEtf, tickOf, toP, toQ, buildPortfolio, capOf, checkRules, investCash, newWarnings, journalPath, minorOf, newTradeId, nextDca, readJournal, Position, syncEntries, tickerOf, Trade, tradeLinks } from "../calc/invest";
+import { addTradingDays, autoFee, autoTax, grossOf, isTwBondEtf, isTwEtf, legacyFields, tickOf, tradeTotal, toP, toQ, buildPortfolio, capOf, checkRules, investCash, newWarnings, journalPath, minorOf, newTradeId, nextDca, readJournal, Position, syncEntries, tickerOf, Trade, tradeLinks } from "../calc/invest";
 import { ACCOUNTS_FILE } from "./accounts";
 import { FILES, FM } from "../data/store";
 import { num, parseNum, shortDate, today } from "../format";
@@ -36,7 +36,7 @@ export const investPage: PageDef = {
         const CFG = store.path(FILES.invest);
         const fm = store.fm(CFG);
         const fb = (fm?.fx_fallback ?? {}) as Record<string, number>;
-        const P = buildPortfolio(fm, (tk) => prices.price(tk), (c) => prices.fx(c, cur, fb), today());
+        const P = buildPortfolio(fm, (tk) => prices.price(tk), (c) => prices.fx(c, cur, fb), today(), cur);
         // what is due: every held ticker, the watchlist, the FX rates they need
         const curs = [...new Set(P.positions.map((p) => p.currency).filter((c) => c !== cur))];
         const held = [...P.positions.filter((p) => p.shares > 0).map((p) => prices.symbol(p.ticker)), ...P.watch.map((w) => prices.symbol(w))];
@@ -55,7 +55,7 @@ export const investPage: PageDef = {
         // after a trade is saved, edited or deleted: append the Accounts entries that make the books agree (never rewrite old ones)
         const book = async (fresh: FM, ids: string[]) => {
             if (!store.file(ACC)) return;
-            const Q = buildPortfolio(fresh, (tk) => prices.price(tk), (c) => prices.fx(c, cur, fb), today());
+            const Q = buildPortfolio(fresh, (tk) => prices.price(tk), (c) => prices.fx(c, cur, fb), today(), cur);
             let n = 0;
             await store.update(ACC, (a) => {
                 const B = buildAccounts(a);
@@ -67,11 +67,7 @@ export const investPage: PageDef = {
         };
 
         const updateAsset = async (ticker: string, fn: (a: FM) => void): Promise<FM> => { let fresh: FM = {}; await store.update(CFG, (f) => { const a = list(f.assets).find((x) => tickerOf(x) === ticker); if (a) fn(a); fresh = snap(f); }); return fresh; };
-        const recalc = (a: FM) => {   // keep the v2 fields (shares, avg_cost in the asset's currency) in step with the trades
-            let held = 0, cost = 0;
-            for (const tr of list(a.transactions)) { const n = Number(tr.shares) || 0, pr = Number(tr.price) || 0; if (String(tr.type).toUpperCase() === "BUY") { held += n; cost += n * pr; } else if (held > 0) { const s = Math.min(n, held); cost -= s * (cost / held); held -= s; } }
-            a.shares = +held.toFixed(6); a.avg_cost = held > 0 ? +(cost / held).toFixed(4) : 0;
-        };
+        const recalc = (a: FM) => { Object.assign(a, legacyFields(a.transactions)); };   // keep the v2 fields (shares, avg_cost in the asset's currency) in step with the trades (calc/invest.ts)
 
         const trade = (preset?: string, pre: { price?: number; type?: "BUY" | "SELL" } = {}) => {
             const tickers = P.positions.map((p) => p.ticker);
@@ -90,7 +86,7 @@ export const investPage: PageDef = {
             const closed = (c: string) => (d: string) => !!(c === "TWD" ? prices.calendar?.cal.tw : prices.calendar?.cal.us)?.[d];
             const money = (v: Record<string, string>) => {
                 const c = curOf(v), g = grossV(v), fee = minor(v.fee, c), tax = v.type === "SELL" ? minor(v.tax, c) : 0;
-                return { c, g, n: v.type === "SELL" ? g - fee - tax : g + fee };
+                return { c, g, n: tradeTotal(v.type, g, fee, tax) };
             };
             new FormSheet(ctx.app, {
                 title: t("iTrade"), subtitle: preset,
@@ -106,7 +102,9 @@ export const investPage: PageDef = {
                     ...(preset ? [] : ([
                         { key: "asset", label: t("iAsset"), type: "select" as const, value: tickers[0] ?? NEW, options: [...tickers.map((x): [string, string] => [x, x]), [NEW, t("iNewAsset")] as [string, string]] },
                         { key: "ticker", label: t("iTicker"), type: "text" as const, required: true, showIf: (v: Record<string, string>) => v.asset === NEW },
-                        { key: "currency", label: t("iCurrency"), type: "select" as const, value: cur, options: [[cur, cur], ...["USD", "TWD", "EUR", "JPY"].filter((c) => c !== cur).map((c): [string, string] => [c, c])], showIf: (v: Record<string, string>) => v.asset === NEW },
+                        { key: "currency", label: t("iCurrency"), type: "select" as const, value: cur, options: [[cur, cur], ...["USD", "TWD", "EUR", "JPY"].filter((c) => c !== cur).map((c): [string, string] => [c, c])],
+                            auto: (v: Record<string, string>) => ((v.ticker ?? "").trim() ? guessCur(prices.symbol(v.ticker.trim().toUpperCase())) : cur),   // a new ticker's currency from its market, until picked by hand
+                            showIf: (v: Record<string, string>) => v.asset === NEW },
                         { key: "bucket", label: t("iBucket"), type: "select" as const, value: buckets[0]?.[0] ?? "other", options: buckets.length ? buckets : [["other", "Other"] as [string, string]], showIf: (v: Record<string, string>) => v.asset === NEW },
                     ] as Field[])),
                     { key: "shares", label: t("iShares"), type: "number", required: true, dec: 4,
@@ -123,12 +121,12 @@ export const investPage: PageDef = {
                         note: (v) => (curOf(v) === "TWD" ? t("iFeeNote", { gross: num(grossV(v)) }) : t("iFeeNoteX")) },
                     { key: "tax", label: t("iTax"), type: "number", required: false, fold: true, showIf: (v) => v.type === "SELL", dec: (v) => (minorOf(curOf(v)) > 1 ? 2 : 0), step: (v) => (minorOf(curOf(v)) > 1 ? 0.01 : 1),
                         auto: (v) => { const c = curOf(v); return major(autoTax(grossV(v), c, tkOf(v)), c); },
-                        brief: (v) => (curOf(v) === "TWD" ? (isTwEtf(tkOf(v)) ? "0.1 %" : "0.3 %") : ""),
-                        note: (v) => (curOf(v) === "TWD" ? t("iTaxNote", { pct: isTwEtf(tkOf(v)) ? "0.1 %" : "0.3 %", what: isTwEtf(tkOf(v)) ? "ETF" : t("iStock") }) : t("iFeeNoteX")) },
+                        brief: (v) => (curOf(v) === "TWD" ? (isTwBondEtf(tkOf(v)) ? "0 %" : isTwEtf(tkOf(v)) ? "0.1 %" : "0.3 %") : ""),
+                        note: (v) => (curOf(v) === "TWD" ? t("iTaxNote", { pct: isTwBondEtf(tkOf(v)) ? "0 %" : isTwEtf(tkOf(v)) ? "0.1 %" : "0.3 %", what: isTwBondEtf(tkOf(v)) ? "bond ETF" : isTwEtf(tkOf(v)) ? "ETF" : t("iStock") }) : t("iFeeNoteX")) },
                     { key: "settled", label: t("iSettled"), type: "date", required: false, fold: true, auto: (v) => (v.date ? addTradingDays(v.date, curOf(v) === "TWD" ? 2 : 1, closed(curOf(v))) : ""),
                         brief: (v) => (curOf(v) === "TWD" ? "T+2" : "T+1"), note: (v) => t("iSettleNote", { when: curOf(v) === "TWD" ? "2 trading days after the trade" : "the next trading day" }) },
                     { key: "fx", label: t("iFx", { cur }), type: "number", required: false, fold: true, dec: 4, step: 0.01, showIf: (v) => curOf(v) !== cur,
-                        auto: (v) => (curOf(v) !== cur ? String(prices.fx(curOf(v), cur, fb)) : ""), brief: () => t("iLive").toLowerCase() },
+                        auto: (v) => { const r = curOf(v) !== cur ? prices.fx(curOf(v), cur, fb) : 0; return r > 0 ? String(r) : ""; }, brief: () => t("iLive").toLowerCase() },
                     { key: "why", label: t("iWhy"), type: "text", required: false },
                 ],
                 validate: (v) => {
@@ -150,8 +148,8 @@ export const investPage: PageDef = {
                         const assets = list(f.assets);
                         let a = assets.find((x) => tickerOf(x) === tk);
                         const nc = preset ? presetCur : v.currency;
-                        if (!a) { a = { name: tk, ticker: tk, category: v.bucket || "other", ...(nc && nc !== "TWD" ? { currency: nc } : {}), shares: 0, avg_cost: 0, transactions: [] }; assets.push(a); }
-                        const P2 = buildPortfolio({ assets: [a] }, () => null, () => 1);
+                        if (!a) { a = { name: tk, ticker: tk, category: v.bucket || "other", ...(nc && nc !== cur ? { currency: nc } : {}), shares: 0, avg_cost: 0, transactions: [] }; assets.push(a); }
+                        const P2 = buildPortfolio({ assets: [a] }, () => null, () => 1, "", cur);
                         id = tr.id = newTradeId(tk, String(tr.date), P2.positions[0]?.trades.map((x) => x.id) ?? []);
                         a.transactions = [...list(a.transactions), tr];
                         recalc(a);
@@ -160,7 +158,7 @@ export const investPage: PageDef = {
                     });
                     await book(fresh, [id]);
                     // S5: say which rule this trade newly broke (a warning, the trade is saved)
-                    const broke = newWarnings(checkRules(P, cap, () => true), checkRules(buildPortfolio(fresh, (q) => prices.price(q), (c) => prices.fx(c, cur, fb), today()), cap, () => true));
+                    const broke = newWarnings(checkRules(P, cap, () => true), checkRules(buildPortfolio(fresh, (q) => prices.price(q), (c) => prices.fx(c, cur, fb), today(), cur), cap, () => true));
                     if (broke.length) new Notice(broke.map(warnText).join("\n"), 8000);
                     if (v.why?.trim()) await think(tk, { date: tr.date, trade: id, why: v.why.trim() });
                     new Notice(t("iSaved", { what: v.type === "SELL" ? t("iSell") : t("iBuy"), n: qty(parseNum(v.shares)), tk }));

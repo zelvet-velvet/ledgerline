@@ -179,10 +179,10 @@ export class Prices {
     symbol(ticker: string): string { const t = ticker.trim().toUpperCase(); return this.taiwan() && /^\d{4,6}[A-Z]?$/.test(t) ? `${t}.TW` : t; }
     get(ticker: string): Quote | null { return this.q[this.symbol(ticker)] ?? null; }
     price(ticker: string): number | null { return this.get(ticker)?.price ?? null; }
-    // base-currency units per 1 unit of `cur` (fallback: the config's fx_fallback, then 1)
+    // base-currency units per 1 unit of `cur` (fallback: the config's fx_fallback); 0 = not known (never guessed as 1)
     fx(cur: string, base: string, fallback: Record<string, number> = {}): number {
         if (cur === base) return 1;
-        return this.q[`${cur}${base}=X`]?.price ?? (Number(fallback[cur]) || 1);
+        return this.q[`${cur}${base}=X`]?.price ?? (Number(fallback[cur]) || 0);
     }
     fxSymbol(cur: string, base: string): string { return `${cur}${base}=X`; }
     // fetch what is missing or old, in the background; one redraw when anything changed

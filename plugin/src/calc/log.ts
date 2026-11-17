@@ -1,4 +1,5 @@
 import type { FM } from "../data/store";
+import { grossOf, toBase, toMinor, toP, toQ, tradeTotal } from "./invest";
 
 // Pure Log maths, ported from v2 (Scripts/calc/log.js + FinanceHelpers.getMonthIncome / resolveDailyQuotas).
 export const IGNORE = ["file", "sticker", "cssclasses", "ledger", "date", "title", "tags", "aliases"];
@@ -90,8 +91,10 @@ export const computeMonth = ({ month, days, plan, daily, fixed, income }: MonthI
 
 export const spentOnDay = (fm: FM): number => Object.keys(fm).filter((k) => !IGNORE.includes(k) && typeof fm[k] === "number").reduce((s, k) => s + (Number(fm[k]) || 0), 0);
 
-// This month's investment plan split over the allocation buckets, and what was bought in each (from the investment config)
-export const investBuckets = (inv: FM | null, plan: number, monthKey: string) => {
+// This month's investment plan split over the allocation buckets, and what was bought in each (from the investment config):
+// the cash each trade moved in the base currency, fees in, at the trade's own FX rate, else fx(currency) now; a foreign
+// trade with no rate known is left out (never counted 1 : 1)
+export const investBuckets = (inv: FM | null, plan: number, monthKey: string, fx: (c: string) => number = () => 0, base = "TWD") => {
     const alloc = arr(inv?.allocation);
     if (!alloc.length || !(plan > 0)) return null;
     const keyOf = (c: unknown) => { const x = String(c ?? "").toLowerCase(); const m = alloc.find((b) => String(b.key).toLowerCase() === x || String(b.label).toLowerCase() === x); return m ? String(m.key).toLowerCase() : null; };
@@ -106,8 +109,11 @@ export const investBuckets = (inv: FM | null, plan: number, monthKey: string) =>
         if (!b) continue;
         for (const tx of arr(a.transactions)) {
             if (String(tx.date ?? "").slice(0, 7) !== monthKey) continue;
-            const amt = (Number(tx.shares) || 0) * (Number(tx.price) || 0) * (Number(tx.fx) || 1);
-            b.bought += tx.type === "SELL" ? -amt : amt;
+            const cur = String(a.currency ?? base).toUpperCase(), sell = String(tx.type).toUpperCase() === "SELL";
+            const rate = cur === base ? 1 : Number(tx.fx) > 0 ? Number(tx.fx) : fx(cur);
+            if (!(rate > 0)) continue;
+            const amt = toBase(tradeTotal(sell ? "SELL" : "BUY", grossOf(toQ(tx.shares), toP(tx.price), cur), toMinor(tx.fee, cur), sell ? toMinor(tx.tax, cur) : 0), cur, rate);
+            b.bought += sell ? -amt : amt;
         }
     }
     return buckets;

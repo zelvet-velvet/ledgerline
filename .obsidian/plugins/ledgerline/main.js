@@ -432,11 +432,218 @@ var parseNum = (v) => {
   return s2 === "" ? NaN : Number(s2);
 };
 
+// src/calc/invest.ts
+var arr = (v) => (Array.isArray(v) ? v : v ? [v] : []).filter((x) => x && typeof x === "object");
+var num2 = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+var tickerOf = (a) => String(a.ticker ?? a.name ?? "").toUpperCase();
+var minorOf = (currency) => ["TWD", "JPY", "KRW"].includes(currency) ? 1 : 100;
+var toQ = (shares) => Math.round(num2(shares) * 1e4);
+var toP = (price) => Math.round(num2(price) * 100);
+var toMinor = (amount, currency) => Math.round(num2(amount) * minorOf(currency));
+var grossOf = (q, p, currency) => Math.round(q * p * minorOf(currency) / 1e6);
+var toBase = (minor, currency, rate) => Math.round(minor / minorOf(currency) * rate);
+var tradeIds = (ticker, rows) => {
+  const seen2 = /* @__PURE__ */ new Map();
+  return rows.map((t2) => {
+    if (t2.id) return String(t2.id);
+    const base2 = `${ticker}-${dateStr(t2.date, "")}`, n = (seen2.get(base2) ?? 0) + 1;
+    seen2.set(base2, n);
+    return n === 1 ? base2 : `${base2}-${n}`;
+  });
+};
+var nextDca = (dca, today3) => {
+  if (!dca || !(dca.day >= 1)) return null;
+  const [y, m, d] = today3.split("-").map(Number);
+  const at = (yy, mm) => {
+    const last = new Date(yy, mm, 0).getDate();
+    return `${yy}-${String(mm).padStart(2, "0")}-${String(Math.min(dca.day, last)).padStart(2, "0")}`;
+  };
+  const here = at(y, m);
+  if (Number(here.slice(8)) >= d) return here;
+  return m === 12 ? at(y + 1, 1) : at(y, m + 1);
+};
+var buildPortfolio = (fm, price, fx, today3 = "", base2 = "TWD") => {
+  const alloc = arr(fm?.allocation);
+  const positions = arr(fm?.assets).map((a, index) => {
+    const currency = String(a.currency ?? base2).toUpperCase(), ticker = tickerOf(a), broker = String(a.broker ?? "");
+    const fxRaw = currency === base2 ? 1 : fx(currency), fxOk = fxRaw > 0, fxNow = fxOk ? fxRaw : 0;
+    const rows = arr(a.transactions), ids = tradeIds(ticker, rows);
+    const trades = rows.map((t2, i) => {
+      const type = String(t2.type).toUpperCase() === "SELL" ? "SELL" : "BUY";
+      const q = toQ(t2.shares), p = toP(t2.price), gross = grossOf(q, p, currency);
+      const fee = toMinor(t2.fee, currency), tax = toMinor(t2.tax, currency), rate = currency === base2 ? 1 : num2(t2.fx) || fxNow;
+      const cash = type === "BUY" ? -toBase(gross + fee, currency, rate) : toBase(gross - fee - tax, currency, rate);
+      const settled = dateStr(t2.settled, "");
+      return { id: ids[i], type, date: dateStr(t2.date, ""), settled, broker: String(t2.broker ?? broker), index: i, rate, shares: num2(t2.shares), price: num2(t2.price), fx: num2(t2.fx), q, p, gross, fee, tax, cash, pending: !!today3 && !!settled && settled > today3 };
+    });
+    let held = 0, cost = 0, own = 0, realized = 0, fees = 0, bought = 0;
+    [...trades].sort((x, y) => x.date.localeCompare(y.date) || x.index - y.index).forEach((t2) => {
+      fees += toBase(t2.fee + t2.tax, currency, t2.rate);
+      bought -= t2.cash;
+      if (t2.type === "BUY") {
+        held += t2.q;
+        cost -= t2.cash;
+        own += t2.gross + t2.fee;
+      } else if (held > 0) {
+        const sold = Math.min(t2.q, held);
+        const out = sold === held ? cost : Math.round(cost * sold / held);
+        const proceeds = sold === t2.q ? t2.cash : Math.round(t2.cash * sold / t2.q);
+        realized += proceeds - out;
+        own -= sold === held ? own : Math.round(own * sold / held);
+        held -= sold;
+        cost -= out;
+      }
+    });
+    if (!trades.length && num2(a.shares) > 0) {
+      held = toQ(a.shares);
+      own = grossOf(held, toP(a.avg_cost), currency);
+      cost = toBase(own, currency, fxNow);
+    }
+    const fxMissing = currency !== base2 && (!fxOk || trades.some((t2) => !(t2.rate > 0)));
+    const last = price(ticker);
+    const g = last !== null ? grossOf(held, toP(last), currency) : 0;
+    const value2 = last !== null && fxOk ? toBase(g, currency, fxNow) : cost;
+    const exit = held > 0 && last !== null && fxOk ? toBase(autoFee(g, currency) + autoTax(g, currency, ticker), currency, fxNow) : 0;
+    const d = a.dca && typeof a.dca === "object" ? a.dca : null;
+    const dca = d && num2(d.amount) > 0 ? { amount: Math.round(num2(d.amount)), day: Math.round(num2(d.day)) || 1 } : null;
+    return { ticker, name: String(a.name ?? ticker), category: String(a.category ?? "other").toLowerCase(), currency, broker, dca, trades, shares: held / 1e4, q: held, cost, avg: held > 0 ? cost * 1e4 / held : 0, avgP: held > 0 ? Math.round(own * 1e6 / (minorOf(currency) * held)) : 0, fxMissing, realized, fees, bought, price: last, value: value2, exit, pl: value2 - exit - cost, index };
+  });
+  const value = positions.reduce((s2, p) => s2 + p.value, 0);
+  const buckets = alloc.map((b) => {
+    const key = String(b.key ?? "").toLowerCase(), label = String(b.label ?? key);
+    const v = positions.filter((p) => p.category === key || p.category === label.toLowerCase()).reduce((s2, p) => s2 + p.value, 0);
+    const pct2 = value > 0 ? v / value * 100 : 0, target = num2(b.pct);
+    return { key, label, target, value: v, pct: pct2, drift: pct2 - target };
+  });
+  const sum = (k) => positions.reduce((s2, p) => s2 + p[k], 0);
+  return {
+    positions: positions.sort((a, b) => b.value - a.value),
+    buckets,
+    value,
+    cost: sum("cost"),
+    pl: sum("pl"),
+    realized: sum("realized"),
+    fees: sum("fees"),
+    bought: sum("bought"),
+    priced: positions.every((p) => p.q <= 0 || p.price !== null && !p.fxMissing),
+    missing: positions.filter((p) => p.q > 0 && (p.price === null || p.fxMissing)).map((p) => p.ticker),
+    threshold: num2(fm?.rebalance_threshold) || 5,
+    watch: arr(fm?.watchlist).map((w) => String(w.ticker ?? "").toUpperCase()).filter(Boolean)
+  };
+};
+var tradeLinks = (P, entries) => P.positions.flatMap((p) => p.trades.map((t2) => {
+  const own = entries.filter((e) => e.trade === t2.id), booked = own.reduce((s2, e) => s2 + e.amount, 0);
+  return { id: t2.id, ticker: p.ticker, cash: t2.cash, booked, diff: t2.pending && !own.length ? 0 : booked - t2.cash, pending: t2.pending };
+}));
+var newTradeId = (ticker, date, taken) => {
+  const base2 = `${ticker}-${date}`;
+  if (!taken.includes(base2)) return base2;
+  let n = 2;
+  while (taken.includes(`${base2}-${n}`)) n++;
+  return `${base2}-${n}`;
+};
+var tradeEntries = (t2, ticker, currency, account) => {
+  const main = (t2.type === "BUY" ? -1 : 1) * toBase(t2.gross, currency, t2.rate), rest = t2.cash - main, date = t2.settled || t2.date;
+  const note = `${ticker} x ${t2.shares} @ ${t2.price}${currency === "TWD" ? "" : ` ${currency}`}`;
+  return [
+    { date, account, amount: main, kind: t2.type === "BUY" ? "buy" : "sell", trade: t2.id, note },
+    ...rest ? [{ date, account, amount: rest, kind: "fee", trade: t2.id, note: `${ticker} fee` }] : []
+  ];
+};
+var syncEntries = (P, accounts, entries, ids, today3) => {
+  const out = [];
+  for (const id of ids) {
+    const own = entries.filter((e) => e.trade === id), booked = own.reduce((s2, e) => s2 + e.amount, 0);
+    const p = P.positions.find((x) => x.trades.some((t3) => t3.id === id)), t2 = p?.trades.find((x) => x.id === id);
+    const account = own[0]?.account ?? accounts.find((a) => a.bucket && a.bucket === p?.category)?.key;
+    if (!account) continue;
+    if (!t2) {
+      if (booked) out.push({ date: today3, account, amount: -booked, kind: "adjust", trade: id, note: "trade deleted" });
+      continue;
+    }
+    if (!own.length) {
+      out.push(...tradeEntries(t2, p.ticker, p.currency, account));
+      continue;
+    }
+    if (booked !== t2.cash) out.push({ date: today3, account, amount: t2.cash - booked, kind: "adjust", trade: id, note: "trade edited" });
+  }
+  return out;
+};
+var investCash = (accounts, keys) => {
+  const own = accounts.filter((a) => a.bucket && keys.includes(a.bucket));
+  return own.length ? own.reduce((s2, a) => s2 + a.balance, 0) : null;
+};
+var journalPath = (ticker) => `Invest/${ticker}.md`;
+var readJournal = (fm) => arr(fm?.journal).map((j, index) => ({ date: dateStr(j.date, ""), trade: String(j.trade ?? ""), why: String(j.why ?? "").trim(), index })).filter((j) => j.why).sort((a, b) => b.date.localeCompare(a.date) || b.index - a.index);
+var DEFAULT_CAP = 15e3;
+var capOf = (fm) => {
+  const n = Math.round(num2(fm?.single_stock_cap));
+  return n > 0 ? n : DEFAULT_CAP;
+};
+var checkRules = (P, cap3, hasReason) => [
+  ...P.positions.filter((p) => p.q > 0 && p.category === "stock" && p.cost > cap3).map((p) => ({ rule: "cap", key: p.ticker, over: p.cost - cap3 })),
+  ...P.value > 0 ? P.buckets.filter((b) => Math.abs(b.drift) > P.threshold).map((b) => ({ rule: "mix", key: b.label, over: Math.round(b.drift) })) : [],
+  ...P.positions.filter((p) => p.q > 0 && !hasReason(p.ticker)).map((p) => ({ rule: "reason", key: p.ticker, over: 0 }))
+];
+var newWarnings = (before, after) => after.filter((w) => !before.some((b) => b.rule === w.rule && b.key === w.key));
+var isTwEtf = (ticker) => /^00\d/.test(ticker);
+var autoFee = (gross, currency) => currency === "TWD" && gross > 0 ? Math.max(20, Math.floor(gross * 1425e-6)) : 0;
+var isTwBondEtf = (ticker) => /^00\d+B$/.test(ticker);
+var autoTax = (gross, currency, ticker) => currency === "TWD" && gross > 0 && !isTwBondEtf(ticker) ? Math.floor(gross * (isTwEtf(ticker) ? 1e-3 : 3e-3)) : 0;
+var tradeTotal = (type, gross, fee, tax) => String(type).toUpperCase() === "SELL" ? gross - fee - tax : gross + fee;
+var legacyFields = (rows) => {
+  let held = 0, cost = 0;
+  for (const t2 of arr(rows)) {
+    const q = toQ(t2.shares), p = toP(t2.price);
+    if (String(t2.type).toUpperCase() !== "SELL") {
+      held += q;
+      cost += q * p;
+    } else if (held > 0) {
+      const s2 = Math.min(q, held);
+      cost -= s2 === held ? cost : Math.round(cost * s2 / held);
+      held -= s2;
+    }
+  }
+  return { shares: held / 1e4, avg_cost: held > 0 ? Math.round(cost / held) / 100 : 0 };
+};
+var tickOf = (p, currency, ticker) => {
+  if (currency !== "TWD") return 1;
+  if (isTwEtf(ticker)) return p < 5e3 ? 1 : 5;
+  return p < 1e3 ? 1 : p < 5e3 ? 5 : p < 1e4 ? 10 : p < 5e4 ? 50 : p < 1e5 ? 100 : 500;
+};
+var addTradingDays = (day, n, closed = () => false) => {
+  const d = /* @__PURE__ */ new Date(`${day}T12:00:00Z`);
+  if (isNaN(d.getTime())) return day;
+  let left = n;
+  while (left > 0) {
+    d.setUTCDate(d.getUTCDate() + 1);
+    const w = d.getUTCDay();
+    if (w !== 0 && w !== 6 && !closed(d.toISOString().slice(0, 10))) left--;
+  }
+  return d.toISOString().slice(0, 10);
+};
+var revalue = (p, np) => {
+  if (p.price === null || !(p.price > 0) || np === p.price) return p;
+  const value = Math.round(p.value * np / p.price);
+  const exit = p.q <= 0 ? 0 : p.currency === "TWD" ? autoFee(value, "TWD") + autoTax(value, "TWD", p.ticker) : Math.round(p.exit * np / p.price);
+  return { ...p, price: np, value, exit, pl: value - exit - p.cost };
+};
+var todayMove = (p, ch, last, today3) => {
+  const buys = p.trades.filter((t2) => t2.date === today3 && t2.type === "BUY");
+  const boughtQ = buys.reduce((s2, t2) => s2 + t2.q, 0);
+  const old = Math.max(0, p.q - boughtQ), keptNew = Math.max(0, p.q - old), share = boughtQ > 0 ? keptNew / boughtQ : 0, m = minorOf(p.currency);
+  const fromBuys = buys.reduce((s2, t2) => s2 + t2.q * share * (last - t2.p) * m / 1e6, 0);
+  return Math.round(old * ch * m / 1e6 + fromBuys);
+};
+
 // src/calc/log.ts
 var IGNORE = ["file", "sticker", "cssclasses", "ledger", "date", "title", "tags", "aliases"];
 var slug = (s2) => String(s2 || "").trim().toLowerCase().replace(/[^a-z0-9一-鿿]+/g, "_").replace(/^_|_$/g, "");
-var arr = (v) => Array.isArray(v) ? v : v === void 0 || v === null ? [] : [v];
-var budgetItems = (fm) => arr(fm?.budget).filter((x) => x && typeof x === "object").map((x) => ({ name: String(x.name ?? ""), quota: Number(x.quota) || 0, spending: arr(x.spending).map(String) }));
+var arr2 = (v) => Array.isArray(v) ? v : v === void 0 || v === null ? [] : [v];
+var budgetItems = (fm) => arr2(fm?.budget).filter((x) => x && typeof x === "object").map((x) => ({ name: String(x.name ?? ""), quota: Number(x.quota) || 0, spending: arr2(x.spending).map(String) }));
 var monthIncome = (incomeCfg, month, monthNumber) => {
   const ov = month?.income_override ?? {};
   const rows = [];
@@ -445,7 +652,7 @@ var monthIncome = (incomeCfg, month, monthNumber) => {
     const has = ov[k] !== void 0;
     rows.push({ key: k, label: k, base: v, amount: has ? Number(ov[k]) || 0 : v, kind: "base", overridden: has });
   }
-  for (const b of arr(incomeCfg?.bonuses)) {
+  for (const b of arr2(incomeCfg?.bonuses)) {
     if (!b || Number(b.month) !== monthNumber) continue;
     const key = "bonus_" + slug(String(b.name));
     const has = ov[key] !== void 0;
@@ -518,8 +725,8 @@ var computeMonth = ({ month, days, plan, daily, fixed, income }) => {
   };
 };
 var spentOnDay = (fm) => Object.keys(fm).filter((k) => !IGNORE.includes(k) && typeof fm[k] === "number").reduce((s2, k) => s2 + (Number(fm[k]) || 0), 0);
-var investBuckets = (inv, plan, monthKey) => {
-  const alloc = arr(inv?.allocation);
+var investBuckets = (inv, plan, monthKey, fx = () => 0, base2 = "TWD") => {
+  const alloc = arr2(inv?.allocation);
   if (!alloc.length || !(plan > 0)) return null;
   const keyOf2 = (c) => {
     const x = String(c ?? "").toLowerCase();
@@ -532,13 +739,16 @@ var investBuckets = (inv, plan, monthKey) => {
     assigned += target;
     return { key: String(b.key).toLowerCase(), label: String(b.label ?? b.key), target, bought: 0 };
   });
-  for (const a of arr(inv?.assets)) {
+  for (const a of arr2(inv?.assets)) {
     const b = buckets.find((x) => x.key === keyOf2(a.category));
     if (!b) continue;
-    for (const tx of arr(a.transactions)) {
+    for (const tx of arr2(a.transactions)) {
       if (String(tx.date ?? "").slice(0, 7) !== monthKey) continue;
-      const amt = (Number(tx.shares) || 0) * (Number(tx.price) || 0) * (Number(tx.fx) || 1);
-      b.bought += tx.type === "SELL" ? -amt : amt;
+      const cur = String(a.currency ?? base2).toUpperCase(), sell = String(tx.type).toUpperCase() === "SELL";
+      const rate = cur === base2 ? 1 : Number(tx.fx) > 0 ? Number(tx.fx) : fx(cur);
+      if (!(rate > 0)) continue;
+      const amt = toBase(tradeTotal(sell ? "SELL" : "BUY", grossOf(toQ(tx.shares), toP(tx.price), cur), toMinor(tx.fee, cur), sell ? toMinor(tx.tax, cur) : 0), cur, rate);
+      b.bought += sell ? -amt : amt;
     }
   }
   return buckets;
@@ -703,7 +913,7 @@ var import_obsidian4 = require("obsidian");
 var RANGES = ["M", "W", "D", "60m", "30m", "15m", "5m", "1m", "I"];
 var isMinutes = (r) => r !== "D" && r !== "W" && r !== "M";
 var emptyBars = () => ({ d: [], o: [], h: [], l: [], c: [], v: [], ohlc: true });
-var toP = (x) => Math.round(Number(x) * 100);
+var toP2 = (x) => Math.round(Number(x) * 100);
 var TZF = /* @__PURE__ */ new Map();
 var zoned = (s2, tz, off) => {
   if (tz) {
@@ -732,17 +942,17 @@ var fromYahoo = (res, minutes = false) => {
     const d = zoned(s2, tz, off).slice(0, minutes ? 16 : 10);
     if (B.d[B.d.length - 1] === d) B.d.pop(), B.o.pop(), B.h.pop(), B.l.pop(), B.c.pop(), B.v.pop();
     B.d.push(d);
-    B.o.push(toP(o));
-    B.h.push(toP(h2));
-    B.l.push(toP(l));
-    B.c.push(toP(c));
+    B.o.push(toP2(o));
+    B.h.push(toP2(h2));
+    B.l.push(toP2(l));
+    B.c.push(toP2(c));
     B.v.push(Math.round(Number(q.volume?.[i]) || 0));
   });
   if (!B.d.length && q.close?.some((x) => typeof x === "number" && x > 0)) {
     ts.forEach((t2, i) => {
       const c = q.close?.[i];
       if (typeof c !== "number" || !(c > 0)) return;
-      const p = toP(c);
+      const p = toP2(c);
       B.d.push(zoned(t2, tz, off).slice(0, 10));
       B.o.push(p);
       B.h.push(p);
@@ -753,7 +963,7 @@ var fromYahoo = (res, minutes = false) => {
     B.ohlc = false;
   }
   const pc = Number(r.meta?.chartPreviousClose);
-  if (minutes && pc > 0) B.pc = toP(pc);
+  if (minutes && pc > 0) B.pc = toP2(pc);
   return B.d.length ? B : null;
 };
 var lastSession = (B) => {
@@ -775,13 +985,13 @@ var fromFugle = (json, pc) => {
     const o = Number(r.open), h2 = Number(r.high), l = Number(r.low), c = Number(r.close);
     if (!d || ![o, h2, l, c].every((x) => x > 0) || B.d[B.d.length - 1] === d) continue;
     B.d.push(d);
-    B.o.push(toP(o));
-    B.h.push(toP(h2));
-    B.l.push(toP(l));
-    B.c.push(toP(c));
+    B.o.push(toP2(o));
+    B.h.push(toP2(h2));
+    B.l.push(toP2(l));
+    B.c.push(toP2(c));
     B.v.push(Math.round(Number(r.volume) || 0));
   }
-  if (pc && pc > 0) B.pc = toP(pc);
+  if (pc && pc > 0) B.pc = toP2(pc);
   return B.d.length ? B : null;
 };
 var fromTwseMonth = (json) => {
@@ -793,10 +1003,10 @@ var fromTwseMonth = (json) => {
     const o = n(r[3]), h2 = n(r[4]), l = n(r[5]), c = n(r[6]);
     if (!m || ![o, h2, l, c].every((x) => x > 0)) continue;
     B.d.push(`${Number(m[1]) + 1911}-${m[2]}-${m[3]}`);
-    B.o.push(toP(o));
-    B.h.push(toP(h2));
-    B.l.push(toP(l));
-    B.c.push(toP(c));
+    B.o.push(toP2(o));
+    B.h.push(toP2(h2));
+    B.l.push(toP2(l));
+    B.c.push(toP2(c));
     B.v.push(Math.round(n(r[1]) || 0));
   }
   return B.d.length ? B : null;
@@ -1005,14 +1215,14 @@ var dayChange = (B, live, closes, ref) => {
 };
 
 // src/calc/market.ts
-var num2 = (s2) => {
+var num3 = (s2) => {
   const n = Number(String(s2 ?? "").replace(/,/g, ""));
   return Number.isFinite(n) && n > 0 ? n : 0;
 };
 var parseMisIndex = (json, code = "t00") => {
   const r = (json?.msgArray ?? []).find((x) => x.c === code);
   if (!r) return null;
-  const prev = num2(r.y), price = num2(r.z) || num2(r.pz) || prev;
+  const prev = num3(r.y), price = num3(r.z) || num3(r.pz) || prev;
   if (!price) return null;
   const asOf = Number(r.tlong) || Date.now(), d = r.d ?? "";
   return { price, prev: prev || void 0, time: Date.now(), asOf, source: "twse", day: /^\d{8}$/.test(d) ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}` : "" };
@@ -1023,7 +1233,7 @@ var fiveSecBars = (json, day) => {
   const B = emptyBars();
   let key = "";
   for (const r of rows) {
-    const m = /^(\d\d):(\d\d):(\d\d)$/.exec(r[0] ?? ""), v = Math.round(num2(r[1]) * 100);
+    const m = /^(\d\d):(\d\d):(\d\d)$/.exec(r[0] ?? ""), v = Math.round(num3(r[1]) * 100);
     if (!m || !v) continue;
     const s2 = Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]);
     if (s2 <= 9 * 3600) {
@@ -1456,10 +1666,10 @@ var Prices = class {
   price(ticker) {
     return this.get(ticker)?.price ?? null;
   }
-  // base-currency units per 1 unit of `cur` (fallback: the config's fx_fallback, then 1)
+  // base-currency units per 1 unit of `cur` (fallback: the config's fx_fallback); 0 = not known (never guessed as 1)
   fx(cur, base2, fallback = {}) {
     if (cur === base2) return 1;
-    return this.q[`${cur}${base2}=X`]?.price ?? (Number(fallback[cur]) || 1);
+    return this.q[`${cur}${base2}=X`]?.price ?? (Number(fallback[cur]) || 0);
   }
   fxSymbol(cur, base2) {
     return `${cur}${base2}=X`;
@@ -2008,11 +2218,11 @@ var emergencyMinOf = (fm) => {
 };
 
 // src/calc/alerts.ts
-var arr2 = (v) => (Array.isArray(v) ? v : v ? [v] : []).filter((x) => x && typeof x === "object");
+var arr3 = (v) => (Array.isArray(v) ? v : v ? [v] : []).filter((x) => x && typeof x === "object");
 var readAlerts = (fm) => ({
   topic: String(fm?.topic ?? "").trim(),
-  alerts: arr2(fm?.alerts).map((a, index) => ({ id: String(a.id ?? `a${index}`), ticker: String(a.ticker ?? "").toUpperCase(), kind: a.kind === "above" ? "above" : "below", price: Math.round(Number(a.price) * 100), index })).filter((a) => a.ticker && a.price > 0),
-  sent: arr2(fm?.sent).map((s2) => ({ key: String(s2.key ?? ""), date: dateStr(s2.date, ""), text: String(s2.text ?? "") })).filter((s2) => s2.key)
+  alerts: arr3(fm?.alerts).map((a, index) => ({ id: String(a.id ?? `a${index}`), ticker: String(a.ticker ?? "").toUpperCase(), kind: a.kind === "above" ? "above" : "below", price: Math.round(Number(a.price) * 100), index })).filter((a) => a.ticker && a.price > 0),
+  sent: arr3(fm?.sent).map((s2) => ({ key: String(s2.key ?? ""), date: dateStr(s2.date, ""), text: String(s2.text ?? "") })).filter((s2) => s2.key)
 });
 var hit = (a, price) => a.kind === "below" ? price <= a.price : price >= a.price;
 var away = (a, price) => price > 0 ? (a.kind === "below" ? price - a.price : a.price - price) / price * 100 : 0;
@@ -2044,191 +2254,6 @@ var fromTwt48u = (rows) => (Array.isArray(rows) ? rows : []).map((r) => ({
   date: rocDate(String(r.Date ?? "")),
   cash: Math.round(Number(r.CashDividend || 0) * 100)
 })).filter((e) => e.code && e.date);
-
-// src/calc/invest.ts
-var arr3 = (v) => (Array.isArray(v) ? v : v ? [v] : []).filter((x) => x && typeof x === "object");
-var num3 = (v) => {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
-};
-var tickerOf = (a) => String(a.ticker ?? a.name ?? "").toUpperCase();
-var minorOf = (currency) => ["TWD", "JPY", "KRW"].includes(currency) ? 1 : 100;
-var toQ = (shares) => Math.round(num3(shares) * 1e4);
-var toP2 = (price) => Math.round(num3(price) * 100);
-var toMinor = (amount, currency) => Math.round(num3(amount) * minorOf(currency));
-var grossOf = (q, p, currency) => Math.round(q * p * minorOf(currency) / 1e6);
-var toBase = (minor, currency, rate) => Math.round(minor / minorOf(currency) * rate);
-var tradeIds = (ticker, rows) => {
-  const seen2 = /* @__PURE__ */ new Map();
-  return rows.map((t2) => {
-    if (t2.id) return String(t2.id);
-    const base2 = `${ticker}-${dateStr(t2.date, "")}`, n = (seen2.get(base2) ?? 0) + 1;
-    seen2.set(base2, n);
-    return n === 1 ? base2 : `${base2}-${n}`;
-  });
-};
-var nextDca = (dca, today3) => {
-  if (!dca || !(dca.day >= 1)) return null;
-  const [y, m, d] = today3.split("-").map(Number);
-  const at = (yy, mm) => {
-    const last = new Date(yy, mm, 0).getDate();
-    return `${yy}-${String(mm).padStart(2, "0")}-${String(Math.min(dca.day, last)).padStart(2, "0")}`;
-  };
-  const here = at(y, m);
-  if (Number(here.slice(8)) >= d) return here;
-  return m === 12 ? at(y + 1, 1) : at(y, m + 1);
-};
-var buildPortfolio = (fm, price, fx, today3 = "") => {
-  const alloc = arr3(fm?.allocation);
-  const positions = arr3(fm?.assets).map((a, index) => {
-    const currency = String(a.currency ?? "TWD").toUpperCase(), ticker = tickerOf(a), broker = String(a.broker ?? "");
-    const fxNow = fx(currency);
-    const rows = arr3(a.transactions), ids = tradeIds(ticker, rows);
-    const trades = rows.map((t2, i) => {
-      const type = String(t2.type).toUpperCase() === "SELL" ? "SELL" : "BUY";
-      const q = toQ(t2.shares), p = toP2(t2.price), gross = grossOf(q, p, currency);
-      const fee = toMinor(t2.fee, currency), tax = toMinor(t2.tax, currency), rate = currency === "TWD" ? 1 : num3(t2.fx) || fxNow;
-      const cash = type === "BUY" ? -toBase(gross + fee, currency, rate) : toBase(gross - fee - tax, currency, rate);
-      const settled = dateStr(t2.settled, "");
-      return { id: ids[i], type, date: dateStr(t2.date, ""), settled, broker: String(t2.broker ?? broker), index: i, rate, shares: num3(t2.shares), price: num3(t2.price), fx: num3(t2.fx), q, p, gross, fee, tax, cash, pending: !!today3 && !!settled && settled > today3 };
-    });
-    let held = 0, cost = 0, realized = 0, fees = 0, bought = 0;
-    [...trades].sort((x, y) => x.date.localeCompare(y.date) || x.index - y.index).forEach((t2) => {
-      fees += toBase(t2.fee + t2.tax, currency, t2.rate);
-      bought -= t2.cash;
-      if (t2.type === "BUY") {
-        held += t2.q;
-        cost -= t2.cash;
-      } else if (held > 0) {
-        const sold = Math.min(t2.q, held);
-        const out = sold === held ? cost : Math.round(cost * sold / held);
-        const proceeds = sold === t2.q ? t2.cash : Math.round(t2.cash * sold / t2.q);
-        realized += proceeds - out;
-        held -= sold;
-        cost -= out;
-      }
-    });
-    if (!trades.length && num3(a.shares) > 0) {
-      held = toQ(a.shares);
-      cost = toBase(grossOf(held, toP2(a.avg_cost), currency), currency, fxNow);
-    }
-    const last = price(ticker);
-    const g = last !== null ? grossOf(held, toP2(last), currency) : 0;
-    const value2 = last !== null ? toBase(g, currency, fxNow) : cost;
-    const exit = held > 0 && last !== null ? toBase(autoFee(g, currency) + autoTax(g, currency, ticker), currency, fxNow) : 0;
-    const d = a.dca && typeof a.dca === "object" ? a.dca : null;
-    const dca = d && num3(d.amount) > 0 ? { amount: Math.round(num3(d.amount)), day: Math.round(num3(d.day)) || 1 } : null;
-    return { ticker, name: String(a.name ?? ticker), category: String(a.category ?? "other").toLowerCase(), currency, broker, dca, trades, shares: held / 1e4, q: held, cost, avg: held > 0 ? cost * 1e4 / held : 0, realized, fees, bought, price: last, value: value2, exit, pl: value2 - exit - cost, index };
-  });
-  const value = positions.reduce((s2, p) => s2 + p.value, 0);
-  const buckets = alloc.map((b) => {
-    const key = String(b.key ?? "").toLowerCase(), label = String(b.label ?? key);
-    const v = positions.filter((p) => p.category === key || p.category === label.toLowerCase()).reduce((s2, p) => s2 + p.value, 0);
-    const pct2 = value > 0 ? v / value * 100 : 0, target = num3(b.pct);
-    return { key, label, target, value: v, pct: pct2, drift: pct2 - target };
-  });
-  const sum = (k) => positions.reduce((s2, p) => s2 + p[k], 0);
-  return {
-    positions: positions.sort((a, b) => b.value - a.value),
-    buckets,
-    value,
-    cost: sum("cost"),
-    pl: sum("pl"),
-    realized: sum("realized"),
-    fees: sum("fees"),
-    bought: sum("bought"),
-    priced: positions.every((p) => p.q <= 0 || p.price !== null),
-    threshold: num3(fm?.rebalance_threshold) || 5,
-    watch: arr3(fm?.watchlist).map((w) => String(w.ticker ?? "").toUpperCase()).filter(Boolean)
-  };
-};
-var tradeLinks = (P, entries) => P.positions.flatMap((p) => p.trades.map((t2) => {
-  const own = entries.filter((e) => e.trade === t2.id), booked = own.reduce((s2, e) => s2 + e.amount, 0);
-  return { id: t2.id, ticker: p.ticker, cash: t2.cash, booked, diff: t2.pending && !own.length ? 0 : booked - t2.cash, pending: t2.pending };
-}));
-var newTradeId = (ticker, date, taken) => {
-  const base2 = `${ticker}-${date}`;
-  if (!taken.includes(base2)) return base2;
-  let n = 2;
-  while (taken.includes(`${base2}-${n}`)) n++;
-  return `${base2}-${n}`;
-};
-var tradeEntries = (t2, ticker, currency, account) => {
-  const main = (t2.type === "BUY" ? -1 : 1) * toBase(t2.gross, currency, t2.rate), rest = t2.cash - main, date = t2.settled || t2.date;
-  const note = `${ticker} x ${t2.shares} @ ${t2.price}${currency === "TWD" ? "" : ` ${currency}`}`;
-  return [
-    { date, account, amount: main, kind: t2.type === "BUY" ? "buy" : "sell", trade: t2.id, note },
-    ...rest ? [{ date, account, amount: rest, kind: "fee", trade: t2.id, note: `${ticker} fee` }] : []
-  ];
-};
-var syncEntries = (P, accounts, entries, ids, today3) => {
-  const out = [];
-  for (const id of ids) {
-    const own = entries.filter((e) => e.trade === id), booked = own.reduce((s2, e) => s2 + e.amount, 0);
-    const p = P.positions.find((x) => x.trades.some((t3) => t3.id === id)), t2 = p?.trades.find((x) => x.id === id);
-    const account = own[0]?.account ?? accounts.find((a) => a.bucket && a.bucket === p?.category)?.key;
-    if (!account) continue;
-    if (!t2) {
-      if (booked) out.push({ date: today3, account, amount: -booked, kind: "adjust", trade: id, note: "trade deleted" });
-      continue;
-    }
-    if (!own.length) {
-      out.push(...tradeEntries(t2, p.ticker, p.currency, account));
-      continue;
-    }
-    if (booked !== t2.cash) out.push({ date: today3, account, amount: t2.cash - booked, kind: "adjust", trade: id, note: "trade edited" });
-  }
-  return out;
-};
-var investCash = (accounts, keys) => {
-  const own = accounts.filter((a) => a.bucket && keys.includes(a.bucket));
-  return own.length ? own.reduce((s2, a) => s2 + a.balance, 0) : null;
-};
-var journalPath = (ticker) => `Invest/${ticker}.md`;
-var readJournal = (fm) => arr3(fm?.journal).map((j, index) => ({ date: dateStr(j.date, ""), trade: String(j.trade ?? ""), why: String(j.why ?? "").trim(), index })).filter((j) => j.why).sort((a, b) => b.date.localeCompare(a.date) || b.index - a.index);
-var DEFAULT_CAP = 15e3;
-var capOf = (fm) => {
-  const n = Math.round(num3(fm?.single_stock_cap));
-  return n > 0 ? n : DEFAULT_CAP;
-};
-var checkRules = (P, cap3, hasReason) => [
-  ...P.positions.filter((p) => p.q > 0 && p.category === "stock" && p.cost > cap3).map((p) => ({ rule: "cap", key: p.ticker, over: p.cost - cap3 })),
-  ...P.value > 0 ? P.buckets.filter((b) => Math.abs(b.drift) > P.threshold).map((b) => ({ rule: "mix", key: b.label, over: Math.round(b.drift) })) : [],
-  ...P.positions.filter((p) => p.q > 0 && !hasReason(p.ticker)).map((p) => ({ rule: "reason", key: p.ticker, over: 0 }))
-];
-var newWarnings = (before, after) => after.filter((w) => !before.some((b) => b.rule === w.rule && b.key === w.key));
-var isTwEtf = (ticker) => /^00\d/.test(ticker);
-var autoFee = (gross, currency) => currency === "TWD" && gross > 0 ? Math.max(20, Math.floor(gross * 1425e-6)) : 0;
-var autoTax = (gross, currency, ticker) => currency === "TWD" && gross > 0 ? Math.floor(gross * (isTwEtf(ticker) ? 1e-3 : 3e-3)) : 0;
-var tickOf = (p, currency, ticker) => {
-  if (currency !== "TWD") return 1;
-  if (isTwEtf(ticker)) return p < 5e3 ? 1 : 5;
-  return p < 1e3 ? 1 : p < 5e3 ? 5 : p < 1e4 ? 10 : p < 5e4 ? 50 : p < 1e5 ? 100 : 500;
-};
-var addTradingDays = (day, n, closed = () => false) => {
-  const d = /* @__PURE__ */ new Date(`${day}T12:00:00Z`);
-  if (isNaN(d.getTime())) return day;
-  let left = n;
-  while (left > 0) {
-    d.setUTCDate(d.getUTCDate() + 1);
-    const w = d.getUTCDay();
-    if (w !== 0 && w !== 6 && !closed(d.toISOString().slice(0, 10))) left--;
-  }
-  return d.toISOString().slice(0, 10);
-};
-var revalue = (p, np) => {
-  if (p.price === null || !(p.price > 0) || np === p.price) return p;
-  const value = Math.round(p.value * np / p.price);
-  const exit = p.q <= 0 ? 0 : p.currency === "TWD" ? autoFee(value, "TWD") + autoTax(value, "TWD", p.ticker) : Math.round(p.exit * np / p.price);
-  return { ...p, price: np, value, exit, pl: value - exit - p.cost };
-};
-var todayMove = (p, ch, last, today3) => {
-  const buys = p.trades.filter((t2) => t2.date === today3 && t2.type === "BUY");
-  const boughtQ = buys.reduce((s2, t2) => s2 + t2.q, 0);
-  const old = Math.max(0, p.q - boughtQ), keptNew = Math.max(0, p.q - old), share = boughtQ > 0 ? keptNew / boughtQ : 0, m = minorOf(p.currency);
-  const fromBuys = buys.reduce((s2, t2) => s2 + t2.q * share * (last - t2.p) * m / 1e6, 0);
-  return Math.round(old * ch * m / 1e6 + fromBuys);
-};
 
 // src/i18n.ts
 var en = {
@@ -8550,7 +8575,7 @@ var mixPage = (x) => {
   const sel = /* @__PURE__ */ new Date(), mk = `${sel.getFullYear()}-${String(sel.getMonth() + 1).padStart(2, "0")}`;
   const { plan, month } = ctx.plugin.store.monthData(sel.getFullYear(), sel.getMonth());
   const amt = Number(month?.[PLAN_KEY] ?? plan[PLAN_KEY]) || 0;
-  const bs = investBuckets(ctx.plugin.store.fm(ctx.plugin.store.path(FILES.invest)), amt, mk);
+  const bs = investBuckets(ctx.plugin.store.fm(ctx.plugin.store.path(FILES.invest)), amt, mk, x.fx, x.cur);
   const toBuy = bs ? bs.reduce((s2, b) => s2 + Math.max(0, b.target - b.bought), 0) : null;
   summary(el, { key: "mix", label: t("iCashWait"), value: num(x.cash), items: toBuy !== null ? [[t("iToBuy"), num(toBuy)]] : [] });
   const toHoldings = () => ctx.push({ key: "holdings", title: t("iHoldingsT") });
@@ -9676,7 +9701,7 @@ var buyCheck = (x, tk, go) => {
         title: t("rkLimit"),
         subtitle: tk,
         submitText: t("save"),
-        fields: [{ key: "price", label: t("iPrice"), type: "number", required: true, dec: 2, step: 0.05, value: limit ? limit / 100 : live ?? "", note: () => t("rsLimitNote") }],
+        fields: [{ key: "price", label: t("iPrice"), type: "number", required: true, dec: 2, step: (v) => tickOf(toP(v.price), p?.currency ?? guessCur(prices.symbol(tk)), tk) / 100, value: limit ? limit / 100 : live ?? "", note: () => t("rsLimitNote") }],
         onSubmit: async (v) => {
           limit = Math.round(parseNum(v.price) * 100) || null;
           paint();
@@ -9824,7 +9849,7 @@ var assetPage = (x, p) => {
   const { ctx } = x;
   const el = page(p.ticker);
   el.addClass("zl-c-stack");
-  const costP = p.q > 0 ? Math.round(p.avg / x.fx(p.currency) * 100) : null;
+  const costP = p.q > 0 ? p.avgP : null;
   chartBlock(x, el, p.ticker, p.currency, costP);
   thesisCard(x, el, p.ticker);
   const hold = h(el, "div", "zl-c-group zl-hold");
@@ -10072,8 +10097,11 @@ var alertSheet = (x, a, preset) => {
         type: "number",
         required: true,
         dec: 2,
-        step: 0.05,
         value: a ? a.price / 100 : "",
+        step: (v) => {
+          const tk = a?.ticker ?? preset ?? (v.tk ?? "").trim().toUpperCase();
+          return tickOf(toP(v.price), x.P.positions.find((p) => p.ticker === tk)?.currency ?? guessCur(prices.symbol(tk)), tk) / 100;
+        },
         auto: (v) => {
           const q = prices.price(a?.ticker ?? preset ?? (v.tk ?? "").trim().toUpperCase());
           return q ? String(Math.round(q * 100) / 100) : "";
@@ -10345,7 +10373,7 @@ var investPage = {
     const CFG = store.path(FILES.invest);
     const fm = store.fm(CFG);
     const fb = fm?.fx_fallback ?? {};
-    const P = buildPortfolio(fm, (tk) => prices.price(tk), (c) => prices.fx(c, cur, fb), today());
+    const P = buildPortfolio(fm, (tk) => prices.price(tk), (c) => prices.fx(c, cur, fb), today(), cur);
     const curs = [...new Set(P.positions.map((p) => p.currency).filter((c) => c !== cur))];
     const held = [...P.positions.filter((p) => p.shares > 0).map((p) => prices.symbol(p.ticker)), ...P.watch.map((w) => prices.symbol(w))];
     prices.refresh([...held, ...curs.map((c) => prices.fxSymbol(c, cur))]);
@@ -10359,7 +10387,7 @@ var investPage = {
     const snap = (f) => JSON.parse(JSON.stringify(f));
     const book = async (fresh, ids) => {
       if (!store.file(ACC)) return;
-      const Q = buildPortfolio(fresh, (tk) => prices.price(tk), (c) => prices.fx(c, cur, fb), today());
+      const Q = buildPortfolio(fresh, (tk) => prices.price(tk), (c) => prices.fx(c, cur, fb), today(), cur);
       let n = 0;
       await store.update(ACC, (a) => {
         const B = buildAccounts(a);
@@ -10379,20 +10407,7 @@ var investPage = {
       return fresh;
     };
     const recalc = (a) => {
-      let held2 = 0, cost = 0;
-      for (const tr of list3(a.transactions)) {
-        const n = Number(tr.shares) || 0, pr = Number(tr.price) || 0;
-        if (String(tr.type).toUpperCase() === "BUY") {
-          held2 += n;
-          cost += n * pr;
-        } else if (held2 > 0) {
-          const s2 = Math.min(n, held2);
-          cost -= s2 * (cost / held2);
-          held2 -= s2;
-        }
-      }
-      a.shares = +held2.toFixed(6);
-      a.avg_cost = held2 > 0 ? +(cost / held2).toFixed(4) : 0;
+      Object.assign(a, legacyFields(a.transactions));
     };
     const trade = (preset, pre = {}) => {
       const tickers = P.positions.map((p) => p.ticker);
@@ -10403,7 +10418,7 @@ var investPage = {
       const curOf = (v) => !preset && v.asset === NEW ? v.currency || cur : posOf(v)?.currency ?? presetCur ?? cur;
       const grossV = (v) => {
         const n = parseNum(v.shares), pr = parseNum(v.price);
-        return n > 0 && pr >= 0 ? grossOf(toQ(n), toP2(pr), curOf(v)) : 0;
+        return n > 0 && pr >= 0 ? grossOf(toQ(n), toP(pr), curOf(v)) : 0;
       };
       const major = (minor2, c) => String(minor2 / minorOf(c));
       const minor = (s2, c) => Math.round((parseNum(s2 ?? "") || 0) * minorOf(c));
@@ -10414,7 +10429,7 @@ var investPage = {
       const closed = (c) => (d) => !!(c === "TWD" ? prices.calendar?.cal.tw : prices.calendar?.cal.us)?.[d];
       const money = (v) => {
         const c = curOf(v), g = grossV(v), fee = minor(v.fee, c), tax = v.type === "SELL" ? minor(v.tax, c) : 0;
-        return { c, g, n: v.type === "SELL" ? g - fee - tax : g + fee };
+        return { c, g, n: tradeTotal(v.type, g, fee, tax) };
       };
       new FormSheet(ctx.app, {
         title: t("iTrade"),
@@ -10434,7 +10449,16 @@ var investPage = {
           ...preset ? [] : [
             { key: "asset", label: t("iAsset"), type: "select", value: tickers[0] ?? NEW, options: [...tickers.map((x2) => [x2, x2]), [NEW, t("iNewAsset")]] },
             { key: "ticker", label: t("iTicker"), type: "text", required: true, showIf: (v) => v.asset === NEW },
-            { key: "currency", label: t("iCurrency"), type: "select", value: cur, options: [[cur, cur], ...["USD", "TWD", "EUR", "JPY"].filter((c) => c !== cur).map((c) => [c, c])], showIf: (v) => v.asset === NEW },
+            {
+              key: "currency",
+              label: t("iCurrency"),
+              type: "select",
+              value: cur,
+              options: [[cur, cur], ...["USD", "TWD", "EUR", "JPY"].filter((c) => c !== cur).map((c) => [c, c])],
+              auto: (v) => (v.ticker ?? "").trim() ? guessCur(prices.symbol(v.ticker.trim().toUpperCase())) : cur,
+              // a new ticker's currency from its market, until picked by hand
+              showIf: (v) => v.asset === NEW
+            },
             { key: "bucket", label: t("iBucket"), type: "select", value: buckets[0]?.[0] ?? "other", options: buckets.length ? buckets : [["other", "Other"]], showIf: (v) => v.asset === NEW }
           ],
           {
@@ -10456,7 +10480,7 @@ var investPage = {
             required: true,
             dec: 2,
             ...pre.price ? { value: pre.price } : {},
-            step: (v) => tickOf(toP2(v.price), curOf(v), tkOf(v)) / 100,
+            step: (v) => tickOf(toP(v.price), curOf(v), tkOf(v)) / 100,
             auto: (v) => {
               const q = live(v);
               return q === null ? "" : String(q);
@@ -10492,8 +10516,8 @@ var investPage = {
               const c = curOf(v);
               return major(autoTax(grossV(v), c, tkOf(v)), c);
             },
-            brief: (v) => curOf(v) === "TWD" ? isTwEtf(tkOf(v)) ? "0.1 %" : "0.3 %" : "",
-            note: (v) => curOf(v) === "TWD" ? t("iTaxNote", { pct: isTwEtf(tkOf(v)) ? "0.1 %" : "0.3 %", what: isTwEtf(tkOf(v)) ? "ETF" : t("iStock") }) : t("iFeeNoteX")
+            brief: (v) => curOf(v) === "TWD" ? isTwBondEtf(tkOf(v)) ? "0 %" : isTwEtf(tkOf(v)) ? "0.1 %" : "0.3 %" : "",
+            note: (v) => curOf(v) === "TWD" ? t("iTaxNote", { pct: isTwBondEtf(tkOf(v)) ? "0 %" : isTwEtf(tkOf(v)) ? "0.1 %" : "0.3 %", what: isTwBondEtf(tkOf(v)) ? "bond ETF" : isTwEtf(tkOf(v)) ? "ETF" : t("iStock") }) : t("iFeeNoteX")
           },
           {
             key: "settled",
@@ -10514,7 +10538,10 @@ var investPage = {
             dec: 4,
             step: 0.01,
             showIf: (v) => curOf(v) !== cur,
-            auto: (v) => curOf(v) !== cur ? String(prices.fx(curOf(v), cur, fb)) : "",
+            auto: (v) => {
+              const r = curOf(v) !== cur ? prices.fx(curOf(v), cur, fb) : 0;
+              return r > 0 ? String(r) : "";
+            },
             brief: () => t("iLive").toLowerCase()
           },
           { key: "why", label: t("iWhy"), type: "text", required: false }
@@ -10539,10 +10566,10 @@ var investPage = {
             let a = assets.find((x2) => tickerOf(x2) === tk);
             const nc = preset ? presetCur : v.currency;
             if (!a) {
-              a = { name: tk, ticker: tk, category: v.bucket || "other", ...nc && nc !== "TWD" ? { currency: nc } : {}, shares: 0, avg_cost: 0, transactions: [] };
+              a = { name: tk, ticker: tk, category: v.bucket || "other", ...nc && nc !== cur ? { currency: nc } : {}, shares: 0, avg_cost: 0, transactions: [] };
               assets.push(a);
             }
-            const P2 = buildPortfolio({ assets: [a] }, () => null, () => 1);
+            const P2 = buildPortfolio({ assets: [a] }, () => null, () => 1, "", cur);
             id = tr.id = newTradeId(tk, String(tr.date), P2.positions[0]?.trades.map((x2) => x2.id) ?? []);
             a.transactions = [...list3(a.transactions), tr];
             recalc(a);
@@ -10550,7 +10577,7 @@ var investPage = {
             fresh = snap(f);
           });
           await book(fresh, [id]);
-          const broke2 = newWarnings(checkRules(P, cap3, () => true), checkRules(buildPortfolio(fresh, (q) => prices.price(q), (c) => prices.fx(c, cur, fb), today()), cap3, () => true));
+          const broke2 = newWarnings(checkRules(P, cap3, () => true), checkRules(buildPortfolio(fresh, (q) => prices.price(q), (c) => prices.fx(c, cur, fb), today(), cur), cap3, () => true));
           if (broke2.length) new import_obsidian17.Notice(broke2.map(warnText).join("\n"), 8e3);
           if (v.why?.trim()) await think(tk, { date: tr.date, trade: id, why: v.why.trim() });
           new import_obsidian17.Notice(t("iSaved", { what: v.type === "SELL" ? t("iSell") : t("iBuy"), n: qty(parseNum(v.shares)), tk }));
@@ -10563,7 +10590,7 @@ var investPage = {
       submitText: t("save"),
       fields: [
         { key: "shares", label: t("iShares"), type: "number", value: tr.shares, required: true, dec: 4, step: (v) => p.currency === "TWD" && parseNum(v.shares) >= 1e3 ? 1e3 : 1 },
-        { key: "price", label: t("iPrice"), type: "number", value: tr.price, required: true, dec: 2, step: (v) => tickOf(toP2(v.price), p.currency, p.ticker) / 100 },
+        { key: "price", label: t("iPrice"), type: "number", value: tr.price, required: true, dec: 2, step: (v) => tickOf(toP(v.price), p.currency, p.ticker) / 100 },
         { key: "date", label: t("date"), type: "date", value: tr.date, required: true },
         { key: "fee", label: t("iFee"), type: "number", value: tr.fee ? tr.fee / minorOf(p.currency) : "", required: false, fold: true, dec: minorOf(p.currency) > 1 ? 2 : 0 },
         ...tr.type === "SELL" ? [{ key: "tax", label: t("iTax"), type: "number", value: tr.tax ? tr.tax / minorOf(p.currency) : "", required: false, fold: true, dec: minorOf(p.currency) > 1 ? 2 : 0 }] : [],
@@ -11521,7 +11548,7 @@ var netWorth = (plugin) => {
   const G = buildGoals(store.fm(store.path(FILES.goals)), savedOf);
   const inv = store.fm(store.path(FILES.invest));
   const fb = inv?.fx_fallback ?? {};
-  const P = buildPortfolio(inv, (tk) => prices.price(tk), (c) => prices.fx(c, cur, fb));
+  const P = buildPortfolio(inv, (tk) => prices.price(tk), (c) => prices.fx(c, cur, fb), "", cur);
   const d = computeDebt(store.fm(store.path(FILES.debt)), Number(plan.student_loan) || 0, store.monthLines("student_loan"), /* @__PURE__ */ new Date());
   const L2 = buildLedger(store.fm(store.path(FILES.ledger))?.ledger);
   const parts = [
@@ -12594,7 +12621,8 @@ var savingsPage = (x) => {
   }
   const plan = Number(M.savings.find(([k]) => k === "investment")?.[1]) || 0;
   const sel = ctx.plugin.logMonth;
-  const buckets = investBuckets(store.fm(store.path(FILES.invest)), plan, `${sel.year}-${String(sel.month + 1).padStart(2, "0")}`);
+  const inv = store.fm(store.path(FILES.invest));
+  const buckets = investBuckets(inv, plan, `${sel.year}-${String(sel.month + 1).padStart(2, "0")}`, (c) => ctx.plugin.prices.fx(c, cur, inv?.fx_fallback ?? {}), cur);
   if (buckets) {
     const bg = group2(el, t("investThisMonth"));
     for (const b of buckets) {

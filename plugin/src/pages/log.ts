@@ -285,7 +285,8 @@ const savingsPage = (x: X): PageOut => {
     }
     const plan = Number(M.savings.find(([k]) => k === "investment")?.[1]) || 0;
     const sel = ctx.plugin.logMonth;
-    const buckets = investBuckets(store.fm(store.path(FILES.invest)), plan, `${sel.year}-${String(sel.month + 1).padStart(2, "0")}`);
+    const inv = store.fm(store.path(FILES.invest));
+    const buckets = investBuckets(inv, plan, `${sel.year}-${String(sel.month + 1).padStart(2, "0")}`, (c) => ctx.plugin.prices.fx(c, cur, (inv?.fx_fallback ?? {}) as Record<string, number>), cur);
     if (buckets) {
         const bg = group(el, t("investThisMonth"));
         for (const b of buckets) {

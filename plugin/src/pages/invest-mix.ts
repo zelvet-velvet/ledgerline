@@ -20,7 +20,7 @@ export const mixPage = (x: X): PageOut => {
     const sel = new Date(), mk = `${sel.getFullYear()}-${String(sel.getMonth() + 1).padStart(2, "0")}`;
     const { plan, month } = ctx.plugin.store.monthData(sel.getFullYear(), sel.getMonth());
     const amt = Number(month?.[PLAN_KEY] ?? plan[PLAN_KEY]) || 0;
-    const bs = investBuckets(ctx.plugin.store.fm(ctx.plugin.store.path(FILES.invest)), amt, mk);
+    const bs = investBuckets(ctx.plugin.store.fm(ctx.plugin.store.path(FILES.invest)), amt, mk, x.fx, x.cur);
     const toBuy = bs ? bs.reduce((s, b) => s + Math.max(0, b.target - b.bought), 0) : null;
     summary(el, { key: "mix", label: t("iCashWait"), value: num(x.cash), items: toBuy !== null ? [[t("iToBuy"), num(toBuy)]] : [] });
     const toHoldings = () => ctx.push({ key: "holdings", title: t("iHoldingsT") });

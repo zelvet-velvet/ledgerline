@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { allocation, computeMonth } from "../src/calc/log";
+import { allocation, computeMonth, investBuckets } from "../src/calc/log";
 
 // a sample template: living + every set-aside line = the salary
 const SALARY = 45000;
@@ -52,4 +52,29 @@ test("integer money stays integer", () => {
     const M = computeMonth({ month: null, days: [], plan, daily, fixed, income: SALARY });
     for (const b of M.budget) assert.ok(Number.isInteger(b.quota));
     assert.ok(Number.isInteger(M.remaining));
+});
+
+// ---- review 2026-11, group A: this month's buying per bucket, in the base currency
+const inv = { allocation: [{ key: "etf", label: "ETFs", pct: 70 }, { key: "stock", label: "Single stocks", pct: 30 }], assets: [
+    { ticker: "0050", category: "etf", transactions: [{ type: "BUY", shares: 100, price: 150, fee: 21, date: "2026-11-02" }, { type: "BUY", shares: 100, price: 150, date: "2026-10-02" }] },
+    { ticker: "VOO", category: "etf", currency: "USD", transactions: [{ type: "BUY", shares: 1.5, price: 612.4, fx: 31.85, date: "2026-11-03" }] },
+    { ticker: "AAPL", category: "stock", currency: "USD", transactions: [{ type: "BUY", shares: 1, price: 200, date: "2026-11-04" }] },
+    { ticker: "2330", category: "Single stocks", transactions: [{ type: "BUY", shares: 2, price: 1000, date: "2026-11-05" }, { type: "SELL", shares: 1, price: 1100, fee: 20, tax: 3, date: "2026-11-06" }] },
+] };
+test("investBuckets: the plan split by target, the last bucket takes the rest", () => {
+    const b = investBuckets(inv, 22001, "2026-11")!;
+    assert.deepEqual(b.map((x) => x.target), [15400, 6601]);
+});
+test("investBuckets: buys in the base currency with fees, a foreign buy at its own rate, never 1 : 1", () => {
+    const b = investBuckets(inv, 22000, "2026-11", () => 32)!;
+    assert.equal(b[0].bought, 15021 + 29257);        // 0050 with its fee + VOO 918.60 USD at 31.85 (October's buy is another month)
+    assert.equal(b[1].bought, 6400 + 2000 - 1077);   // AAPL at today's 32, 2330 bought, less what its sale brought after fee and tax
+});
+test("investBuckets: a foreign buy with no rate known is left out, not counted as that many TWD", () => {
+    const b = investBuckets(inv, 22000, "2026-11")!;
+    assert.equal(b[1].bought, 2000 - 1077);
+});
+test("investBuckets: no allocation or no plan = null", () => {
+    assert.equal(investBuckets({ assets: [] }, 22000, "2026-11"), null);
+    assert.equal(investBuckets(inv, 0, "2026-11"), null);
 });
