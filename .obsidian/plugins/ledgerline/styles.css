@@ -1650,6 +1650,20 @@ body.zl-calm .zl-lastp.is-loading .zl-flap .t, body.zl-calm .zl-lastp.is-loading
 /* no page scrolls sideways (owner, 2026-11-11: Invest home slid left under a finger); the marquee moves by transform inside its own clip */
 .zl-app .zl-page { overflow-x: clip; } .zl-app .zl-scroll { overflow-x: hidden; }
 
+/* ---- touch targets: every tap is at least 44 px tall (Rules - Controls). A part drawn smaller keeps its look and gets an
+   invisible target (::after); the target grows into the room above a part rather than over the tappable rows under it */
+.zl-app button.zl-sec { position: relative; }
+.zl-app button.zl-sec::after { content: ""; position: absolute; left: 0; right: 0; top: -21px; bottom: -8px; }   /* ALL › / MORE ›: 15 + 21 + 8 */
+.zl-ch button.zl-ch-link { position: relative; }
+.zl-ch button.zl-ch-link::after { content: ""; position: absolute; left: -4px; right: -4px; top: -16px; bottom: -15px; }   /* FULL CHART › */
+.zl-app .zl-acts .zl-btn.is-text { position: relative; }
+.zl-app .zl-acts .zl-btn.is-text::after { content: ""; position: absolute; left: 0; right: 0; top: -8px; bottom: -8px; }   /* CHART on a ticker's page */
+.zl-app button.zl-check { position: relative; }
+.zl-app button.zl-check::after { content: ""; position: absolute; inset: -10px; }   /* the 24 px tick box */
+.zl-app .zl-tm-line { min-height: 44px; }   /* This month's lines */
+.zl-app button.zl-mlink { min-height: 44px; } .zl-mlinks { min-height: 47px; }   /* HOLDINGS / MAP / ALERTS / MIX */
+:is(.zl-app, .zl-sheet-host) .zl-drw-chip, .zl-sheet button.zl-chip { height: 44px; }   /* the pad's +50 / +100 / +200, a sheet's chips */
+
 /* ==== Obsidian in Ledgerline's look (Settings › Obsidian in Ledgerline's look, body.zl-skin; owner, 2026-11-04: the settings
    window looked nothing like the plugin). Only variables are set (no layout rules): Obsidian's own, Minimal's, and the vault's
    ze-tokens (its snippets point Obsidian at --ze-*). `.zl-skin.zl-skin` outranks the snippets' body.theme-dark:not(.ze-off).
