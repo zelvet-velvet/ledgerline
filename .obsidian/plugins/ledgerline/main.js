@@ -7628,7 +7628,7 @@ var confirmSheet = (app, title, text2, okText) => new Promise((resolve) => {
   let answer2 = false;
   const c = base(m, title, text2);
   const bar = h(c, "div", "zl-sheet-btns");
-  h(bar, "button", "mod-warning", okText).addEventListener("click", () => {
+  h(bar, "button", "mod-cta", okText).addEventListener("click", () => {
     answer2 = true;
     m.close();
   });

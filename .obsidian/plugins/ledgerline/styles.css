@@ -535,6 +535,14 @@ body :is(.zl-app, .zl-sheet-host) button:not(.clickable-icon):not(.zl-pill) { bo
 .zl-sheet .modal-title { font: 400 26px var(--zl-disp); text-transform: uppercase; text-align: left; }
 .zl-sheet-sub { text-align: left; font: 400 11px var(--zl-pixel); }
 .zl-sheet-btns button { border-radius: 0; font: 400 20px var(--zl-disp); letter-spacing: .04em; }
+/* sheet buttons (Rules - Sheets: one main button and an optional quiet second one, side by side): capitals; the main one filled
+   loud with the ink drop shadow, on the right; the second outlined in ink; a delete outlined in loud (never a grey block) */
+.zl-sheet .zl-sheet-btns { flex-direction: row; gap: 8px; }
+.zl-sheet .zl-sheet-btns button { flex: 1 1 0; min-width: 0; height: 48px; text-transform: uppercase; background: none; color: var(--zl-text); border: 2px solid var(--zl-text); }
+.zl-sheet .zl-sheet-btns button.mod-cta { order: 2; background: var(--zl-loud); border-color: var(--zl-loud); color: var(--zl-on-loud); box-shadow: 0 4px 0 var(--zl-text); }
+.zl-sheet .zl-sheet-btns button.mod-warning { background: none; border-color: var(--zl-loud); color: var(--zl-loud); }
+.zl-sheet .zl-sheet-btns button:active { background: var(--zl-text); color: var(--zl-bg); }
+.zl-sheet .zl-sheet-btns button.mod-cta:active { transform: translateY(4px); box-shadow: none; background: var(--zl-loud); color: var(--zl-on-loud); }
 .zl-sheet button.zl-tile { border-radius: 0; border: 2px solid var(--zl-dim); background: none; }
 .zl-sheet button.zl-tile.is-on { border-color: var(--zl-text); background: var(--zl-text); color: var(--zl-bg); }
 .zl-sheet input.zl-field-in, .zl-sheet select.zl-field-in { font-family: var(--zl-ui); }
