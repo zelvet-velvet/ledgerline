@@ -4245,8 +4245,6 @@ var empty = (parent, o) => {
   }
   return box;
 };
-var SERIES = ["var(--zl-s1)", "var(--zl-s2)", "var(--zl-s3)", "var(--zl-s4)", "var(--zl-s5)", "var(--zl-s6)", "var(--zl-s7)"];
-var colorFor = (i) => SERIES[(i % SERIES.length + SERIES.length) % SERIES.length];
 var monthBar = (parent, prev, cur, next, on) => {
   const bar = h(parent, "div", "zl-monthbar");
   let swiped = false;
@@ -11982,8 +11980,6 @@ var ledgerPage = {
     const cur = settings.baseCurrency;
     const CFG = store.path(FILES.ledger);
     const L2 = buildLedger(store.fm(CFG)?.ledger);
-    const order = L2.friends.map((f) => f.name);
-    const tint = (name) => colorFor(Math.max(0, order.indexOf(name)));
     const newTx = (preset, pre) => {
       const names = L2.friends.map((f) => f.name);
       new FormSheet(ctx.app, {
@@ -12058,7 +12054,7 @@ var ledgerPage = {
     const all = key.startsWith("history:") ? L2.friends.find((f) => f.name === key.slice(8)) : void 0;
     if (all) return historyPage(all, () => newTx(all.name), editTx);
     if (key === "activity") return activityPage(ctx, L2, () => newTx(), editTx);
-    return firstPage(ctx, L2, cur, tint, newTx, editTx);
+    return firstPage(ctx, L2, cur, newTx, editTx);
   }
 };
 var status = (f) => {
@@ -12075,7 +12071,7 @@ var owes = (a) => a === "paid_by";
 var txIcon = (a) => a === "paid_by" ? "debt" : a === "paid_to_me" ? "up" : "down";
 var person = (ctx, f, most) => ({ icon: "person", name: true, k: f.name.toUpperCase(), s: status(f), v: num(Math.abs(f.net)), hot: f.net < 0, dim: f.net === 0, beam: f.net / most, onTap: () => ctx.push({ key: "friend:" + f.name, title: f.name }) });
 var txRow = (r, editTx, pronoun = false) => ({ icon: txIcon(r.action), name: true, k: say(r, pronoun).toUpperCase(), s: recLine(r), v: num(r.amount), hot: owes(r.action), onTap: () => editTx(r) });
-var firstPage = (ctx, L2, cur, _tint, newTx, editTx) => {
+var firstPage = (ctx, L2, cur, newTx, editTx) => {
   const title = t("tabLedger");
   const el2 = page(title);
   el2.addClass("zl-c-stack");

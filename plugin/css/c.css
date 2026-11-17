@@ -175,11 +175,9 @@ body :is(.zl-app, .zl-sheet-host) button:not(.clickable-icon):not(.zl-pill) { bo
 .zl-app .zl-row-ic { color: var(--zl-text); }
 .zl-app .zl-row.is-tap:active { background: var(--zl-dim); }
 /* the number has no rule of its own: the list under it starts with one (two rules stacked under the masthead before) */
-.zl-app .zl-hero { background: none; border-radius: 0; padding: 8px 0 12px; border-bottom: 0; }
-.zl-hero-l, .zl-card-l, .zl-tile-l, .zl-hero-il, .zl-card-il { font-family: var(--zl-pixel); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
-.zl-hero-v { font: 400 64px/0.95 var(--zl-disp); letter-spacing: .005em; }
-.zl-hero-u, .zl-card-u { font: 400 12px var(--zl-pixel); }
-.zl-hero-iv, .zl-card-iv, .zl-tile-v { font: 400 22px var(--zl-disp); }
+.zl-card-l, .zl-tile-l, .zl-card-il { font-family: var(--zl-pixel); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+.zl-card-u { font: 400 12px var(--zl-pixel); }
+.zl-card-iv, .zl-tile-v { font: 400 22px var(--zl-disp); }
 .zl-prog, .zl-prog-f { border-radius: 0; }
 .zl-prog { height: 8px; background: var(--zl-dim); }
 .zl-app .zl-card, .zl-app .zl-tile { background: none; border-radius: 0; border: 2px solid var(--zl-text); box-shadow: none; }
@@ -373,7 +371,6 @@ body.zl-calm .zl-app .zl-scroll.is-rise, body.zl-calm.is-phone .modal.zl-sheet {
 /* ---- the older list pages in the C type (Design Rules, C pages): every page starts at the top under the masthead;
    rows read like figure rows (pixel name, display number, pixel arrow); no decoration icons in rows */
 .zl-app .zl-page.is-short { justify-content: flex-start; }
-.zl-app .zl-page:not(.zl-c-stack):not(.zl-c-list) .zl-hero { padding-top: 4px; }
 .zl-app .zl-row { min-height: 56px; gap: 12px; }
 .zl-app .zl-row-t { font: 400 13px var(--zl-pixel); letter-spacing: .04em; text-transform: uppercase; color: var(--zl-text); }
 .zl-app .zl-row.is-muted .zl-row-t { color: var(--zl-muted); }

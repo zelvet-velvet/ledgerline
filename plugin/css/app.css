@@ -149,15 +149,8 @@ body.is-mobile:not(.zl-on) .zl-home:active { transform: scale(0.94); }
 }
 
 /* ---- summary card */
-.zl-hero { background: var(--zl-surface); border-radius: var(--zl-radius); padding: 16px; margin-top: 8px; }
-.zl-hero-l { font-size: 13px; color: var(--zl-muted); text-transform: uppercase; letter-spacing: 0.02em; }
-.zl-hero-v { font-size: 34px; font-weight: 700; letter-spacing: -0.01em; margin-top: 2px; }
-.zl-hero-u { font-size: 15px; font-weight: 500; color: var(--zl-muted); margin-left: 6px; }
 .zl-prog { height: 6px; border-radius: 3px; background: var(--zl-line); margin-top: 12px; overflow: hidden; }
 .zl-prog-f { height: 100%; border-radius: 3px; background: var(--zl-accent); }
-.zl-hero-items { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
-.zl-hero-il { font-size: 12px; color: var(--zl-muted); }
-.zl-hero-iv { font-size: 15px; font-weight: 600; margin-top: 2px; }
 .zl-app .zl-pill { margin-top: 6px; padding: 10px 20px; border-radius: 20px; background: var(--zl-accent); color: var(--text-on-accent, #fff); font-weight: 600; }
 
 /* ---- sheets (Obsidian modals); bottom sheet on phones */
@@ -196,9 +189,6 @@ body.is-mobile:not(.zl-on) .zl-home:active { transform: scale(0.94); }
 .zl-sheet-btns button[disabled] { opacity: 0.4; }
 
 /* ---- ledger bits */
-.zl-avatar { flex: none; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 600; font-size: 15px; background: var(--zl-accent); }
-.zl-row.is-muted .zl-row-t, .zl-row.is-muted .zl-avatar { opacity: 0.6; }
-.zl-hero-s { font-size: 13px; color: var(--zl-muted); margin-top: 4px; }
 .zl-split { display: flex; }
 .zl-split .zl-prog-f { border-radius: 0; }
 .zl-field.is-hidden { display: none; }
@@ -218,7 +208,6 @@ body.is-mobile:not(.zl-on) .zl-home:active { transform: scale(0.94); }
 .zl-tile-s { font-size: 12px; color: var(--zl-muted); }
 .zl-tiles-box.is-hidden { display: none; }
 .zl-tiles-box + .zl-group { margin-top: 16px; }
-.zl-hero-btn { display: block; margin: 14px 0 0; }
 
 /* ---- compact timeline rows (Recent activity) and icon badges */
 .zl-row-ic.is-badge { width: 30px; height: 30px; border-radius: 8px; align-items: center; justify-content: center; }
@@ -261,7 +250,6 @@ body.is-mobile:not(.zl-on) .zl-home:active { transform: scale(0.94); }
 
 /* ---- goals bits */
 .zl-row-prog { height: 4px; margin-top: 6px; }
-.zl-avatar.is-emoji, .zl-row .zl-avatar:not([style*="background"]) { background: var(--zl-bg); font-size: 18px; }
 
 /* the + in the title row was hard to hit: the (invisible) top bar lay over it and took the taps. On first pages the empty bar lets
    taps through until it shows (scrolled); the title-row buttons get a full 44pt target. */

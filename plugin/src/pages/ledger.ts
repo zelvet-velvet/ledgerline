@@ -3,7 +3,7 @@ import { Action, ACTIONS, balanceAfter, buildLedger, daysSince, findRecord, Frie
 import { FILES, FM } from "../data/store";
 import { num, parseNum, shortDate, today } from "../format";
 import { StrKey, t } from "../i18n";
-import { C, colorFor, h, page } from "../ui";
+import { C, h, page } from "../ui";
 import { dropRow, figures, homeTop, sec, summary } from "../ui/c";
 import { confirmSheet, FormSheet } from "../ui/sheet";
 import type { PageCtx, PageDef, PageOut } from "./index";
@@ -26,8 +26,6 @@ export const ledgerPage: PageDef = {
         const cur = settings.baseCurrency;
         const CFG = store.path(FILES.ledger);
         const L = buildLedger(store.fm(CFG)?.ledger);
-        const order = L.friends.map((f) => f.name);
-        const tint = (name: string) => colorFor(Math.max(0, order.indexOf(name)));
 
         // New transaction; `preset` = the friend when opened from a friend page; `pre` = type and amount (Settle up)
         const newTx = (preset?: string, pre?: { action: Action; amount: number }) => {
@@ -94,7 +92,7 @@ export const ledgerPage: PageDef = {
         const all = key.startsWith("history:") ? L.friends.find((f) => f.name === key.slice(8)) : undefined;
         if (all) return historyPage(all, () => newTx(all.name), editTx);
         if (key === "activity") return activityPage(ctx, L, () => newTx(), editTx);
-        return firstPage(ctx, L, cur, tint, newTx, editTx);
+        return firstPage(ctx, L, cur, newTx, editTx);
     },
 };
 
@@ -120,7 +118,7 @@ const txRow = (r: Rec, editTx: (r: Rec) => void, pronoun = false) => ({ icon: tx
 
 // Redesign S (2026-11-05, owner picked from Layouts mocks): who owes what, settled people folded into one row, the last 3 things
 // that happened as sentences. Settling is one tap on the person's page.
-const firstPage = (ctx: PageCtx, L: ReturnType<typeof buildLedger>, cur: string, _tint: (n: string) => string, newTx: () => void, editTx: (r: Rec) => void): PageOut => {
+const firstPage = (ctx: PageCtx, L: ReturnType<typeof buildLedger>, cur: string, newTx: () => void, editTx: (r: Rec) => void): PageOut => {
     const title = t("tabLedger");
     const el = page(title);
     el.addClass("zl-c-stack");
