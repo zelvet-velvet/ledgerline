@@ -10,6 +10,7 @@ import { editAllocation as editAlloc } from "./shared";
 import { netWorth, netWorthPage } from "./networth";
 import { ACCOUNTS_FILE, accountPage, accountsPage } from "./accounts";
 import { buildAccounts } from "../calc/accounts";
+import { lineHeld } from "../calc/goals";
 import type { PageCtx, PageDef, PageOut } from "./index";
 
 const PLAN_KEY = "student_loan";   // the savings-plan line that feeds the loan
@@ -163,8 +164,7 @@ const first = (ctx: PageCtx, d: Debt, money: (n: number) => string, cur: string,
     h(g, "p", "zl-c-note", t(loud >= 0 ? "dYearsNoteNow" : "dYearsNote", { n: num(pay) }));
     const n = d.payments.length;
     const acc = buildAccounts(ctx.plugin.store.fm(ctx.plugin.store.path(ACCOUNTS_FILE)));
-    const own = acc.list.filter((x) => x.line === "student_loan");
-    const saved = own.length ? own.reduce((s, x) => s + x.balance, 0) : d.loanPrep;
+    const saved = lineHeld(acc.list, "student_loan") ?? d.loanPrep;
     const nw = netWorth(ctx.plugin).total;
     figures(h(el, "div", "zl-c-group"), [
         { icon: "wallet", k: t("dSaved"), s: t("dSavedSub"), v: money(saved), onTap: () => ctx.push({ key: "loan", title: t("loanDetails") }) },
@@ -185,9 +185,10 @@ const loan = (ctx: PageCtx, d: Debt, money: (n: number) => string, a: FirstActio
         { icon: "percent", k: t("interestRate").toUpperCase(), v: `${(d.rate * 100).toFixed(3)}%`, onTap: () => a.editNumber(t("interestRate"), "interest_rate", d.rate, true) },
         { icon: "wallet", k: t("monthlyAllocation").toUpperCase(), s: t("fromSavingsPlan"), v: money(a.allocation), onTap: a.editAllocation },
         { icon: "receipt", k: t("monthlyMin").toUpperCase(), v: money(d.monthlyMin), onTap: () => a.editNumber(t("monthlyMin"), "monthly_min_payment", d.monthlyMin) },
+        ...(d.interest > 0 ? [{ icon: "percent", k: t("dInterest").toUpperCase(), s: t("dInterestSub"), v: money(d.interest) }] : []),
         { icon: "log", k: (d.grace || !d.start ? t("repaymentStarts") : t("repayingSince")).toUpperCase(), s: d.grace ? t("inDaysShort", { d: d.daysUntilStart }) : undefined, v: d.start ? shortDate(d.start) : t("notSet"), onTap: a.editStart },
     ];
-    if (d.grace) list.push({ icon: "swap", k: t("graceSplit").toUpperCase(), v: `${num(d.toInvestment)} · ${num(d.loanPrep)}` });
+    if (d.grace) list.push({ icon: "swap", k: t("graceSplit").toUpperCase(), s: t("fromSavingsPlan"), v: `${num(d.toInvestment)} · ${num(d.loanPrep)}` });
     figures(h(el, "div", "zl-c-group"), list);
     return { title, el, fab: { icon: "plus", text: t("recordPayment").toUpperCase(), label: t("recordPayment"), onTap: a.recordPayment } };
 };

@@ -1,5 +1,5 @@
 import { Notice } from "obsidian";
-import { IGNORE, slug } from "../calc/log";
+import { dayExtras, slug } from "../calc/log";
 import { FILES, FM } from "../data/store";
 import { localDate, num, parseNum, shortDate, today, ymd } from "../format";
 import { t } from "../i18n";
@@ -42,7 +42,8 @@ export const expenseSheet = (ctx: PageCtx, date0 = today()): void => {
     const { store, settings } = ctx.plugin;
     const cur = settings.baseCurrency;
     const [y, m] = date0.split("-").map(Number);
-    const itemsOf = store.monthData(y, m - 1).daily.flatMap((b) => b.spending);
+    const md = store.monthData(y, m - 1);
+    const itemsOf = md.daily.flatMap((b) => b.spending);
     const fmOf = (d: string) => store.day(d)?.fm ?? {};
     const when = (d: string) => (d === today() ? t("today") : shortDate(d));
     const write = async (d: string, k: string, n: number) => {
@@ -63,7 +64,7 @@ export const expenseSheet = (ctx: PageCtx, date0 = today()): void => {
             { key: "item", label: t("cItem"), type: "grid",
                 cells: (v) => {
                     const fm = fmOf(v.date || date0);
-                    const extra = Object.keys(fm).filter((k) => !IGNORE.includes(k) && typeof fm[k] === "number" && !itemsOf.includes(k) && Number(fm[k]) !== 0);
+                    const extra = dayExtras(fm, itemsOf, md.oneTime)[0].filter((k) => Number(fm[k]) !== 0);
                     return [...itemsOf, ...extra].map((k) => { const o = Number(fm[k]) || 0; return { value: k, k: cap(k).toUpperCase(), v: num(o), dim: !o }; })
                         .concat([{ value: OTHER, k: t("cOther").toUpperCase(), v: "+", dim: true }]);
                 },
@@ -73,6 +74,7 @@ export const expenseSheet = (ctx: PageCtx, date0 = today()): void => {
                     openText(sh.host, { title: t("addOneTime"), sub: when(d), value: "", placeholder: t("whatHint"), save: (name) => {
                         const key = itemKey(name);
                         if (!slug(name) || !key) { new Notice(t("needName")); return; }
+                        void countOneTime(ctx, key);
                         pad(d, key, sh.close, sh.host);
                     } });
                 },
@@ -111,10 +113,11 @@ export const dayPage = (ctx: PageCtx, date: string, notePath?: string): PageOut 
     }
 
     const [y, m] = date.split("-").map(Number);
-    const { daily, M } = store.monthData(y, m - 1);
+    const { daily, oneTime, M } = store.monthData(y, m - 1);
     const fm = note.fm;
     const defined = new Set(daily.flatMap((b) => b.spending));
-    const custom = Object.keys(fm).filter((k) => !IGNORE.includes(k) && typeof fm[k] === "number" && !defined.has(k) && Number(fm[k]) !== 0);
+    const [on, off] = dayExtras(fm, [...defined], oneTime);
+    const custom = on.filter((k) => Number(fm[k]) !== 0), skipped = off.filter((k) => Number(fm[k]) !== 0);
     const total = [...defined, ...custom].reduce((s, k) => s + (Number(fm[k]) || 0), 0);
     el.addClass("zl-c-stack");
     const top0 = h(el, "div", "zl-c-group");
@@ -148,6 +151,14 @@ export const dayPage = (ctx: PageCtx, date: string, notePath?: string): PageOut 
         sec(g, t("oneTime").toUpperCase());
         tileGrid(g, custom.map((p) => ({ k: cap(p).toUpperCase(), v: num(fm[p]), hot: true, onTap: () => edit(p, true), scrub: drag(p) })));
     }
+    // numbers in the note that are not spending (a rating, another plugin's count): shown, never added; a tap counts one
+    if (skipped.length) {
+        const g = h(el, "div", "zl-c-group");
+        sec(g, t("notCounted").toUpperCase());
+        tileGrid(g, skipped.map((p) => ({ k: cap(p).toUpperCase(), v: num(fm[p]), dim: true, onTap: async () => {
+            if (await confirmSheet(ctx.app, t("countQ", { name: cap(p) }), t("countSub"), t("count"))) { await countOneTime(ctx, p); new Notice(t("countedX", { name: cap(p) })); }
+        } })));
+    }
     if (daily.length || custom.length) h(el, "div", "zl-c-note zl-scrub-hint", t("cScrubHint"));
     if (!daily.length && !custom.length) empty(el, { icon: "list", title: t("noItems"), button: t("dailyItems"), onTap: () => ctx.push({ key: "items", title: t("dailyItems") }) });
 
@@ -167,6 +178,12 @@ const items = (g: Raw) => g.spending as string[];
 const saveGroups = (ctx: PageCtx, fn: (gs: Raw[]) => void) => ctx.plugin.store.update(ctx.plugin.store.path(FILES.daily), (f) => { const gs = rawGroups(ctx); fn(gs); f.budget = gs; });
 const pctTotal = (gs: Raw[], skip = -1) => gs.reduce((s, g, i) => s + (i === skip ? 0 : Number(g.quota) || 0), 0);
 const itemKey = (s: string) => s.trim().toLowerCase().replace(/\s+/g, "_");
+// a one-off counts as spending from now on (Daily Expenses config › one_time); a vault without that list counts every number already
+const countOneTime = (ctx: PageCtx, key: string) => ctx.plugin.store.update(ctx.plugin.store.path(FILES.daily), (f) => {
+    if (f.one_time === undefined) return;
+    const list = (Array.isArray(f.one_time) ? f.one_time : f.one_time ? [f.one_time] : []).map(String);
+    if (!list.includes(key)) f.one_time = [...list, key];
+});
 
 const groupSheet = (ctx: PageCtx, gs: Raw[], i: number) => {
     const g = gs[i];

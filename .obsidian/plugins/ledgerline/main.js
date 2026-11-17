@@ -658,6 +658,13 @@ var todayMove = (p, ch, last, today3) => {
 var IGNORE = ["file", "sticker", "cssclasses", "ledger", "date", "title", "tags", "aliases"];
 var slug = (s2) => String(s2 || "").trim().toLowerCase().replace(/[^a-z0-9一-鿿]+/g, "_").replace(/^_|_$/g, "");
 var arr2 = (v) => Array.isArray(v) ? v : v === void 0 || v === null ? [] : [v];
+var oneTimeOf = (fm) => fm && fm.one_time !== void 0 ? arr2(fm.one_time).map(String) : null;
+var countsAs = (daily, oneTime) => (k) => daily.includes(k) || oneTime === null || oneTime.includes(k);
+var dayExtras = (fm, daily, oneTime) => {
+  const all = Object.keys(fm).filter((k) => !IGNORE.includes(k) && typeof fm[k] === "number" && !daily.includes(k));
+  const counts = countsAs(daily, oneTime);
+  return [all.filter(counts), all.filter((k) => !counts(k))];
+};
 var budgetItems = (fm) => arr2(fm?.budget).filter((x) => x && typeof x === "object").map((x) => ({ name: String(x.name ?? ""), quota: Number(x.quota) || 0, spending: arr2(x.spending).map(String) }));
 var monthIncome = (incomeCfg, month, monthNumber) => {
   const ov = month?.income_override ?? {};
@@ -684,14 +691,18 @@ var allocation = (plan, month, income) => {
   const living = hasLiving ? val(LIVING) : income - saved;
   return { living, saved, income, gap: income - saved - living };
 };
-var computeMonth = ({ month, days, plan, daily, fixed, income }) => {
+var computeMonth = ({ month, days, plan, daily, fixed, income, oneTime = null }) => {
   const has = (k) => !!month && month[k] !== void 0;
   const savings = Object.keys(plan).filter((k) => !k.startsWith("file") && k !== LIVING && typeof plan[k] === "number").map((k) => [k, int(has(k) ? month[k] : plan[k])]);
   const alloc = allocation(plan, month, income);
   const saved = alloc.saved;
   const dailyProps = [...new Set(daily.flatMap((x) => x.spending))];
-  const custom = /* @__PURE__ */ new Set();
-  for (const d of days) for (const k of Object.keys(d.fm)) if (!IGNORE.includes(k) && typeof d.fm[k] === "number" && !dailyProps.includes(k)) custom.add(k);
+  const custom = /* @__PURE__ */ new Set(), skipped = {};
+  for (const d of days) {
+    const [on, off] = dayExtras(d.fm, dailyProps, oneTime);
+    for (const k of on) custom.add(k);
+    for (const k of off) skipped[k] = (skipped[k] || 0) + (Number(d.fm[k]) || 0);
+  }
   const spending = {};
   for (const d of days) for (const p of [...dailyProps, ...custom]) spending[p] = (spending[p] || 0) + (Number(d.fm[p]) || 0);
   const fixedRows = fixed.map((item) => {
@@ -736,10 +747,11 @@ var computeMonth = ({ month, days, plan, daily, fixed, income }) => {
     remaining: alloc.living - spent,
     alloc,
     budget,
+    skipped,
     paidCount: fixedRows.filter((r) => r.paid !== 0).length
   };
 };
-var spentOnDay = (fm) => Object.keys(fm).filter((k) => !IGNORE.includes(k) && typeof fm[k] === "number").reduce((s2, k) => s2 + (Number(fm[k]) || 0), 0);
+var spentOnDay = (fm, counts = () => true) => Object.keys(fm).filter((k) => !IGNORE.includes(k) && typeof fm[k] === "number" && counts(k)).reduce((s2, k) => s2 + (Number(fm[k]) || 0), 0);
 var investBuckets = (inv, plan, monthKey, fx = () => 0, base2 = "TWD") => {
   const alloc = arr2(inv?.allocation);
   if (!alloc.length || !(plan > 0)) return null;
@@ -828,9 +840,10 @@ var Store = class {
     const days = this.days(year, month);
     const plan = this.fm(this.path(FILES.savings)) ?? {};
     const inc = monthIncome(this.fm(this.path(FILES.income)), fm, month + 1);
-    const daily = budgetItems(this.fm(this.path(FILES.daily)));
+    const dcfg = this.fm(this.path(FILES.daily));
+    const daily = budgetItems(dcfg), oneTime = oneTimeOf(dcfg);
     const fixed = budgetItems(this.fm(this.path(FILES.fixed)));
-    return { monthPath, month: fm, days, plan, inc, daily, fixed, M: computeMonth({ month: fm, days, plan, daily, fixed, income: inc.total }) };
+    return { monthPath, month: fm, days, plan, inc, daily, fixed, oneTime, M: computeMonth({ month: fm, days, plan, daily, fixed, income: inc.total, oneTime }) };
   }
   // A day's note ("YYYY-MM-DD"), wherever it is filed in its month
   day(date) {
@@ -2652,6 +2665,11 @@ var en = {
   startDay: "Start This Day",
   dayStarted: "{date} started",
   spentOnDay: "Spent this day",
+  notCounted: "Not counted",
+  countQ: "Count {name} as spending?",
+  countSub: "This number in the daily note is not a Daily item, so it is not counted. Counted, it adds to the month as a one-off, on every day it appears.",
+  count: "Count",
+  countedX: "{name} counts as spending",
   groupN: "Group {n}",
   leftMonthN: "{left} left this month",
   noItems: "No items",
@@ -2762,6 +2780,8 @@ var en = {
   dYearsNoteNow: "Debt left at the end of each year if you pay {n} a month. Orange = this year.",
   dSaved: "Saved for it so far",
   dSavedSub: "Loan details",
+  dInterest: "Interest so far",
+  dInterestSub: "Since repayment started",
   dPayments: "Payments",
   cPaid: "Paid",
   cPaidTotal: "Paid so far",
@@ -2811,6 +2831,7 @@ var en = {
   gNoGoalYet: "no goal yet",
   gTargetPct: "target {target} \xB7 {pct}%",
   gAllDone: "All covered",
+  gBehind: "{n} behind the plan",
   gDoneBy: "All done by",
   gNever: "Never at 0",
   gGoalTotal: "Its goals",
@@ -10970,7 +10991,8 @@ var expenseSheet = (ctx, date0 = today()) => {
   const { store, settings } = ctx.plugin;
   const cur = settings.baseCurrency;
   const [y, m] = date0.split("-").map(Number);
-  const itemsOf = store.monthData(y, m - 1).daily.flatMap((b) => b.spending);
+  const md = store.monthData(y, m - 1);
+  const itemsOf = md.daily.flatMap((b) => b.spending);
   const fmOf = (d) => store.day(d)?.fm ?? {};
   const when = (d) => d === today() ? t("today") : shortDate(d);
   const write = async (d, k, n) => {
@@ -11003,7 +11025,7 @@ var expenseSheet = (ctx, date0 = today()) => {
         type: "grid",
         cells: (v) => {
           const fm = fmOf(v.date || date0);
-          const extra = Object.keys(fm).filter((k) => !IGNORE.includes(k) && typeof fm[k] === "number" && !itemsOf.includes(k) && Number(fm[k]) !== 0);
+          const extra = dayExtras(fm, itemsOf, md.oneTime)[0].filter((k) => Number(fm[k]) !== 0);
           return [...itemsOf, ...extra].map((k) => {
             const o = Number(fm[k]) || 0;
             return { value: k, k: cap(k).toUpperCase(), v: num(o), dim: !o };
@@ -11021,6 +11043,7 @@ var expenseSheet = (ctx, date0 = today()) => {
               new import_obsidian18.Notice(t("needName"));
               return;
             }
+            void countOneTime(ctx, key);
             pad2(d, key, sh.close, sh.host);
           } });
         },
@@ -11065,10 +11088,11 @@ var dayPage = (ctx, date, notePath) => {
     return { title: dayFrame(date).title, el };
   }
   const [y, m] = date.split("-").map(Number);
-  const { daily, M } = store.monthData(y, m - 1);
+  const { daily, oneTime, M } = store.monthData(y, m - 1);
   const fm = note.fm;
   const defined = new Set(daily.flatMap((b) => b.spending));
-  const custom = Object.keys(fm).filter((k) => !IGNORE.includes(k) && typeof fm[k] === "number" && !defined.has(k) && Number(fm[k]) !== 0);
+  const [on, off] = dayExtras(fm, [...defined], oneTime);
+  const custom = on.filter((k) => Number(fm[k]) !== 0), skipped = off.filter((k) => Number(fm[k]) !== 0);
   const total = [...defined, ...custom].reduce((s2, k) => s2 + (Number(fm[k]) || 0), 0);
   el.addClass("zl-c-stack");
   const top0 = h(el, "div", "zl-c-group");
@@ -11120,6 +11144,16 @@ var dayPage = (ctx, date, notePath) => {
     sec(g, t("oneTime").toUpperCase());
     tileGrid(g, custom.map((p) => ({ k: cap(p).toUpperCase(), v: num(fm[p]), hot: true, onTap: () => edit(p, true), scrub: drag(p) })));
   }
+  if (skipped.length) {
+    const g = h(el, "div", "zl-c-group");
+    sec(g, t("notCounted").toUpperCase());
+    tileGrid(g, skipped.map((p) => ({ k: cap(p).toUpperCase(), v: num(fm[p]), dim: true, onTap: async () => {
+      if (await confirmSheet(ctx.app, t("countQ", { name: cap(p) }), t("countSub"), t("count"))) {
+        await countOneTime(ctx, p);
+        new import_obsidian18.Notice(t("countedX", { name: cap(p) }));
+      }
+    } })));
+  }
   if (daily.length || custom.length) h(el, "div", "zl-c-note zl-scrub-hint", t("cScrubHint"));
   if (!daily.length && !custom.length) empty(el, { icon: "list", title: t("noItems"), button: t("dailyItems"), onTap: () => ctx.push({ key: "items", title: t("dailyItems") }) });
   const add = () => expenseSheet(ctx, date);
@@ -11142,6 +11176,11 @@ var saveGroups = (ctx, fn) => ctx.plugin.store.update(ctx.plugin.store.path(FILE
 });
 var pctTotal = (gs, skip = -1) => gs.reduce((s2, g, i) => s2 + (i === skip ? 0 : Number(g.quota) || 0), 0);
 var itemKey = (s2) => s2.trim().toLowerCase().replace(/\s+/g, "_");
+var countOneTime = (ctx, key) => ctx.plugin.store.update(ctx.plugin.store.path(FILES.daily), (f) => {
+  if (f.one_time === void 0) return;
+  const list5 = (Array.isArray(f.one_time) ? f.one_time : f.one_time ? [f.one_time] : []).map(String);
+  if (!list5.includes(key)) f.one_time = [...list5, key];
+});
 var groupSheet = (ctx, gs, i) => {
   const g = gs[i];
   new FormSheet(ctx.app, {
@@ -11514,6 +11553,8 @@ var computeDebt = (fm, planAmount, months, now) => {
     loanPrep += keep2;
     toInvestment += m.amount - keep2;
   }
+  const interest = grace ? 0 : accrued(principal, rate, start, payments, day);
+  const owed = principal + interest;
   return {
     exists: !!fm,
     principal,
@@ -11522,8 +11563,9 @@ var computeDebt = (fm, planAmount, months, now) => {
     monthlyMin: int(f.monthly_min_payment),
     payments,
     paid,
-    balance: Math.max(0, principal - paid),
-    progress: principal > 0 ? paid / principal * 100 : 0,
+    interest,
+    balance: Math.max(0, owed - paid),
+    progress: owed > 0 ? paid / owed * 100 : 0,
     daysUntilStart,
     grace,
     planAmount,
@@ -11531,6 +11573,22 @@ var computeDebt = (fm, planAmount, months, now) => {
     toInvestment,
     loanPrep
   };
+};
+var accrued = (principal, rate, start, payments, day) => {
+  if (!start || !(rate > 0) || !(principal > 0)) return 0;
+  const s2 = localDate(start);
+  let interest = 0;
+  for (let k = 1; k < 1200; k++) {
+    const last = new Date(s2.getFullYear(), s2.getMonth() + k + 1, 0).getDate();
+    const at = new Date(s2.getFullYear(), s2.getMonth() + k, Math.min(s2.getDate(), last));
+    if (at > day) break;
+    const iso2 = `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, "0")}-${String(at.getDate()).padStart(2, "0")}`;
+    const paid = payments.filter((p) => !p.date || p.date < iso2).reduce((t2, p) => t2 + p.amount, 0);
+    const owed = principal + interest - paid;
+    if (owed <= 0) break;
+    interest += Math.round(owed * rate / 12);
+  }
+  return interest;
 };
 var findPayment = (list5, p) => {
   const a = Array.isArray(list5) ? list5 : [];
@@ -11584,16 +11642,27 @@ var editAllocation = (ctx, key, what) => {
 
 // src/calc/goals.ts
 var list4 = (v) => (Array.isArray(v) ? v : v ? [v] : []).filter((x) => x && typeof x === "object");
-var buildGoals = (fm, savedOf) => {
-  const funds = list4(fm?.funds).map((f) => ({ key: String(f.key ?? ""), label: String(f.label ?? f.key ?? ""), emoji: String(f.emoji ?? ""), goals: [], saved: 0, target: 0, surplus: 0 }));
+var planSaved = (months, plan, key) => months.reduce((s2, m) => s2 + int(m.fm[key] !== void 0 ? m.fm[key] : plan[key]), 0);
+var lineHeld = (accounts, key) => {
+  const own = accounts.filter((a) => a.line === key);
+  return own.length ? own.reduce((s2, a) => s2 + a.balance, 0) : null;
+};
+var buildGoals = (fm, plannedOf, heldOf = () => null) => {
+  const funds = list4(fm?.funds).map((f) => ({ key: String(f.key ?? ""), label: String(f.label ?? f.key ?? ""), emoji: String(f.emoji ?? ""), goals: [], saved: 0, collected: 0, planned: 0, behind: 0, fromAccounts: false, target: 0, surplus: 0 }));
   const goals = list4(fm?.goals).map((g) => {
     const expenses = list4(g.expenses).map((e, index) => ({ item: String(e.item ?? ""), amount: int(e.amount), date: dateStr(e.date, ""), index }));
     return { name: String(g.name ?? ""), fundKey: String(g.fund ?? ""), emoji: String(g.emoji ?? ""), amount: int(g.goal), target: dateStr(g.target_date, ""), expenses, alloc: 0, spent: expenses.reduce((s2, e) => s2 + e.amount, 0), cash: 0, pct: 0 };
   }).sort((a, b) => (a.target || "9999").localeCompare(b.target || "9999"));
   for (const g of goals) (funds.find((f) => f.key === g.fundKey) ?? funds[0])?.goals.push(g);
   for (const f of funds) {
-    f.saved = Number(savedOf(f.key)) || 0;
-    let pool = f.saved;
+    const out = f.goals.reduce((s2, g) => s2 + g.spent, 0);
+    const held = heldOf(f.key);
+    f.planned = int(plannedOf(f.key));
+    f.fromAccounts = held !== null;
+    f.collected = held !== null ? int(held) + out : f.planned;
+    f.saved = f.collected - out;
+    f.behind = f.fromAccounts ? Math.max(0, f.planned - f.collected) : 0;
+    let pool = f.collected;
     for (const g of f.goals) {
       if (!(g.amount > 0)) {
         g.alloc = 0;
@@ -11613,8 +11682,9 @@ var buildGoals = (fm, savedOf) => {
     funds,
     goals,
     totalSaved: funds.reduce((s2, f) => s2 + f.saved, 0),
+    collected: funds.reduce((s2, f) => s2 + f.collected, 0),
     spent: goals.reduce((s2, g) => s2 + g.spent, 0),
-    remaining: funds.reduce((s2, f) => s2 + Math.max(0, f.target - f.saved), 0)
+    remaining: funds.reduce((s2, f) => s2 + Math.max(0, f.target - f.collected), 0)
   };
 };
 var findExpense = (arr5, x) => {
@@ -11631,14 +11701,14 @@ var trackFund = (f, monthly, today3) => {
     need += g.amount;
     if (!g.target) continue;
     const months = monthsTo(today3, g.target);
-    const short2 = Math.max(0, need - (f.saved + monthly * months));
-    const gap = Math.max(0, need - f.saved);
+    const short2 = Math.max(0, need - (f.collected + monthly * months));
+    const gap = Math.max(0, need - f.collected);
     out.set(g, { short: short2, months, perMonth: !gap ? 0 : months ? Math.ceil(gap / months) : gap });
   }
   return out;
 };
 var doneBy = (f, monthly, today3) => {
-  const gap = f.target - f.saved;
+  const gap = f.target - f.collected;
   if (!f.goals.length) return "";
   const n = gap <= 0 ? 0 : monthly > 0 ? Math.ceil(gap / monthly) : -1;
   if (n < 0) return "";
@@ -11728,17 +11798,17 @@ var netWorth = (plugin) => {
   const cur = settings.baseCurrency;
   const plan = store.fm(store.path(FILES.savings)) ?? {};
   const months = store.monthNotes();
-  const savedOf = (key) => months.reduce((s2, m) => s2 + (Number(m.fm[key] !== void 0 ? m.fm[key] : plan[key]) || 0), 0);
-  const G = buildGoals(store.fm(store.path(FILES.goals)), savedOf);
+  const A = buildAccounts(store.fm(store.path(ACCOUNTS_FILE)));
+  const G = buildGoals(store.fm(store.path(FILES.goals)), (key) => planSaved(months, plan, key), (key) => lineHeld(A.list, key));
   const inv = store.fm(store.path(FILES.invest));
   const fb = inv?.fx_fallback ?? {};
   const P = buildPortfolio(inv, (tk) => prices.price(tk), (c) => prices.fx(c, cur, fb), "", cur);
   const d = computeDebt(store.fm(store.path(FILES.debt)), Number(plan.student_loan) || 0, store.monthLines("student_loan"), /* @__PURE__ */ new Date());
   const L2 = buildLedger(store.fm(store.path(FILES.ledger))?.ledger);
   const parts = [
-    { key: "goals", label: t("nwFunds"), value: G.totalSaved - G.spent },
-    { key: "invest", label: t("nwInvest"), value: P.value + (investCash(buildAccounts(store.fm(store.path(ACCOUNTS_FILE))).list, P.buckets.map((b) => b.key)) ?? savedOf("investment") - P.bought) },
-    ...d.exists && d.grace ? [{ key: "debt", label: t("nwLoanSavings"), value: d.toInvestment + d.loanPrep }] : [],
+    { key: "goals", label: t("nwFunds"), value: G.totalSaved },
+    { key: "invest", label: t("nwInvest"), value: P.value + (investCash(A.list, P.buckets.map((b) => b.key)) ?? planSaved(months, plan, "investment") - P.bought) },
+    ...d.exists && d.grace ? [{ key: "debt", label: t("nwLoanSavings"), value: lineHeld(A.list, "student_loan") ?? d.toInvestment + d.loanPrep }] : [],
     { key: "ledger", label: t("nwFriends"), value: L2.net },
     ...d.exists ? [{ key: "debt", label: t("nwDebt"), value: -d.balance }] : []
   ];
@@ -11922,8 +11992,7 @@ var first = (ctx, d, money, cur, a) => {
   h(g, "p", "zl-c-note", t(loud >= 0 ? "dYearsNoteNow" : "dYearsNote", { n: num(pay) }));
   const n = d.payments.length;
   const acc = buildAccounts(ctx.plugin.store.fm(ctx.plugin.store.path(ACCOUNTS_FILE)));
-  const own = acc.list.filter((x) => x.line === "student_loan");
-  const saved = own.length ? own.reduce((s2, x) => s2 + x.balance, 0) : d.loanPrep;
+  const saved = lineHeld(acc.list, "student_loan") ?? d.loanPrep;
   const nw = netWorth(ctx.plugin).total;
   figures(h(el, "div", "zl-c-group"), [
     { icon: "wallet", k: t("dSaved"), s: t("dSavedSub"), v: money(saved), onTap: () => ctx.push({ key: "loan", title: t("loanDetails") }) },
@@ -11942,9 +12011,10 @@ var loan = (ctx, d, money, a) => {
     { icon: "percent", k: t("interestRate").toUpperCase(), v: `${(d.rate * 100).toFixed(3)}%`, onTap: () => a.editNumber(t("interestRate"), "interest_rate", d.rate, true) },
     { icon: "wallet", k: t("monthlyAllocation").toUpperCase(), s: t("fromSavingsPlan"), v: money(a.allocation), onTap: a.editAllocation },
     { icon: "receipt", k: t("monthlyMin").toUpperCase(), v: money(d.monthlyMin), onTap: () => a.editNumber(t("monthlyMin"), "monthly_min_payment", d.monthlyMin) },
+    ...d.interest > 0 ? [{ icon: "percent", k: t("dInterest").toUpperCase(), s: t("dInterestSub"), v: money(d.interest) }] : [],
     { icon: "log", k: (d.grace || !d.start ? t("repaymentStarts") : t("repayingSince")).toUpperCase(), s: d.grace ? t("inDaysShort", { d: d.daysUntilStart }) : void 0, v: d.start ? shortDate(d.start) : t("notSet"), onTap: a.editStart }
   ];
-  if (d.grace) list5.push({ icon: "swap", k: t("graceSplit").toUpperCase(), v: `${num(d.toInvestment)} \xB7 ${num(d.loanPrep)}` });
+  if (d.grace) list5.push({ icon: "swap", k: t("graceSplit").toUpperCase(), s: t("fromSavingsPlan"), v: `${num(d.toInvestment)} \xB7 ${num(d.loanPrep)}` });
   figures(h(el, "div", "zl-c-group"), list5);
   return { title, el, fab: { icon: "plus", text: t("recordPayment").toUpperCase(), label: t("recordPayment"), onTap: a.recordPayment } };
 };
@@ -12183,8 +12253,8 @@ var goalsPage = {
     const CFG = store.path(FILES.goals);
     const plan = store.fm(store.path(FILES.savings)) ?? {};
     const months = store.monthNotes();
-    const savedOf = (key2) => months.reduce((s2, m) => s2 + (Number(m.fm[key2] !== void 0 ? m.fm[key2] : plan[key2]) || 0), 0);
-    const G = buildGoals(store.fm(CFG), savedOf);
+    const A = buildAccounts(store.fm(store.path(ACCOUNTS_FILE)));
+    const G = buildGoals(store.fm(CFG), (key2) => planSaved(months, plan, key2), (key2) => lineHeld(A.list, key2));
     const updateGoal = (name, fn) => store.update(CFG, (f) => {
       const g = (Array.isArray(f.goals) ? f.goals : []).find((x) => x.name === name);
       if (g) fn(g);
@@ -12334,7 +12404,7 @@ var goalsPage = {
       if (o) return o;
     }
     const now = today();
-    const S = { G, cur, now, monthly: /* @__PURE__ */ new Map(), track: /* @__PURE__ */ new Map(), A: buildAccounts(store.fm(store.path(ACCOUNTS_FILE))) };
+    const S = { G, cur, now, monthly: /* @__PURE__ */ new Map(), track: /* @__PURE__ */ new Map(), A };
     for (const f of G.funds) {
       const m = store.allocation(f.key).amount;
       S.monthly.set(f.key, m);
@@ -12379,6 +12449,7 @@ var fundTile = (ctx, S, f) => ({ icon: fundIcon(f), k: f.label.toUpperCase(), v:
 var fundLine = (S, f) => {
   const m = t("gAMonth", { n: num(S.monthly.get(f.key) ?? 0) });
   const next = f.goals.find((g) => g.pct < 100), ft = fundTarget(S, f);
+  if (f.behind > 0) return `${m} \xB7 ${t("gBehind", { n: num(f.behind) })}`;
   return next ? `${m} \xB7 ${t("gNext", { name: next.name, date: next.target ? shortDate(next.target) : "" }).trim()}` : f.goals.length ? `${m} \xB7 ${t("gAllDone").toLowerCase()}` : ft ? `${m} \xB7 ${t("gTargetPct", { target: num(ft), pct: Math.floor(f.saved / ft * 100) })}` : `${m} \xB7 ${t("gNoGoalYet")}`;
 };
 var firstPage2 = (ctx, S, newGoal) => {
@@ -12392,7 +12463,7 @@ var firstPage2 = (ctx, S, newGoal) => {
     key: "goals",
     value: num(G.totalSaved),
     label: t("cSaved", { cur }),
-    right: target > 0 ? t("cOfTarget", { n: Math.floor(G.totalSaved / target * 100) }) : void 0,
+    right: target > 0 ? t("cOfTarget", { n: Math.floor(G.collected / target * 100) }) : void 0,
     reads: [[t("gEachMonth"), num(monthly)], [t("remainingGoal"), num(G.remaining)]]
   });
   const fab = { icon: "plus", text: t("newGoal").toUpperCase(), label: t("newGoal"), onTap: newGoal };
@@ -12430,7 +12501,7 @@ var fundPage = (ctx, f, S, newGoal) => {
   const monthly = S.monthly.get(f.key) ?? 0;
   const ft = f.goals.length ? f.target : fundTarget(S, f);
   const done = doneBy(f, monthly, S.now);
-  summary(el, { key: "fund-" + f.key, label: t("savedSoFar"), value: num(f.saved), items: [[f.goals.length ? t("gGoalTotal") : t("cTarget"), ft > 0 ? num(ft) : "-"], [t("remainingGoal"), ft > 0 ? num(Math.max(0, ft - f.saved)) : "-"], [t("gDoneBy"), !f.goals.length ? "-" : f.saved >= f.target ? t("gAllDone") : done ? monthName2(done) : t("gNever")]] });
+  summary(el, { key: "fund-" + f.key, label: t("savedSoFar"), value: num(f.saved), items: [[f.goals.length ? t("gGoalTotal") : t("cTarget"), ft > 0 ? num(ft) : "-"], [t("remainingGoal"), ft > 0 ? num(Math.max(0, ft - f.collected)) : "-"], [t("gDoneBy"), !f.goals.length ? "-" : f.collected >= f.target ? t("gAllDone") : done ? monthName2(done) : t("gNever")]] });
   const g = h(el, "div", "zl-c-group");
   figures(g, [{ icon: fundIcon(f), k: t("monthlyAmount").toUpperCase(), s: t("fromSavingsPlan"), v: num(monthly), onTap: () => editAllocation(ctx, f.key, `${f.label}: ${t("monthlyAmount").toLowerCase()}`) }]);
   const gg = h(el, "div", "zl-c-group");
@@ -12506,7 +12577,7 @@ var logPage = {
     if (key.startsWith("amt:") || key.startsWith("amt1:")) return dayAmountPage(ctx, key);
     if (key === "items") return itemsPage(ctx);
     if (key.startsWith("items:")) return itemGroupPage(ctx, Number(key.slice(6)));
-    const { monthPath, month, days, plan, inc, daily, fixed, M } = store.monthData(sel.year, sel.month);
+    const { monthPath, month, days, plan, inc, daily, fixed, oneTime, M } = store.monthData(sel.year, sel.month);
     const gotoMonth = (y, m) => {
       ctx.plugin.logMonth = { year: y, month: m };
       ctx.goTab("log");
@@ -12571,7 +12642,7 @@ var logPage = {
     const tq = M.budget.reduce((s2, x2) => s2 + x2.quota, 0), ts = M.budget.reduce((s2, x2) => s2 + x2.spent, 0);
     if (isNow) {
       const todayLog = days.find((d) => d.name === today());
-      const spentToday = todayLog ? spentOnDay(todayLog.fm) : 0;
+      const spentToday = todayLog ? spentOnDay(todayLog.fm, countsAs(daily.flatMap((b2) => b2.spending), oneTime)) : 0;
       const perDay = Math.max(0, tq - ts + spentToday) / Math.max(1, daysLeft);
       reads(top0, [[t("cSpentToday"), "log-r1", num(spentToday)], [t("cLeftToday"), "log-r2", num(Math.round(perDay - spentToday))]]);
     } else reads(top0, [[t("cMonth"), "log-r1", t("cClosed")], [t("saved"), "log-r2", num(M.saved)]]);

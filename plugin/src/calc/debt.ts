@@ -11,8 +11,9 @@ export interface Debt {
     monthlyMin: number;
     payments: Payment[];       // file order (index = position in the frontmatter list)
     paid: number;
-    balance: number;
-    progress: number;          // % of the principal paid
+    interest: number;          // charged since repayment started (owner, 2026-11-17: it is part of what is still to pay back)
+    balance: number;           // principal + interest − paid
+    progress: number;          // % of principal + interest paid
     daysUntilStart: number;
     grace: boolean;            // repayment has not started yet
     planAmount: number;        // monthly amount in the savings plan
@@ -46,11 +47,33 @@ export const computeDebt = (fm: FM | null, planAmount: number, months: LoanMonth
         const keep = m.legacy ? Math.floor(m.amount / 2) : m.amount;
         loanPrep += keep; toInvestment += m.amount - keep;
     }
+    const interest = grace ? 0 : accrued(principal, rate, start, payments, day);
+    const owed = principal + interest;
     return {
-        exists: !!fm, principal, rate, start, monthlyMin: int(f.monthly_min_payment), payments, paid,
-        balance: Math.max(0, principal - paid), progress: principal > 0 ? (paid / principal) * 100 : 0,
+        exists: !!fm, principal, rate, start, monthlyMin: int(f.monthly_min_payment), payments, paid, interest,
+        balance: Math.max(0, owed - paid), progress: owed > 0 ? (paid / owed) * 100 : 0,
         daysUntilStart, grace, planAmount, repayment: int(f.repayment) || planAmount, toInvestment, loanPrep,
     };
+};
+
+// Interest charged from the repayment start to `day`: on each monthly date after the start (the 31st falls back to the month's
+// last day), a month's interest (rate / 12) on what was owed then: principal + interest so far − payments made before that date.
+// Whole dollars each month. A payment without a date counts from the start.
+export const accrued = (principal: number, rate: number, start: string, payments: Payment[], day: Date): number => {
+    if (!start || !(rate > 0) || !(principal > 0)) return 0;
+    const s = localDate(start);
+    let interest = 0;
+    for (let k = 1; k < 1200; k++) {
+        const last = new Date(s.getFullYear(), s.getMonth() + k + 1, 0).getDate();
+        const at = new Date(s.getFullYear(), s.getMonth() + k, Math.min(s.getDate(), last));
+        if (at > day) break;
+        const iso = `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, "0")}-${String(at.getDate()).padStart(2, "0")}`;
+        const paid = payments.filter((p) => !p.date || p.date < iso).reduce((t, p) => t + p.amount, 0);
+        const owed = principal + interest - paid;
+        if (owed <= 0) break;
+        interest += Math.round((owed * rate) / 12);
+    }
+    return interest;
 };
 
 // The stored payment for a displayed one: the same position if it still matches, else the first identical one (-1: gone).
