@@ -13,6 +13,18 @@ export interface ExtraRow { prop: string; total: number; fromDays: number; fromM
 
 export const slug = (s: string): string => String(s || "").trim().toLowerCase().replace(/[^a-z0-9一-鿿]+/g, "_").replace(/^_|_$/g, "");
 const arr = <T = FM>(v: unknown): T[] => (Array.isArray(v) ? v : v === undefined || v === null ? [] : [v]) as T[];
+// Owner, 2026-11-17: a number in a daily note is spending only if it is a Daily item or a one-off the app saved (`one_time` in
+// the Daily Expenses config, filled when + OTHER adds one, or when a "not counted" number is tapped to count). Any other number
+// (a rating, a count from another plugin) is not spending; the day page shows it as not counted. A config with no `one_time`
+// list keeps the old rule (every number counts), so an older vault loses nothing until it opts in.
+export const oneTimeOf = (fm: FM | null): string[] | null => (fm && fm.one_time !== undefined ? arr(fm.one_time).map(String) : null);
+export const countsAs = (daily: string[], oneTime: string[] | null) => (k: string): boolean => daily.includes(k) || oneTime === null || oneTime.includes(k);
+// the numbers of a daily note that are not Daily items: [counted one-offs, numbers not counted]
+export const dayExtras = (fm: FM, daily: string[], oneTime: string[] | null): [string[], string[]] => {
+    const all = Object.keys(fm).filter((k) => !IGNORE.includes(k) && typeof fm[k] === "number" && !daily.includes(k));
+    const counts = countsAs(daily, oneTime);
+    return [all.filter(counts), all.filter((k) => !counts(k))];
+};
 export const budgetItems = (fm: FM | null): BudgetItem[] => arr(fm?.budget).filter((x) => x && typeof x === "object")
     .map((x) => ({ name: String(x.name ?? ""), quota: Number(x.quota) || 0, spending: arr<string>(x.spending).map(String) }));
 
@@ -47,15 +59,19 @@ export const allocation = (plan: FM, month: FM | null, income: number): Allocati
     return { living, saved, income, gap: income - saved - living };
 };
 
-export interface MonthInput { month: FM | null; days: Day[]; plan: FM; daily: BudgetItem[]; fixed: BudgetItem[]; income: number }
-export const computeMonth = ({ month, days, plan, daily, fixed, income }: MonthInput) => {
+export interface MonthInput { month: FM | null; days: Day[]; plan: FM; daily: BudgetItem[]; fixed: BudgetItem[]; income: number; oneTime?: string[] | null }
+export const computeMonth = ({ month, days, plan, daily, fixed, income, oneTime = null }: MonthInput) => {
     const has = (k: string) => !!month && month[k] !== undefined;
     const savings: [string, number][] = Object.keys(plan).filter((k) => !k.startsWith("file") && k !== LIVING && typeof plan[k] === "number").map((k) => [k, int(has(k) ? month![k] : plan[k])]);
     const alloc = allocation(plan, month, income);
     const saved = alloc.saved;
     const dailyProps = [...new Set(daily.flatMap((x) => x.spending))];
-    const custom = new Set<string>();
-    for (const d of days) for (const k of Object.keys(d.fm)) if (!IGNORE.includes(k) && typeof d.fm[k] === "number" && !dailyProps.includes(k)) custom.add(k);
+    const custom = new Set<string>(), skipped: Record<string, number> = {};
+    for (const d of days) {
+        const [on, off] = dayExtras(d.fm, dailyProps, oneTime);
+        for (const k of on) custom.add(k);
+        for (const k of off) skipped[k] = (skipped[k] || 0) + (Number(d.fm[k]) || 0);
+    }
     const spending: Record<string, number> = {};
     for (const d of days) for (const p of [...dailyProps, ...custom]) spending[p] = (spending[p] || 0) + (Number(d.fm[p]) || 0);
     const fixedRows: FixedRow[] = fixed.map((item) => {
@@ -86,11 +102,11 @@ export const computeMonth = ({ month, days, plan, daily, fixed, income }: MonthI
     });
     return {
         savings, saved, spending, fixedRows, fixedTotal, extras, extraTotal: extras.reduce((s, e) => s + e.total, 0), spent,
-        remaining: alloc.living - spent, alloc, budget, paidCount: fixedRows.filter((r) => r.paid !== 0).length,
+        remaining: alloc.living - spent, alloc, budget, skipped, paidCount: fixedRows.filter((r) => r.paid !== 0).length,
     };
 };
 
-export const spentOnDay = (fm: FM): number => Object.keys(fm).filter((k) => !IGNORE.includes(k) && typeof fm[k] === "number").reduce((s, k) => s + (Number(fm[k]) || 0), 0);
+export const spentOnDay = (fm: FM, counts: (k: string) => boolean = () => true): number => Object.keys(fm).filter((k) => !IGNORE.includes(k) && typeof fm[k] === "number" && counts(k)).reduce((s, k) => s + (Number(fm[k]) || 0), 0);
 
 // This month's investment plan split over the allocation buckets, and what was bought in each (from the investment config):
 // the cash each trade moved in the base currency, fees in, at the trade's own FX rate, else fx(currency) now; a foreign

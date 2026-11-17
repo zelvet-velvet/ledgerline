@@ -1,5 +1,5 @@
 import { Notice } from "obsidian";
-import { BudgetRow, computeMonth, investBuckets, monthIncome, slug, spentOnDay } from "../calc/log";
+import { BudgetRow, computeMonth, countsAs, investBuckets, monthIncome, slug, spentOnDay } from "../calc/log";
 import { FILES, FM } from "../data/store";
 import { MONTHS, num, parseNum, shortDate, today } from "../format";
 import { t } from "../i18n";
@@ -30,7 +30,7 @@ export const logPage: PageDef = {
         if (key.startsWith("amt:") || key.startsWith("amt1:")) return dayAmountPage(ctx, key);
         if (key === "items") return itemsPage(ctx);
         if (key.startsWith("items:")) return itemGroupPage(ctx, Number(key.slice(6)));
-        const { monthPath, month, days, plan, inc, daily, fixed, M } = store.monthData(sel.year, sel.month);
+        const { monthPath, month, days, plan, inc, daily, fixed, oneTime, M } = store.monthData(sel.year, sel.month);
 
         const gotoMonth = (y: number, m: number) => { ctx.plugin.logMonth = { year: y, month: m }; ctx.goTab("log"); ctx.redraw(); };
         const step = (d: -1 | 0 | 1) => {
@@ -87,7 +87,7 @@ export const logPage: PageDef = {
         const tq = M.budget.reduce((s, x) => s + x.quota, 0), ts = M.budget.reduce((s, x) => s + x.spent, 0);
         if (isNow) {
             const todayLog = days.find((d) => d.name === today());
-            const spentToday = todayLog ? spentOnDay(todayLog.fm) : 0;
+            const spentToday = todayLog ? spentOnDay(todayLog.fm, countsAs(daily.flatMap((b) => b.spending), oneTime)) : 0;
             const perDay = Math.max(0, tq - ts + spentToday) / Math.max(1, daysLeft);
             reads(top0, [[t("cSpentToday"), "log-r1", num(spentToday)], [t("cLeftToday"), "log-r2", num(Math.round(perDay - spentToday))]]);
         } else reads(top0, [[t("cMonth"), "log-r1", t("cClosed")], [t("saved"), "log-r2", num(M.saved)]]);

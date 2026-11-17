@@ -1,7 +1,7 @@
 import { TFile, normalizePath } from "obsidian";
 import type LedgerlinePlugin from "../main";
 import { MONTHS } from "../format";
-import { budgetItems, computeMonth, LIVING, monthIncome } from "../calc/log";
+import { budgetItems, computeMonth, LIVING, monthIncome, oneTimeOf } from "../calc/log";
 
 export type FM = Record<string, unknown>;
 
@@ -63,9 +63,10 @@ export class Store {
         const days = this.days(year, month);
         const plan = this.fm(this.path(FILES.savings)) ?? {};
         const inc = monthIncome(this.fm(this.path(FILES.income)), fm, month + 1);
-        const daily = budgetItems(this.fm(this.path(FILES.daily)));
+        const dcfg = this.fm(this.path(FILES.daily));
+        const daily = budgetItems(dcfg), oneTime = oneTimeOf(dcfg);
         const fixed = budgetItems(this.fm(this.path(FILES.fixed)));
-        return { monthPath, month: fm, days, plan, inc, daily, fixed, M: computeMonth({ month: fm, days, plan, daily, fixed, income: inc.total }) };
+        return { monthPath, month: fm, days, plan, inc, daily, fixed, oneTime, M: computeMonth({ month: fm, days, plan, daily, fixed, income: inc.total, oneTime }) };
     }
 
     // A day's note ("YYYY-MM-DD"), wherever it is filed in its month

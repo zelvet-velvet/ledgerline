@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { allocation, computeMonth, investBuckets } from "../src/calc/log";
+import { allocation, computeMonth, dayExtras, investBuckets, spentOnDay, countsAs } from "../src/calc/log";
 
 // a sample template: living + every set-aside line = the salary
 const SALARY = 45000;
@@ -77,4 +77,28 @@ test("investBuckets: a foreign buy with no rate known is left out, not counted a
 test("investBuckets: no allocation or no plan = null", () => {
     assert.equal(investBuckets({ assets: [] }, 22000, "2026-11"), null);
     assert.equal(investBuckets(inv, 0, "2026-11"), null);
+});
+
+// Owner, 2026-11-17: only Daily items and the one-offs the app saved are spending
+const noted = [{ name: "2026-11-02", path: "", fm: { lunch: 120, taxi: 200, mood: 7, steps: 9000 } }, { name: "2026-11-03", path: "", fm: { lunch: 80, mood: 5 } }];
+test("with a one_time list, other numbers in daily notes are not spending", () => {
+    const M = computeMonth({ month: null, days: noted, plan, daily, fixed, income: SALARY, oneTime: ["taxi"] });
+    assert.equal(M.spending.lunch, 200);
+    assert.equal(M.spending.taxi, 200);
+    assert.equal(M.spending.mood, undefined);
+    assert.deepEqual(M.skipped, { mood: 12, steps: 9000 });
+    assert.deepEqual(M.extras.map((e) => e.prop), ["taxi"]);
+    assert.equal(M.spent, 3000 + 400);   // the four fixed bills at their quota + lunch and taxi
+});
+test("without a one_time list every number still counts (older vaults)", () => {
+    const M = computeMonth({ month: null, days: noted, plan, daily, fixed, income: SALARY });
+    assert.equal(M.spent, 3000 + 200 + 200 + 12 + 9000);
+    assert.deepEqual(M.skipped, {});
+});
+test("a day's extras and its spending follow the same rule", () => {
+    const fm = noted[0].fm;
+    assert.deepEqual(dayExtras(fm, ["lunch"], ["taxi"]), [["taxi"], ["mood", "steps"]]);
+    assert.deepEqual(dayExtras(fm, ["lunch"], null), [["taxi", "mood", "steps"], []]);
+    assert.equal(spentOnDay(fm, countsAs(["lunch"], ["taxi"])), 320);
+    assert.equal(spentOnDay(fm), 9327);
 });

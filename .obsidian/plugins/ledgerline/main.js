@@ -658,6 +658,13 @@ var todayMove = (p, ch, last, today3) => {
 var IGNORE = ["file", "sticker", "cssclasses", "ledger", "date", "title", "tags", "aliases"];
 var slug = (s2) => String(s2 || "").trim().toLowerCase().replace(/[^a-z0-9一-鿿]+/g, "_").replace(/^_|_$/g, "");
 var arr2 = (v) => Array.isArray(v) ? v : v === void 0 || v === null ? [] : [v];
+var oneTimeOf = (fm) => fm && fm.one_time !== void 0 ? arr2(fm.one_time).map(String) : null;
+var countsAs = (daily, oneTime) => (k) => daily.includes(k) || oneTime === null || oneTime.includes(k);
+var dayExtras = (fm, daily, oneTime) => {
+  const all = Object.keys(fm).filter((k) => !IGNORE.includes(k) && typeof fm[k] === "number" && !daily.includes(k));
+  const counts = countsAs(daily, oneTime);
+  return [all.filter(counts), all.filter((k) => !counts(k))];
+};
 var budgetItems = (fm) => arr2(fm?.budget).filter((x) => x && typeof x === "object").map((x) => ({ name: String(x.name ?? ""), quota: Number(x.quota) || 0, spending: arr2(x.spending).map(String) }));
 var monthIncome = (incomeCfg, month, monthNumber) => {
   const ov = month?.income_override ?? {};
@@ -684,14 +691,18 @@ var allocation = (plan, month, income) => {
   const living = hasLiving ? val(LIVING) : income - saved;
   return { living, saved, income, gap: income - saved - living };
 };
-var computeMonth = ({ month, days, plan, daily, fixed, income }) => {
+var computeMonth = ({ month, days, plan, daily, fixed, income, oneTime = null }) => {
   const has = (k) => !!month && month[k] !== void 0;
   const savings = Object.keys(plan).filter((k) => !k.startsWith("file") && k !== LIVING && typeof plan[k] === "number").map((k) => [k, int(has(k) ? month[k] : plan[k])]);
   const alloc = allocation(plan, month, income);
   const saved = alloc.saved;
   const dailyProps = [...new Set(daily.flatMap((x) => x.spending))];
-  const custom = /* @__PURE__ */ new Set();
-  for (const d of days) for (const k of Object.keys(d.fm)) if (!IGNORE.includes(k) && typeof d.fm[k] === "number" && !dailyProps.includes(k)) custom.add(k);
+  const custom = /* @__PURE__ */ new Set(), skipped = {};
+  for (const d of days) {
+    const [on, off] = dayExtras(d.fm, dailyProps, oneTime);
+    for (const k of on) custom.add(k);
+    for (const k of off) skipped[k] = (skipped[k] || 0) + (Number(d.fm[k]) || 0);
+  }
   const spending = {};
   for (const d of days) for (const p of [...dailyProps, ...custom]) spending[p] = (spending[p] || 0) + (Number(d.fm[p]) || 0);
   const fixedRows = fixed.map((item) => {
@@ -736,10 +747,11 @@ var computeMonth = ({ month, days, plan, daily, fixed, income }) => {
     remaining: alloc.living - spent,
     alloc,
     budget,
+    skipped,
     paidCount: fixedRows.filter((r) => r.paid !== 0).length
   };
 };
-var spentOnDay = (fm) => Object.keys(fm).filter((k) => !IGNORE.includes(k) && typeof fm[k] === "number").reduce((s2, k) => s2 + (Number(fm[k]) || 0), 0);
+var spentOnDay = (fm, counts = () => true) => Object.keys(fm).filter((k) => !IGNORE.includes(k) && typeof fm[k] === "number" && counts(k)).reduce((s2, k) => s2 + (Number(fm[k]) || 0), 0);
 var investBuckets = (inv, plan, monthKey, fx = () => 0, base2 = "TWD") => {
   const alloc = arr2(inv?.allocation);
   if (!alloc.length || !(plan > 0)) return null;
@@ -828,9 +840,10 @@ var Store = class {
     const days = this.days(year, month);
     const plan = this.fm(this.path(FILES.savings)) ?? {};
     const inc = monthIncome(this.fm(this.path(FILES.income)), fm, month + 1);
-    const daily = budgetItems(this.fm(this.path(FILES.daily)));
+    const dcfg = this.fm(this.path(FILES.daily));
+    const daily = budgetItems(dcfg), oneTime = oneTimeOf(dcfg);
     const fixed = budgetItems(this.fm(this.path(FILES.fixed)));
-    return { monthPath, month: fm, days, plan, inc, daily, fixed, M: computeMonth({ month: fm, days, plan, daily, fixed, income: inc.total }) };
+    return { monthPath, month: fm, days, plan, inc, daily, fixed, oneTime, M: computeMonth({ month: fm, days, plan, daily, fixed, income: inc.total, oneTime }) };
   }
   // A day's note ("YYYY-MM-DD"), wherever it is filed in its month
   day(date) {
@@ -2652,6 +2665,11 @@ var en = {
   startDay: "Start This Day",
   dayStarted: "{date} started",
   spentOnDay: "Spent this day",
+  notCounted: "Not counted",
+  countQ: "Count {name} as spending?",
+  countSub: "This number in the daily note is not a Daily item, so it is not counted. Counted, it adds to the month as a one-off, on every day it appears.",
+  count: "Count",
+  countedX: "{name} counts as spending",
   groupN: "Group {n}",
   leftMonthN: "{left} left this month",
   noItems: "No items",
@@ -10973,7 +10991,8 @@ var expenseSheet = (ctx, date0 = today()) => {
   const { store, settings } = ctx.plugin;
   const cur = settings.baseCurrency;
   const [y, m] = date0.split("-").map(Number);
-  const itemsOf = store.monthData(y, m - 1).daily.flatMap((b) => b.spending);
+  const md = store.monthData(y, m - 1);
+  const itemsOf = md.daily.flatMap((b) => b.spending);
   const fmOf = (d) => store.day(d)?.fm ?? {};
   const when = (d) => d === today() ? t("today") : shortDate(d);
   const write = async (d, k, n) => {
@@ -11006,7 +11025,7 @@ var expenseSheet = (ctx, date0 = today()) => {
         type: "grid",
         cells: (v) => {
           const fm = fmOf(v.date || date0);
-          const extra = Object.keys(fm).filter((k) => !IGNORE.includes(k) && typeof fm[k] === "number" && !itemsOf.includes(k) && Number(fm[k]) !== 0);
+          const extra = dayExtras(fm, itemsOf, md.oneTime)[0].filter((k) => Number(fm[k]) !== 0);
           return [...itemsOf, ...extra].map((k) => {
             const o = Number(fm[k]) || 0;
             return { value: k, k: cap(k).toUpperCase(), v: num(o), dim: !o };
@@ -11024,6 +11043,7 @@ var expenseSheet = (ctx, date0 = today()) => {
               new import_obsidian18.Notice(t("needName"));
               return;
             }
+            void countOneTime(ctx, key);
             pad2(d, key, sh.close, sh.host);
           } });
         },
@@ -11068,10 +11088,11 @@ var dayPage = (ctx, date, notePath) => {
     return { title: dayFrame(date).title, el };
   }
   const [y, m] = date.split("-").map(Number);
-  const { daily, M } = store.monthData(y, m - 1);
+  const { daily, oneTime, M } = store.monthData(y, m - 1);
   const fm = note.fm;
   const defined = new Set(daily.flatMap((b) => b.spending));
-  const custom = Object.keys(fm).filter((k) => !IGNORE.includes(k) && typeof fm[k] === "number" && !defined.has(k) && Number(fm[k]) !== 0);
+  const [on, off] = dayExtras(fm, [...defined], oneTime);
+  const custom = on.filter((k) => Number(fm[k]) !== 0), skipped = off.filter((k) => Number(fm[k]) !== 0);
   const total = [...defined, ...custom].reduce((s2, k) => s2 + (Number(fm[k]) || 0), 0);
   el.addClass("zl-c-stack");
   const top0 = h(el, "div", "zl-c-group");
@@ -11123,6 +11144,16 @@ var dayPage = (ctx, date, notePath) => {
     sec(g, t("oneTime").toUpperCase());
     tileGrid(g, custom.map((p) => ({ k: cap(p).toUpperCase(), v: num(fm[p]), hot: true, onTap: () => edit(p, true), scrub: drag(p) })));
   }
+  if (skipped.length) {
+    const g = h(el, "div", "zl-c-group");
+    sec(g, t("notCounted").toUpperCase());
+    tileGrid(g, skipped.map((p) => ({ k: cap(p).toUpperCase(), v: num(fm[p]), dim: true, onTap: async () => {
+      if (await confirmSheet(ctx.app, t("countQ", { name: cap(p) }), t("countSub"), t("count"))) {
+        await countOneTime(ctx, p);
+        new import_obsidian18.Notice(t("countedX", { name: cap(p) }));
+      }
+    } })));
+  }
   if (daily.length || custom.length) h(el, "div", "zl-c-note zl-scrub-hint", t("cScrubHint"));
   if (!daily.length && !custom.length) empty(el, { icon: "list", title: t("noItems"), button: t("dailyItems"), onTap: () => ctx.push({ key: "items", title: t("dailyItems") }) });
   const add = () => expenseSheet(ctx, date);
@@ -11145,6 +11176,11 @@ var saveGroups = (ctx, fn) => ctx.plugin.store.update(ctx.plugin.store.path(FILE
 });
 var pctTotal = (gs, skip = -1) => gs.reduce((s2, g, i) => s2 + (i === skip ? 0 : Number(g.quota) || 0), 0);
 var itemKey = (s2) => s2.trim().toLowerCase().replace(/\s+/g, "_");
+var countOneTime = (ctx, key) => ctx.plugin.store.update(ctx.plugin.store.path(FILES.daily), (f) => {
+  if (f.one_time === void 0) return;
+  const list5 = (Array.isArray(f.one_time) ? f.one_time : f.one_time ? [f.one_time] : []).map(String);
+  if (!list5.includes(key)) f.one_time = [...list5, key];
+});
 var groupSheet = (ctx, gs, i) => {
   const g = gs[i];
   new FormSheet(ctx.app, {
@@ -12541,7 +12577,7 @@ var logPage = {
     if (key.startsWith("amt:") || key.startsWith("amt1:")) return dayAmountPage(ctx, key);
     if (key === "items") return itemsPage(ctx);
     if (key.startsWith("items:")) return itemGroupPage(ctx, Number(key.slice(6)));
-    const { monthPath, month, days, plan, inc, daily, fixed, M } = store.monthData(sel.year, sel.month);
+    const { monthPath, month, days, plan, inc, daily, fixed, oneTime, M } = store.monthData(sel.year, sel.month);
     const gotoMonth = (y, m) => {
       ctx.plugin.logMonth = { year: y, month: m };
       ctx.goTab("log");
@@ -12606,7 +12642,7 @@ var logPage = {
     const tq = M.budget.reduce((s2, x2) => s2 + x2.quota, 0), ts = M.budget.reduce((s2, x2) => s2 + x2.spent, 0);
     if (isNow) {
       const todayLog = days.find((d) => d.name === today());
-      const spentToday = todayLog ? spentOnDay(todayLog.fm) : 0;
+      const spentToday = todayLog ? spentOnDay(todayLog.fm, countsAs(daily.flatMap((b2) => b2.spending), oneTime)) : 0;
       const perDay = Math.max(0, tq - ts + spentToday) / Math.max(1, daysLeft);
       reads(top0, [[t("cSpentToday"), "log-r1", num(spentToday)], [t("cLeftToday"), "log-r2", num(Math.round(perDay - spentToday))]]);
     } else reads(top0, [[t("cMonth"), "log-r1", t("cClosed")], [t("saved"), "log-r2", num(M.saved)]]);
