@@ -8,7 +8,8 @@ const BLANK = "\u00a0";
 const NUM = [BLANK, ..."0123456789"];
 const TXT = [BLANK, ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ", ..."0123456789"];
 // Readability redesign: a field is a fixed row of `pad` tiles; the ones not used yet are dark blanks (BLANK), so the width never
-// jumps and the digit count shows. A leading + / − is drawn as bars on the tiles' seam in the loud colour (class sg), not a glyph.
+// jumps and the digit count shows. A leading + / − is painted on its own card (class sg, CSS: the bar just under the seam gap,
+// the + upright through it; owner's reference, 2026-11-17), not a font glyph.
 const isSign = (c: string) => c === "+" || c === "-" || c === "\u2212";
 // Pace: every tile reaches its target in ROLL ms however many cards it passes (its cards share the time, the landing card takes
 // 2.2 shares), tiles start STAGGER ms apart, so the tile that starts first also finishes first. Each hand-off between cards
@@ -169,12 +170,12 @@ export class Flap {
         while (this.el.children.length < text.length) this.el.insertBefore(this.mk(), this.el.firstChild);   // new tiles: blank cards
         const tiles = (Array.from(this.el.children) as HTMLElement[]).map((t) => TILES.get(t)!);
         const n = text.length, fromLeft = dir === "del" || !this.leansRight();
-        const tile = this.el.hasClass("is-xs"), still = calm(), punct = (c: string) => c === " " || (!tile && isSign(c));
+        const still = calm(), punct = (c: string) => c === " " || isSign(c);
         const now = performance.now();
         let order = 0;
         for (let k = 0; k < n; k++) {
             const i = fromLeft ? k : n - 1 - k, x = tiles[i], ch = text[i];
-            // spaces and a big field's sign bars are not cards: they just show
+            // spaces and signs just show (a sign is painted, not a card face that can turn)
             if (still || punct(ch) || punct(x.shown)) { window.clearTimeout(x.wait); x.gen++; x.rolling = false; x.target = ch; this.show(x, ch); continue; }
             if (x.target === ch && (x.rolling || x.shown === ch)) continue;
             x.target = ch;

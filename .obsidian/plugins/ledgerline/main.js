@@ -5488,7 +5488,7 @@ var Flap = class {
     while (this.el.children.length < text2.length) this.el.insertBefore(this.mk(), this.el.firstChild);
     const tiles = Array.from(this.el.children).map((t2) => TILES.get(t2));
     const n = text2.length, fromLeft = dir === "del" || !this.leansRight();
-    const tile = this.el.hasClass("is-xs"), still = calm(), punct = (c) => c === " " || !tile && isSign(c);
+    const still = calm(), punct = (c) => c === " " || isSign(c);
     const now = performance.now();
     let order = 0;
     for (let k = 0; k < n; k++) {

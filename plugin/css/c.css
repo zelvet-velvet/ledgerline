@@ -4,7 +4,11 @@
     --zl-paper: #ECE9E1; --zl-ink: #1C1B19; --zl-mut: #6D6A63; --zl-dim: #D5D1C7; --zl-loud: #E8461F; --zl-on-loud: #F6F3EC;
     /* split-flap cards: the same in light and dark mode (owner, 2026-11-06), the dark-mode cards; only the page around them changes */
     --zl-tile: #121214; --zl-tile-fg: #E6E3DC; --zl-tile-hot: #FF5C38; --zl-tile-mut: #96969B; --zl-tile-seam: #3A3A40;
-    --zl-tile-lt: #3E3E45; --zl-tile-lt-fg: #E6E3DC; --zl-tile-lt-hot: #FF6E4D; --zl-tile-lt-seam: #57575F;   /* light tiles: your return */
+    /* the card as a real split-flap (owner's reference, 2026-11-17): each half shaded lighter toward the split, the split a dark
+       gap with a faint lip under it, steel hinge pins at both edges */
+    --zl-tile-top: linear-gradient(to bottom, #121214, #1D1D21); --zl-tile-bot: linear-gradient(to bottom, #19191C, #0E0E10);
+    --zl-tile-gap: #040405; --zl-tile-lip: rgba(255, 255, 255, .07);
+    --zl-tile-pin: linear-gradient(to bottom, #222226, #4E4E54 30%, #8A8A90 50%, #46464C 70%, #222226);
     --zl-mb: #A86A00; --zl-ma60: #2D6C8C;   /* chart lines MB 20 and MA60: their own colours, never loud (owner, 2026-11-05) */
     /* market mode's chart-only colours (owner picked Malachite / Coral, 2026-11-09): up, down, mark; tiles get a brighter pair */
     --zl-up: #126B55; --zl-down: #C9503B; --zl-mark: #2E5E73; --zl-tile-up: #45D6AC; --zl-tile-down: #FF8068;
@@ -86,40 +90,46 @@ body :is(.zl-app, .zl-sheet-host) button:not(.clickable-icon):not(.zl-pill) { bo
 .zl-reads { margin-top: 12px; padding: 4px 0; border-top: 1px solid var(--zl-dim); border-bottom: 1px solid var(--zl-dim); }
 .zl-read { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 0; }
 .zl-read-k { font: 400 12px var(--zl-pixel); color: var(--zl-muted); letter-spacing: .04em; text-transform: uppercase; }
-.zl-flap { display: inline-flex; gap: 3px; }
-.zl-flap .t { position: relative; display: block; perspective: 260px; --r: 4px; }
+/* ONE card at every size (owner, 2026-11-17: "all the same, only the size different"): a size sets only the card's width
+   (--cw); height, type, corners, the split, the pins, the gap between cards and the sign all follow from it */
+.zl-flap { --cw: 22px; display: inline-flex; gap: max(2px, round(calc(var(--cw) * .07), 1px)); }
+.zl-flap.is-xs { --cw: 14px; }    /* change lines */
+.zl-flap.is-md { --cw: 22px; }    /* readouts */
+.zl-flap.is-lg { --cw: 42px; }    /* summaries */
+.zl-flap.is-xl { --cw: 48px; }    /* a chart page's price */
+.zl-flap.is-amt { --cw: 54px; }   /* the pad */
+.zl-flap .t { position: relative; display: block; width: var(--cw); height: round(calc(var(--cw) * 1.74), 1px);
+    perspective: calc(var(--cw) * 4.5); --r: round(calc(var(--cw) * .12), 1px);
+    --pin: max(1px, round(calc(var(--cw) * .08), 1px)); --gapw: max(1px, round(calc(var(--cw) * .04), 1px)); }
+.zl-flap .t i { font: 400 round(calc(var(--cw) * 1.3), 1px) var(--zl-disp); }
 /* one card turns as one piece (ui/flap.ts): st / sb the halves at rest (top shows the next character during a turn, bottom the
    old one until the card lands), lf the leaf (front fr: old top half, back bk: new bottom half) turning about the seam */
 .zl-flap .t i { position: absolute; left: 0; right: 0; height: 50%; overflow: hidden; display: block; font-style: normal; background: var(--zl-tile); color: var(--zl-tile-fg); }
-.zl-flap .t .st, .zl-flap .t .fr { top: 0; border-radius: var(--r) var(--r) 0 0; }
-.zl-flap .t .sb { bottom: 0; border-radius: 0 0 var(--r) var(--r); }
+.zl-flap .t .st, .zl-flap .t .fr { top: 0; border-radius: var(--r) var(--r) 0 0; background-image: var(--zl-tile-top); }
+.zl-flap .t .sb { bottom: 0; border-radius: 0 0 var(--r) var(--r); background-image: var(--zl-tile-bot); }
+.zl-flap .t .bk { background-image: var(--zl-tile-bot); }
 .zl-flap .t em { position: absolute; left: 0; right: 0; height: 200%; display: grid; place-items: center; font-style: normal; }
 .zl-flap .t .st em, .zl-flap .t .fr em { top: 0; }
 .zl-flap .t .sb em, .zl-flap .t .bk em { bottom: 0; }
 .zl-flap .t u { display: block; text-decoration: none; line-height: 1; text-box: trim-both cap alphabetic; }
-.zl-flap .t u.sym { font-size: .6em; }   /* % smaller than the digits on the big cards */
-.zl-flap.is-md .t u.sym, .zl-flap.is-xs .t u.sym { font-size: .8em; }   /* small tiles: .6 was too small to read */
+.zl-flap .t u.sym { font-size: .82em; transform: scaleX(.66); }   /* % nearly a digit's height and condensed to a digit's width, as on a real board (owner's reference, 2026-11-17) */
 .zl-flap .t .lf { position: absolute; left: 0; right: 0; top: 0; height: 50%; transform-origin: 50% 100%; transform-style: preserve-3d; z-index: 2; visibility: hidden; will-change: transform; }
 .zl-flap .t .lf i { top: 0; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
 .zl-flap .t .bk { transform: rotateX(180deg); border-radius: 0 0 var(--r) var(--r); }
 .zl-flap .t .sh { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; }
 .zl-flap .t .dr { position: absolute; left: 0; right: 0; bottom: 0; height: 50%; z-index: 1; opacity: 0; pointer-events: none; border-radius: 0 0 var(--r) var(--r);
     background: linear-gradient(to bottom, rgba(0,0,0,.55), rgba(0,0,0,0) 75%); }
-@supports not (text-box: trim-both cap alphabetic) { .zl-flap.is-md u { margin-top: -.1em; } .zl-flap.is-xl u, .zl-flap.is-amt u, .zl-flap.is-lg u { margin-top: -.17em; } }
-.zl-flap .t::after { content: ""; position: absolute; left: 0; right: 0; top: calc(50% - .5px); height: 1px; background: var(--zl-tile-seam); z-index: 3; }   /* the seam: a lighter line (owner, 2026-11-06) */
-.zl-flap .t.sp { width: 10px !important; }
-.zl-flap .t.sp i, .zl-flap .t.sp::after, .zl-flap .t.sp .dr { display: none; }
+@supports not (text-box: trim-both cap alphabetic) { .zl-flap u { margin-top: -.17em; } }
+/* the split: a dark gap, a faint lip on the bottom card under it */
+.zl-flap .t::after { content: ""; position: absolute; left: 0; right: 0; top: calc(50% - var(--gapw) / 2); height: calc(var(--gapw) + 1px); z-index: 3;
+    background: linear-gradient(to bottom, var(--zl-tile-gap) calc(100% - 1px), var(--zl-tile-lip) 0); }
+/* the hinge pins: a short steel tab at each edge of the split, 1 px proud of the card */
+.zl-flap .t::before { content: ""; position: absolute; left: -1px; right: -1px; top: 37%; height: 26%; z-index: 4; pointer-events: none;
+    background: var(--zl-tile-pin) left / var(--pin) 100% no-repeat, var(--zl-tile-pin) right / var(--pin) 100% no-repeat; }
+.zl-flap .t.sp { width: round(calc(var(--cw) * .45), 1px) !important; }
+.zl-flap .t.sp i, .zl-flap .t.sp::after, .zl-flap .t.sp::before, .zl-flap .t.sp .dr { display: none; }
 .zl-flap .t.c i { background: none; color: var(--zl-text); }
-.zl-flap .t.c::after { display: none; }
-.zl-flap.is-md .t { width: 26px; height: 38px; }
-.zl-flap.is-md i { font: 600 22px var(--zl-ui); }
-.zl-flap.is-md .t.c { width: 10px; }
-.zl-flap.is-xl .t { width: 48px; height: 84px; }
-.zl-flap.is-xl i { font: 400 62px var(--zl-disp); }
-.zl-flap.is-xl .t.c { width: 16px; }
-.zl-flap.is-amt .t { width: 54px; height: 96px; perspective: 160px; }
-.zl-flap.is-amt i { font: 400 72px var(--zl-disp); }
-.zl-flap.is-amt .t.c { width: 18px; }
+.zl-flap .t.c::after, .zl-flap .t.c::before { display: none; }
 
 /* ---- section heads, waffle, budget rows, ruled figures */
 .zl-app .zl-sec { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 8px; padding: 0; text-align: left; font: 400 12px var(--zl-pixel); letter-spacing: .06em; color: var(--zl-text); }
@@ -411,9 +421,6 @@ body.zl-calm .zl-in, body.zl-calm .zl-grow rect { animation: none; }
 .zl-app .zl-fig.is-dim .zl-fig-ic { color: var(--zl-muted); }
 /* the summary number of a detail page: split-flap tiles (xl, lg for 7 characters, md beyond); loud tiles when it costs you */
 .zl-sum-flap { display: flex; margin: 4px 0 0; }
-.zl-flap.is-lg .t { width: 42px; height: 72px; }
-.zl-flap.is-lg i { font: 400 52px var(--zl-disp); }
-.zl-flap.is-lg .t.c { width: 14px; }
 .zl-sum-flap.is-hot .zl-flap .t i { color: var(--zl-tile-hot); }
 .zl-sum-flap.is-dim .zl-flap .t i { color: var(--zl-tile-mut); }
 .zl-amt-note { margin-top: 12px; }
@@ -628,17 +635,30 @@ body.zl-calm .zl-bubble, body.zl-calm .zl-bubble-v.is-tick { animation: none; }
 .zl-fig-k { font: 400 14px var(--zl-ui); letter-spacing: 0; }
 .zl-fig-main .zl-fig-k { font-size: 15px; }
 .zl-flap .t.bl em { visibility: hidden; }
-/* a leading + / − sits on a blank tile of its own (owner, 2026-11-09), drawn as loud bars on the seam, never a glyph */
-.zl-flap .t.sg .dr { display: none; }
-.zl-flap:not(.is-xs) .t.sg em { visibility: hidden; }
-.zl-flap:not(.is-xs) .t.sg .st { box-shadow: inset 0 -1px 0 var(--zl-tile-seam); }   /* the seam: ::after draws the plus bar */
-.zl-flap .t.sg { --len: 14px; --bar: 3px; }
-.zl-flap .t.sg::before, .zl-flap .t.sg.is-plus::after { content: ""; position: absolute; left: 50%; top: 50%; right: auto; width: var(--len); height: var(--bar); background: var(--zl-loud); transform: translate(-50%, -50%); z-index: 4; }
-.zl-flap .t.sg::after { display: none; }
-.zl-flap .t.sg.is-plus::after { display: block; width: var(--bar); height: var(--len); }
-.zl-flap.is-lg .t.sg { --len: 24px; --bar: 5px; }
-.zl-flap.is-xl .t.sg { --len: 28px; --bar: 6px; }
-.zl-flap.is-amt .t.sg { --len: 30px; --bar: 6px; }
+/* a leading + / − sits on a tile of its own (owner, 2026-11-09), painted on the card's halves, drawn from the owner's board
+   reference (2026-11-17). Sized from the card's width (--cw), so it keeps its look at every size, the small tiles too:
+   - the bar (the − and the +'s crossbar) about .72 of the card wide, the stroke about .13 of it (a digit stem's weight),
+     whole pixels so the bars stay sharp;
+   - the bar right under the split, in the same place for + and −, so the gap never cuts a horizontal stroke and nothing moves
+     but the upright when a number turns from up to down;
+   - the + upright through the split like a digit's stem, its arms above and below the bar alike.
+   Painted in the text colour (loud on the big fields) over the card's own shading. !important: background shorthands elsewhere would wipe it */
+.zl-flap .t.sg em { visibility: hidden; }
+.zl-flap .t.sg i {
+    --ws: round(calc(var(--cw) * .72), 2px); --ss: max(2px, round(calc(var(--cw) * .13), 1px));
+    --top: calc(var(--gapw) / 2 + 1px);                            /* the bar's top edge in the bottom half: just past the gap's lip */
+    /* the + upright above the split: the arm above the bar about .36 of the bar's width, as on the reference; below the bar it
+       reaches as far as above */
+    --up: round(calc(var(--ws) * .36 - var(--top) + 1px), 1px);
+}
+.zl-flap .t.sg .sb { background-image: linear-gradient(currentColor, currentColor), var(--zl-tile-bot) !important; background-repeat: no-repeat !important;
+    background-size: var(--ws) var(--ss), 100% 100% !important; background-position: 50% var(--top), 0 0 !important; }
+.zl-flap .t.sg.is-plus .sb { background-image: linear-gradient(currentColor, currentColor), linear-gradient(currentColor, currentColor), var(--zl-tile-bot) !important;
+    background-size: var(--ws) var(--ss), var(--ss) calc(2 * var(--top) + var(--ss) + var(--up)), 100% 100% !important;
+    background-position: 50% var(--top), 50% 0, 0 0 !important; }
+.zl-flap .t.sg.is-plus .st { background-image: linear-gradient(currentColor, currentColor), var(--zl-tile-top) !important; background-repeat: no-repeat !important;
+    background-size: var(--ss) var(--up), 100% 100% !important; background-position: 50% 100%, 0 0 !important; }
+.zl-flap .t.sg i { color: var(--zl-loud); }
 .zl-page.zl-c-stack:not(.zl-has-bar) { justify-content: space-between; }
 .zl-app .zl-bline { width: 100%; height: auto; display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 6px 0; border: 0; background: none; color: var(--zl-text); text-align: left; }
 .zl-app .zl-bline:active { background: var(--zl-dim); }
@@ -988,9 +1008,6 @@ body.zl-calm .zl-fl-svg.is-light .zl-fl-bar { animation: none; }
 @keyframes zl-blk-out { to { opacity: 0; } }
 body.zl-calm .zl-live.is-on::before, body.zl-calm .zl-tickc { animation: none; }
 .zl-chg-k { font: 400 9px var(--zl-pixel); color: var(--zl-mut); letter-spacing: .04em; text-transform: uppercase; }
-.zl-chg.is-ret .zl-flap .t i { background: var(--zl-tile-lt); color: var(--zl-tile-lt-fg); font-weight: 700; }
-.zl-chg.is-ret.is-hot .zl-flap .t i { color: var(--zl-tile-lt-hot); }
-.zl-chg.is-ret .zl-flap .t::after, .zl-chg.is-ret .zl-flap.is-xs .t.sg::after { background: var(--zl-tile-lt-seam); }
 .zl-qrow, .zl-cell { touch-action: pan-y; }
 /* MANUAL watchlist: the grip drags a row (Settings' tab order); the others slide aside, nothing slides on the drop */
 .zl-app .zl-qrow .zl-qrow-grip { touch-action: none; cursor: grab; color: var(--zl-muted); }
@@ -1023,21 +1040,8 @@ body.zl-calm .zl-live.is-on::before, body.zl-calm .zl-tickc { animation: none; }
 .zl-qrow-c { grid-column: 4; grid-row: 1; justify-self: end; margin: 0; }
 .zl-qrow-c.is-none { min-height: 20px; }
 .zl-app .zl-fig.zl-qrow.is-dim .zl-qrow-k, .zl-app .zl-fig.zl-qrow.is-dim .zl-qrow-v { color: var(--zl-muted); }
-/* xs split-flap: the change line (lists and Invest home cells). Same proportions as the big tiles (about 4 : 7, owner
-   2026-11-04), and the + / − sits on a tile of its own like the digits (no bars) */
-.zl-flap.is-xs { gap: 2px; }
-.zl-flap.is-xs .t { width: 14px; height: 24px; perspective: 120px; }
-.zl-flap.is-xs i { font: 600 14px var(--zl-ui); }
-.zl-flap.is-xs .t { --r: 2px; }
-.zl-flap.is-xs .t.c { width: 7px; }
-.zl-flap.is-xs .t.sg { width: 14px !important; }
-.zl-flap.is-xs .t.sg i { display: block; }
-.zl-flap.is-xs .t.sg::before { display: none; }
-.zl-flap.is-xs .t.sg::after, .zl-flap.is-xs .t.sg.is-plus::after { display: block; left: 0; right: 0; top: calc(50% - .5px); width: auto; height: 1px; background: var(--zl-tile-seam); transform: none; }   /* the seam, as on every tile */
 .zl-chg.is-hot .zl-flap .t i { color: var(--zl-tile-hot); }
 .zl-cell-s.zl-chg { align-self: flex-end; }
-/* the + / − sit just above the tile's seam, so the seam gap does not cut through their bar (owner, 2026-11-04) */
-.zl-flap.is-xs .t.sg u { transform: translateY(-2px); }
 /* Chinese inside a display title: a heavy CJK face, a little smaller and lifted, so its height matches Anton's capitals */
 .zl-cjk { font-family: "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", "Heiti TC", sans-serif; font-weight: 900; font-size: .8em; letter-spacing: .02em; position: relative; top: -.04em; text-transform: none; }
 /* one pressed look for everything that opens something (rows, cells, a head's ALL ›): a dim block under it, 4 px past its
@@ -1150,8 +1154,8 @@ body.zl-calm .zl-lastp.is-loading .zl-flap .t, body.zl-calm .zl-lastp.is-loading
 .zl-down { color: var(--zl-down); }
 .zl-flap.is-up .t i { color: var(--zl-tile-up); }
 .zl-flap.is-down .t i { color: var(--zl-tile-down); }
-.zl-flap.is-up:not(.is-xs) .t.sg::before, .zl-flap.is-up:not(.is-xs) .t.sg.is-plus::after { background: var(--zl-tile-up); }   /* small tiles: the sign is a glyph */
-.zl-flap.is-down:not(.is-xs) .t.sg::before { background: var(--zl-tile-down); }
+.zl-flap.is-up .t.sg i { color: var(--zl-tile-up); }
+.zl-flap.is-down .t.sg i { color: var(--zl-tile-down); }
 .zl-read-kk { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .zl-read-s { font: 400 12px var(--zl-ui); color: var(--zl-muted); }
 /* the market card: index tabs, the index and today's %, then the ticker chart (no tools, no volume) taking the room left */

@@ -54,7 +54,7 @@ export const findAct = (x: X, el: HTMLElement) => ({ icon: "search", label: t("i
 
 // The change line (owner, 2026-11-04, like Apple's Stocks): a sideways swipe on a row switches every one on the page together, today's % → today's
 // price change → (holdings) your profit; remembered on the device. Watchlist tickers stop at the price change.
-// t = the texts per kind, hot = down, k = its label, ret = your return (not today's move: its own tile colour)
+// t = the texts per kind, hot = down, k = its label, ret = your return (not today's move; same card as every flap since 2026-11-17)
 // tk / re: the ticker and how to work it out again (a new quote changes the line in place)
 export interface Chg { t: string[]; hot: boolean[]; k: string[]; ret: boolean[]; tk?: string; re?: () => Chg }
 export const CHG_KEY = "ledgerline-chg";
