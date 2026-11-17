@@ -31,3 +31,27 @@ test("no repayment set: falls back to the plan amount", () => {
     const { repayment, ...rest } = cfg;
     assert.equal(computeDebt(rest, 3000, [], now).repayment, 3000);
 });
+
+// Owner, 2026-11-17: what is still to pay back includes the interest since repayment started
+const running = { initial_principal: 120000, interest_rate: 0.12, start_date: "2026-01-15", payments: [{ date: "2026-02-01", amount: 20000 }] };
+test("interest is charged each month after the start on what is owed then", () => {
+    const d = computeDebt(running, 0, [], new Date(2026, 3, 20));
+    // Feb 15: 100,000 × 1% = 1,000; Mar 15: 101,000 → 1,010; Apr 15: 102,010 → 1,020
+    assert.equal(d.interest, 3030);
+    assert.equal(d.balance, 103030);
+    assert.equal(d.progress.toFixed(2), (20000 / 123030 * 100).toFixed(2));
+});
+test("no interest before the start, and none on the start day itself", () => {
+    assert.equal(computeDebt(running, 0, [], new Date(2026, 0, 10)).interest, 0);
+    assert.equal(computeDebt(running, 0, [], new Date(2026, 1, 14)).interest, 0);
+    assert.equal(computeDebt({ ...running, payments: [] }, 0, [], new Date(2026, 1, 15)).interest, 1200);
+});
+test("a start on the 31st charges on each month's last day", () => {
+    const d = computeDebt({ initial_principal: 12000, interest_rate: 0.12, start_date: "2026-01-31" }, 0, [], new Date(2026, 1, 28));
+    assert.equal(d.interest, 120);
+});
+test("a loan paid off stops charging", () => {
+    const d = computeDebt({ ...running, payments: [{ date: "2026-01-20", amount: 120000 }] }, 0, [], new Date(2026, 5, 1));
+    assert.equal(d.interest, 0);
+    assert.equal(d.balance, 0);
+});

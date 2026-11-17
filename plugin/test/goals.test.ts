@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildGoals, doneBy, monthsTo, trackFund } from "../src/calc/goals";
+import { buildGoals, doneBy, lineHeld, monthsTo, planSaved, trackFund } from "../src/calc/goals";
 
 const fm = {
     funds: [{ key: "t", label: "Trip" }, { key: "e", label: "Rainy" }],
@@ -41,4 +41,35 @@ test("done by: the month every goal is covered", () => {
     assert.equal(doneBy(trip, 2000, "2026-11-05"), "2028-01");   // 28,000 left / 2,000 = 14 months
     assert.equal(doneBy(trip, 0, "2026-11-05"), "");
     assert.equal(doneBy(G.funds[1], 1000, "2026-11-05"), "");   // no goals
+});
+
+// Owner, 2026-11-17: Accounts is the truth for "saved", the plan is the pace
+test("a fund with an account: saved is its balance, goals fill from balance + what they paid out", () => {
+    const cfg = { funds: [{ key: "t", label: "Trip" }], goals: [{ name: "Japan", fund: "t", goal: 30000, target_date: "2027-04-01", expenses: [{ item: "Flights", amount: 14800, date: "2026-10-12" }] }] };
+    const f = buildGoals(cfg, () => 9000, () => 6200).funds[0];
+    assert.equal(f.saved, 6200);          // what the account holds now
+    assert.equal(f.collected, 21000);     // 6,200 + the 14,800 the flights took from it
+    assert.equal(f.goals[0].alloc, 21000);
+    assert.equal(f.goals[0].cash, 6200);
+    assert.equal(f.behind, 0);
+    assert.equal(f.fromAccounts, true);
+});
+test("an account short of the plan says how far behind", () => {
+    const G = buildGoals({ funds: [{ key: "e", label: "Rainy" }], goals: [{ name: "Cushion", fund: "e", goal: 20000 }] }, () => 9000, () => 3000);
+    assert.equal(G.funds[0].behind, 6000);
+    assert.equal(G.goals[0].alloc, 3000);
+    assert.equal(G.remaining, 17000);
+    assert.equal(G.totalSaved, 3000);
+});
+test("no account: the plan is what was collected, saved is that minus what goals paid out", () => {
+    const cfg = { funds: [{ key: "t", label: "Trip" }], goals: [{ name: "Japan", fund: "t", goal: 30000, expenses: [{ item: "Flights", amount: 1000, date: "2026-10-12" }] }] };
+    const f = buildGoals(cfg, () => 9000).funds[0];
+    assert.deepEqual([f.collected, f.saved, f.behind, f.fromAccounts], [9000, 8000, 0, false]);
+});
+test("plan amounts and line balances", () => {
+    const months = [{ fm: { t: 2000 } }, { fm: {} }, { fm: { t: "1500.4" } }];
+    assert.equal(planSaved(months, { t: 1000 }, "t"), 4500);
+    const acc = [{ line: "t", balance: 400 }, { line: "t", balance: 100 }, { line: "", balance: 9 }];
+    assert.equal(lineHeld(acc, "t"), 500);
+    assert.equal(lineHeld(acc, "x"), null);
 });

@@ -1,6 +1,6 @@
 import { Notice } from "obsidian";
 import { buildAccounts } from "../calc/accounts";
-import { buildGoals, doneBy, Expense, findExpense, Fund, Goal, Goals, Track, trackFund } from "../calc/goals";
+import { buildGoals, doneBy, Expense, findExpense, Fund, Goal, Goals, lineHeld, planSaved, Track, trackFund } from "../calc/goals";
 import { FILES, FM } from "../data/store";
 import { num, parseNum, shortDate, today } from "../format";
 import { t } from "../i18n";
@@ -22,9 +22,9 @@ export const goalsPage: PageDef = {
         const CFG = store.path(FILES.goals);
         const plan = store.fm(store.path(FILES.savings)) ?? {};
         const months = store.monthNotes();
-        // a fund's savings: every month note's own amount, else the plan default
-        const savedOf = (key: string) => months.reduce((s, m) => s + (Number(m.fm[key] !== undefined ? m.fm[key] : plan[key]) || 0), 0);
-        const G = buildGoals(store.fm(CFG), savedOf);
+        // what a fund holds: its accounts (Accounts › line); the plan's amounts are the pace, and the fallback with no account
+        const A = buildAccounts(store.fm(store.path(ACCOUNTS_FILE)));
+        const G = buildGoals(store.fm(CFG), (key) => planSaved(months, plan, key), (key) => lineHeld(A.list, key));
 
         const updateGoal = (name: string, fn: (g: FM) => void) => store.update(CFG, (f) => {
             const g = (Array.isArray(f.goals) ? (f.goals as FM[]) : []).find((x) => x.name === name);
@@ -138,7 +138,7 @@ export const goalsPage: PageDef = {
         if (ctx.frame.key.startsWith("account:")) { const o = accountPage(ctx, ctx.frame.key.slice(8)); if (o) return o; }
         // redesign S: each fund's monthly amount and whether its goals are on track (calc/goals trackFund)
         const now = today();
-        const S: Ctx = { G, cur, now, monthly: new Map(), track: new Map(), A: buildAccounts(store.fm(store.path(ACCOUNTS_FILE))) };
+        const S: Ctx = { G, cur, now, monthly: new Map(), track: new Map(), A };
         for (const f of G.funds) {
             const m = store.allocation(f.key).amount;
             S.monthly.set(f.key, m);
@@ -184,6 +184,7 @@ const fundTile = (ctx: PageCtx, S: Ctx, f: Fund) => ({ icon: fundIcon(f), k: f.l
 const fundLine = (S: Ctx, f: Fund) => {
     const m = t("gAMonth", { n: num(S.monthly.get(f.key) ?? 0) });
     const next = f.goals.find((g) => g.pct < 100), ft = fundTarget(S, f);
+    if (f.behind > 0) return `${m} · ${t("gBehind", { n: num(f.behind) })}`;
     return next ? `${m} · ${t("gNext", { name: next.name, date: next.target ? shortDate(next.target) : "" }).trim()}`
         : f.goals.length ? `${m} · ${t("gAllDone").toLowerCase()}`
         : ft ? `${m} · ${t("gTargetPct", { target: num(ft), pct: Math.floor((f.saved / ft) * 100) })}` : `${m} · ${t("gNoGoalYet")}`;
@@ -200,7 +201,7 @@ const firstPage = (ctx: PageCtx, S: Ctx, newGoal: () => void): PageOut => {
     const target = G.funds.reduce((s, f) => s + (f.goals.length ? f.target : fundTarget(S, f)), 0);
     const monthly = G.funds.reduce((s, f) => s + (S.monthly.get(f.key) ?? 0), 0);
     homeTop(el, {
-        key: "goals", value: num(G.totalSaved), label: t("cSaved", { cur }), right: target > 0 ? t("cOfTarget", { n: Math.floor((G.totalSaved / target) * 100) }) : undefined,
+        key: "goals", value: num(G.totalSaved), label: t("cSaved", { cur }), right: target > 0 ? t("cOfTarget", { n: Math.floor((G.collected / target) * 100) }) : undefined,
         reads: [[t("gEachMonth"), num(monthly)], [t("remainingGoal"), num(G.remaining)]],
     });
     const fab = { icon: "plus", text: t("newGoal").toUpperCase(), label: t("newGoal"), onTap: newGoal };
@@ -240,7 +241,7 @@ const fundPage = (ctx: PageCtx, f: Fund, S: Ctx, newGoal: () => void): PageOut =
     const monthly = S.monthly.get(f.key) ?? 0;
     const ft = f.goals.length ? f.target : fundTarget(S, f);
     const done = doneBy(f, monthly, S.now);
-    summary(el, { key: "fund-" + f.key, label: t("savedSoFar"), value: num(f.saved), items: [[f.goals.length ? t("gGoalTotal") : t("cTarget"), ft > 0 ? num(ft) : "-"], [t("remainingGoal"), ft > 0 ? num(Math.max(0, ft - f.saved)) : "-"], [t("gDoneBy"), !f.goals.length ? "-" : f.saved >= f.target ? t("gAllDone") : done ? monthName(done) : t("gNever")]] });
+    summary(el, { key: "fund-" + f.key, label: t("savedSoFar"), value: num(f.saved), items: [[f.goals.length ? t("gGoalTotal") : t("cTarget"), ft > 0 ? num(ft) : "-"], [t("remainingGoal"), ft > 0 ? num(Math.max(0, ft - f.collected)) : "-"], [t("gDoneBy"), !f.goals.length ? "-" : f.collected >= f.target ? t("gAllDone") : done ? monthName(done) : t("gNever")]] });
     const g = h(el, "div", "zl-c-group");
     figures(g, [{ icon: fundIcon(f), k: t("monthlyAmount").toUpperCase(), s: t("fromSavingsPlan"), v: num(monthly), onTap: () => editAllocation(ctx, f.key, `${f.label}: ${t("monthlyAmount").toLowerCase()}`) }]);
     const gg = h(el, "div", "zl-c-group");

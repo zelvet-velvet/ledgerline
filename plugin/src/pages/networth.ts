@@ -1,5 +1,5 @@
 import { computeDebt } from "../calc/debt";
-import { buildGoals } from "../calc/goals";
+import { buildGoals, lineHeld, planSaved } from "../calc/goals";
 import { buildAccounts } from "../calc/accounts";
 import { buildPortfolio, investCash } from "../calc/invest";
 import { ACCOUNTS_FILE } from "./accounts";
@@ -13,7 +13,7 @@ import { h, page } from "../ui";
 import { figures, sec, summary } from "../ui/c";
 import type { PageCtx, PageOut } from "./index";
 
-// 4c Net worth: what the other tabs hold, added up. Funds (saved minus paid out for goals), investments (worth now plus cash
+// 4c Net worth: what the other tabs hold, added up. Funds (what their accounts hold; with no account, saved by the plan minus paid out for goals), investments (worth now plus cash
 // not yet invested), the loan's savings during the grace period, friends (owed to you minus what you owe), minus the debt.
 // No bank balance is tracked: spending money of the month is not in it.
 export interface NetPart { key: TabId; label: string; value: number }
@@ -22,17 +22,17 @@ export const netWorth = (plugin: LedgerlinePlugin): { parts: NetPart[]; total: n
     const cur = settings.baseCurrency;
     const plan = store.fm(store.path(FILES.savings)) ?? {};
     const months = store.monthNotes();
-    const savedOf = (key: string) => months.reduce((s, m) => s + (Number(m.fm[key] !== undefined ? m.fm[key] : plan[key]) || 0), 0);
-    const G = buildGoals(store.fm(store.path(FILES.goals)), savedOf);
+    const A = buildAccounts(store.fm(store.path(ACCOUNTS_FILE)));
+    const G = buildGoals(store.fm(store.path(FILES.goals)), (key) => planSaved(months, plan, key), (key) => lineHeld(A.list, key));
     const inv = store.fm(store.path(FILES.invest));
     const fb = (inv?.fx_fallback ?? {}) as Record<string, number>;
     const P = buildPortfolio(inv, (tk) => prices.price(tk), (c) => prices.fx(c, cur, fb), "", cur);
     const d = computeDebt(store.fm(store.path(FILES.debt)), Number(plan.student_loan) || 0, store.monthLines("student_loan"), new Date());
     const L = buildLedger(store.fm(store.path(FILES.ledger))?.ledger);
     const parts: NetPart[] = [
-        { key: "goals", label: t("nwFunds"), value: G.totalSaved - G.spent },
-        { key: "invest", label: t("nwInvest"), value: P.value + (investCash(buildAccounts(store.fm(store.path(ACCOUNTS_FILE))).list, P.buckets.map((b) => b.key)) ?? savedOf("investment") - P.bought) },
-        ...(d.exists && d.grace ? [{ key: "debt" as TabId, label: t("nwLoanSavings"), value: d.toInvestment + d.loanPrep }] : []),
+        { key: "goals", label: t("nwFunds"), value: G.totalSaved },
+        { key: "invest", label: t("nwInvest"), value: P.value + (investCash(A.list, P.buckets.map((b) => b.key)) ?? planSaved(months, plan, "investment") - P.bought) },
+        ...(d.exists && d.grace ? [{ key: "debt" as TabId, label: t("nwLoanSavings"), value: lineHeld(A.list, "student_loan") ?? d.toInvestment + d.loanPrep }] : []),
         { key: "ledger", label: t("nwFriends"), value: L.net },
         ...(d.exists ? [{ key: "debt" as TabId, label: t("nwDebt"), value: -d.balance }] : []),
     ];
