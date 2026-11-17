@@ -1674,6 +1674,9 @@ body.zl-calm .zl-lastp.is-loading .zl-flap .t, body.zl-calm .zl-lastp.is-loading
    invisible target (::after); the target grows into the room above a part rather than over the tappable rows under it */
 .zl-app button.zl-sec { position: relative; }
 .zl-app button.zl-sec::after { content: ""; position: absolute; left: 0; right: 0; top: -21px; bottom: -8px; }   /* ALL › / MORE ›: 15 + 21 + 8 */
+/* a link at the foot of a one-screen page (Goals' ACCOUNTS · MORE ›) grows up only: below it there is no room, and a target past
+   the page's foot made the page 3 px too tall, so it scrolled and lost rows to the trim */
+.zl-app .zl-c-stack > .zl-c-group:last-child button.zl-sec::after { top: -29px; bottom: 0; }
 .zl-ch button.zl-ch-link { position: relative; }
 .zl-ch button.zl-ch-link::after { content: ""; position: absolute; left: -4px; right: -4px; top: -16px; bottom: -15px; }   /* FULL CHART › */
 .zl-app .zl-acts .zl-btn.is-text { position: relative; }
