@@ -398,7 +398,7 @@ const en = {
     dSaved: "Saved for it so far",
     dSavedSub: "Loan details",
     dInterest: "Interest so far",
-    dInterestSub: "Since repayment started, in what is left",
+    dInterestSub: "Since repayment started",
     dPayments: "Payments",
     cPaid: "Paid",
     cPaidTotal: "Paid so far",

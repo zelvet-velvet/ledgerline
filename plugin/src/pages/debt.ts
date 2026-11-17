@@ -188,7 +188,7 @@ const loan = (ctx: PageCtx, d: Debt, money: (n: number) => string, a: FirstActio
         ...(d.interest > 0 ? [{ icon: "percent", k: t("dInterest").toUpperCase(), s: t("dInterestSub"), v: money(d.interest) }] : []),
         { icon: "log", k: (d.grace || !d.start ? t("repaymentStarts") : t("repayingSince")).toUpperCase(), s: d.grace ? t("inDaysShort", { d: d.daysUntilStart }) : undefined, v: d.start ? shortDate(d.start) : t("notSet"), onTap: a.editStart },
     ];
-    if (d.grace) list.push({ icon: "swap", k: t("graceSplit").toUpperCase(), v: `${num(d.toInvestment)} · ${num(d.loanPrep)}` });
+    if (d.grace) list.push({ icon: "swap", k: t("graceSplit").toUpperCase(), s: t("fromSavingsPlan"), v: `${num(d.toInvestment)} · ${num(d.loanPrep)}` });
     figures(h(el, "div", "zl-c-group"), list);
     return { title, el, fab: { icon: "plus", text: t("recordPayment").toUpperCase(), label: t("recordPayment"), onTap: a.recordPayment } };
 };

@@ -2781,7 +2781,7 @@ var en = {
   dSaved: "Saved for it so far",
   dSavedSub: "Loan details",
   dInterest: "Interest so far",
-  dInterestSub: "Since repayment started, in what is left",
+  dInterestSub: "Since repayment started",
   dPayments: "Payments",
   cPaid: "Paid",
   cPaidTotal: "Paid so far",
@@ -12014,7 +12014,7 @@ var loan = (ctx, d, money, a) => {
     ...d.interest > 0 ? [{ icon: "percent", k: t("dInterest").toUpperCase(), s: t("dInterestSub"), v: money(d.interest) }] : [],
     { icon: "log", k: (d.grace || !d.start ? t("repaymentStarts") : t("repayingSince")).toUpperCase(), s: d.grace ? t("inDaysShort", { d: d.daysUntilStart }) : void 0, v: d.start ? shortDate(d.start) : t("notSet"), onTap: a.editStart }
   ];
-  if (d.grace) list5.push({ icon: "swap", k: t("graceSplit").toUpperCase(), v: `${num(d.toInvestment)} \xB7 ${num(d.loanPrep)}` });
+  if (d.grace) list5.push({ icon: "swap", k: t("graceSplit").toUpperCase(), s: t("fromSavingsPlan"), v: `${num(d.toInvestment)} \xB7 ${num(d.loanPrep)}` });
   figures(h(el, "div", "zl-c-group"), list5);
   return { title, el, fab: { icon: "plus", text: t("recordPayment").toUpperCase(), label: t("recordPayment"), onTap: a.recordPayment } };
 };
