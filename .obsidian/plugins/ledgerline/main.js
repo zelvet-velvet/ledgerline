@@ -2619,6 +2619,14 @@ var en = {
   fixedExpenses: "Fixed expenses",
   extraExpenses: "Extra expenses",
   paidN: "{n} of {m} paid",
+  cLines: "Lines",
+  cOfPlan: "of {n} planned",
+  cNofM: "{n} of {m}",
+  cPaidS: "Paid",
+  cMarkPaid: "Mark paid",
+  cMarkPaidS: "At its usual {n}",
+  cMarkUnpaid: "Mark not paid",
+  cMarkUnpaidS: "Sets this month back to 0",
   noMonth: "Nothing set up for {month}",
   noMonthSub: "Start a day in this month (or tap a day in Calendar); the month is set up with it.",
   needMonth: "No month note yet for {month}. Start a day in this month first.",
@@ -4267,48 +4275,6 @@ var skeleton = (title) => {
   return p;
 };
 var C = { pos: "var(--zl-pos)", neg: "var(--zl-neg)", info: "var(--zl-info)", warn: "var(--zl-warn)", accent: "var(--zl-accent)", faint: "var(--zl-faint)" };
-var hero = (parent, o) => {
-  const card = h(parent, "div", "zl-hero");
-  h(card, "div", "zl-hero-l", o.label);
-  const v = h(card, "div", "zl-hero-v");
-  const n = h(v, "span", "", o.value);
-  if (o.color) n.style.color = o.color;
-  if (o.unit) h(v, "span", "zl-hero-u", o.unit);
-  if (o.sub) h(card, "div", "zl-hero-s", o.sub);
-  const total = (o.split ?? []).reduce((t2, [n2]) => t2 + Math.max(0, n2), 0);
-  if (total > 0) {
-    const bar = h(card, "div", "zl-prog zl-split");
-    for (const [n2, col] of o.split) {
-      const p = h(bar, "div", "zl-prog-f");
-      p.style.width = `${Math.max(0, n2) / total * 100}%`;
-      p.style.background = col;
-    }
-  }
-  if (o.progress !== void 0) {
-    const bar = h(card, "div", "zl-prog");
-    const fill2 = h(bar, "div", "zl-prog-f");
-    fill2.style.width = `${Math.max(0, Math.min(100, o.progress))}%`;
-    if (o.progressColor) fill2.style.background = o.progressColor;
-  }
-  if (o.items?.length) {
-    const grid2 = h(card, "div", "zl-hero-items");
-    for (const [l, val, col] of o.items) {
-      const it = h(grid2, "div", "zl-hero-it");
-      h(it, "div", "zl-hero-il", l);
-      const x = h(it, "div", "zl-hero-iv", val);
-      if (col) x.style.color = col;
-    }
-  }
-  if (o.button) {
-    const b = o.button;
-    const btn = h(card, "button", "zl-pill zl-hero-btn", b.text);
-    btn.addEventListener("click", (e) => {
-      e.preventDefault();
-      b.onTap();
-    });
-  }
-  return card;
-};
 var empty = (parent, o) => {
   const box = h(parent, "div", "zl-empty");
   icon(box, o.icon, "zl-empty-ic");
@@ -12562,7 +12528,6 @@ var cap2 = (s2) => {
   const x = String(s2).replace(/_/g, " ");
   return x.charAt(0).toUpperCase() + x.slice(1);
 };
-var LEVEL = { ok: C.pos, warn: C.warn, over: C.neg };
 var logPage = {
   id: "log",
   label: "tabLog",
@@ -12780,9 +12745,12 @@ var incomePage = (x) => {
   const { ctx, cur, label, inc } = x;
   const { store } = ctx.plugin;
   const el2 = page(t("income"));
-  hero(el2, { label: t("totalIncome"), value: num(inc.total), unit: cur, color: C.pos });
+  el2.addClass("zl-c-list");
+  summary(el2, { key: "income", label: t("totalIncome").toUpperCase(), value: num(inc.total), items: [[t("cLines"), String(inc.rows.length)]] });
   if (!inc.rows.length) empty(el2, { icon: "arrow-down-to-line", title: t("noIncome") });
-  const g = group2(el2);
+  const g = h(el2, "div", "zl-c-group");
+  if (inc.rows.length) sec(g, label.toUpperCase());
+  const rows = [];
   for (const r of inc.rows) {
     const name = cap2(r.label);
     const write = (val) => x.writeMonth((f) => {
@@ -12821,18 +12789,23 @@ var incomePage = (x) => {
       }
     }).open();
     const tag = r.kind === "extra" ? t("oneOff") : r.kind === "bonus" ? t("recurringBonus") : r.overridden ? r.amount === 0 ? t("skipped") : t("thisMonthOnly") : void 0;
-    row(g, { title: name, sub: tag, value: num(r.amount), valueColor: r.amount ? C.pos : C.faint, chevron: true, onTap: edit });
+    rows.push({ icon: "income", k: name, s: tag, v: num(r.amount), dim: !r.amount, onTap: edit });
   }
+  if (rows.length) figures(g, rows);
   const add = () => new FormSheet(ctx.app, {
     title: t("addIncome"),
     subtitle: label,
     submitText: t("save"),
     fields: [
-      { key: "kind", label: t("incomeKind"), type: "tiles", value: "extra", tiles: [
-        { value: "extra", title: t("kOneOff"), sub: t("kOneOffSub"), icon: "plus", color: C.pos },
-        { value: "bonus", title: t("kBonus"), sub: t("kBonusSub"), icon: "calendar", color: C.pos },
-        { value: "base", title: t("kBase"), sub: t("kBaseSub"), icon: "pencil", color: C.accent }
-      ] },
+      // a choice of three is the boxed segment, the chosen kind said in one line under it
+      {
+        key: "kind",
+        label: t("incomeKind"),
+        type: "select",
+        value: "extra",
+        options: [["extra", t("kOneOff")], ["bonus", t("kBonus")], ["base", t("kBase")]],
+        note: (v) => v.kind === "bonus" ? t("kBonusSub") : v.kind === "base" ? t("kBaseSub") : t("kOneOffSub")
+      },
       { key: "name", label: t("name"), type: "text", required: true, showIf: (v) => v.kind !== "base" },
       { key: "which", label: t("name"), type: "select", options: inc.rows.filter((r) => r.kind === "base").map((r) => [r.key, cap2(r.label)]), showIf: (v) => v.kind === "base" },
       { key: "bmonth", label: t("whichMonth"), type: "select", value: String(ctx.plugin.logMonth.month + 1), options: MONTHS.map((m, i) => [String(i + 1), m]), showIf: (v) => v.kind === "bonus" },
@@ -12879,24 +12852,21 @@ var savingsPage = (x) => {
   const { ctx, cur, M } = x;
   const { store } = ctx.plugin;
   const el2 = page(t("savings"));
-  hero(el2, { label: t("setAsideMonth"), value: num(M.saved), unit: cur, color: C.info });
+  el2.addClass("zl-c-stack");
+  summary(el2, { key: "savings", label: t("setAsideMonth").toUpperCase(), value: num(M.saved), items: [[t("living"), num(M.alloc.living)]] });
   const goalFunds = (Array.isArray(store.fm(store.path(FILES.goals))?.funds) ? store.fm(store.path(FILES.goals)).funds : []).map((f) => String(f.key));
-  const g = group2(el2);
-  row(g, { title: t("living"), sub: t("livingSub"), value: num(M.alloc.living), chevron: false });
-  for (const [k, v] of M.savings) {
+  figures(h(el2, "div", "zl-c-group"), M.savings.map(([k, v]) => {
     const owner = k === "investment" ? "invest" : k === "student_loan" ? "debt" : goalFunds.includes(k) ? "goals" : null;
-    row(g, { title: cap2(k), value: num(v), valueColor: C.info, chevron: !!owner, onTap: owner ? () => ctx.goTab(owner) : void 0 });
-  }
+    return { k: cap2(k), v: num(v), dim: !v, onTap: owner ? () => ctx.goTab(owner) : void 0 };
+  }));
   const plan = Number(M.savings.find(([k]) => k === "investment")?.[1]) || 0;
   const sel = ctx.plugin.logMonth;
   const inv = store.fm(store.path(FILES.invest));
   const buckets = investBuckets(inv, plan, `${sel.year}-${String(sel.month + 1).padStart(2, "0")}`, (c) => ctx.plugin.prices.fx(c, cur, inv?.fx_fallback ?? {}), cur);
   if (buckets) {
-    const bg = group2(el2, t("investThisMonth"));
-    for (const b of buckets) {
-      const hit2 = b.target > 0 && b.bought >= b.target;
-      row(bg, { title: b.label, value: `${num(Math.max(0, b.bought))} / ${num(b.target)}`, valueColor: hit2 ? C.pos : void 0, progress: [b.target > 0 ? Math.max(0, b.bought) / b.target * 100 : 0, C.pos], chevron: true, onTap: () => ctx.goTab("invest") });
-    }
+    const bg = h(el2, "div", "zl-c-group");
+    sec(bg, t("investThisMonth").toUpperCase());
+    figures(bg, buckets.map((b) => ({ icon: "invest", k: b.label, s: t("cOfPlan", { n: num(b.target) }), v: num(Math.max(0, b.bought)), dim: !b.bought, onTap: () => ctx.goTab("invest") })));
   }
   return { title: t("savings"), el: el2 };
 };
@@ -12909,74 +12879,67 @@ var setPaid = async (x, r, on, amount) => {
 var fixedPage = (x) => {
   const { ctx, cur, M } = x;
   const el2 = page(t("fixedExpenses"));
-  hero(el2, { label: t("fixedThisMonth"), value: num(M.fixedTotal), unit: cur, color: C.neg, sub: t("paidN", { n: M.paidCount, m: M.fixedRows.length }) });
-  const g = group2(el2);
-  for (const r of M.fixedRows) {
-    row(g, {
-      check: { on: r.paid !== 0, color: C.pos, onToggle: (on) => {
-        void setPaid(x, r, on);
-      } },
-      title: r.item.name,
-      value: num(r.paid || r.def),
-      valueColor: r.paid ? C.neg : C.faint,
-      chevron: true,
-      onTap: () => ctx.push({ key: "fixed:" + r.prop, title: r.item.name })
-    });
-  }
+  el2.addClass("zl-c-list");
+  summary(el2, { key: "fixed", label: t("fixedThisMonth").toUpperCase(), value: num(M.fixedTotal), items: [[t("notPaid"), num(M.fixedRows.filter((r) => !r.paid).reduce((t0, r) => t0 + r.def, 0))]] });
+  const g = h(el2, "div", "zl-c-group");
+  sec(g, t("cFixedBills", { p: M.paidCount, n: M.fixedRows.length }).toUpperCase());
+  figures(g, M.fixedRows.map((r) => ({ icon: "receipt", k: r.item.name, s: r.paid ? t("cPaidS") : t("notPaid"), v: num(r.paid || r.def), dim: !r.paid, onTap: () => ctx.push({ key: "fixed:" + r.prop, title: r.item.name }) })));
   return { title: t("fixedExpenses"), el: el2 };
 };
 var fixedItemPage = (x, r) => {
   const { cur } = x;
   const el2 = page(r.item.name);
+  el2.addClass("zl-c-stack");
   const on = r.paid !== 0;
-  hero(el2, { label: on ? t("paidThisMonth") : t("notPaid"), value: num(r.paid), unit: cur, color: on ? C.neg : C.faint });
-  const g = group2(el2);
-  row(g, { check: { on, color: C.pos, onToggle: (v) => {
-    void setPaid(x, r, v);
-  } }, title: t("paidThisMonth"), onTap: () => {
-    void setPaid(x, r, !on);
-  } });
-  row(g, { icon: "pencil", tint: C.accent, title: t("paidAmount"), value: num(r.paid), chevron: true, onTap: () => x.editAmount(t("paidAmount"), r.paid, async (n) => {
-    if (!await x.writeMonth((f) => {
-      f[r.prop] = n;
-    })) return false;
-    toast(t("savedX", { name: r.item.name, amount: num(n), cur }));
-  }) });
-  row(g, { icon: "pin", tint: C.faint, title: t("defaultAmount"), value: num(r.def) });
+  summary(el2, { key: "fixed-" + r.prop, label: (on ? t("paidThisMonth") : t("notPaid")).toUpperCase(), value: num(r.paid), dim: !on, items: [[t("defaultAmount"), num(r.def)]] });
+  figures(h(el2, "div", "zl-c-group"), [
+    { icon: "check", k: on ? t("cMarkUnpaid") : t("cMarkPaid"), s: on ? t("cMarkUnpaidS") : t("cMarkPaidS", { n: num(r.def) }), v: on ? t("cPaidS").toUpperCase() : "-", dim: !on, onTap: () => {
+      void setPaid(x, r, !on);
+    } },
+    { icon: "pencil", k: t("paidAmount"), v: num(r.paid), dim: !on, onTap: () => x.editAmount(t("paidAmount"), r.paid, async (n) => {
+      if (!await x.writeMonth((f) => {
+        f[r.prop] = n;
+      })) return false;
+      toast(t("savedX", { name: r.item.name, amount: num(n), cur }));
+    }) }
+  ]);
   return { title: r.item.name, el: el2 };
 };
 var extraPage = (x) => {
   const { ctx, cur, M } = x;
   const el2 = page(t("extraExpenses"));
-  hero(el2, { label: t("extraTotal"), value: num(M.extraTotal), unit: cur, color: C.warn });
+  el2.addClass("zl-c-list");
+  summary(el2, { key: "extra", label: t("extraTotal").toUpperCase(), value: num(M.extraTotal), items: [[t("cLines"), String(M.extras.length)]] });
   if (!M.extras.length) empty(el2, { icon: "sparkles", title: t("noExtra") });
-  else {
-    const g = group2(el2);
-    for (const e of M.extras) row(g, { title: cap2(e.prop), sub: e.days.length ? t("daysN", { n: e.days.length }) : void 0, value: num(e.total), valueColor: C.warn, chevron: true, onTap: () => ctx.push({ key: "extra:" + e.prop, title: cap2(e.prop) }) });
-  }
+  else figures(h(el2, "div", "zl-c-group"), M.extras.map((e) => ({ k: cap2(e.prop), s: e.days.length ? t("daysN", { n: e.days.length }) : t("monthlyEntry"), v: num(e.total), onTap: () => ctx.push({ key: "extra:" + e.prop, title: cap2(e.prop) }) })));
   return { title: t("extraExpenses"), el: el2 };
 };
 var extraItemPage = (x, e) => {
   const { ctx, cur } = x;
   const name = cap2(e.prop);
   const el2 = page(name);
-  hero(el2, { label: t("extraTotal"), value: num(e.total), unit: cur, color: C.warn });
+  el2.addClass("zl-c-list");
+  summary(el2, { key: "extra-" + e.prop, label: t("extraTotal").toUpperCase(), value: num(e.total), items: [[t("monthlyEntry"), num(e.fromMonth)], [t("days"), String(e.days.length)]] });
   if (e.fromMonth > 0) {
-    const g = group2(el2, t("monthlyEntry"));
-    row(g, { icon: "pencil", tint: C.warn, title: t("monthlyEntry"), value: num(e.fromMonth), chevron: true, onTap: () => x.editAmount(t("monthlyEntry"), e.fromMonth, async (n) => {
-      if (!await x.writeMonth((f) => {
-        f.extra_expenses = { ...f.extra_expenses ?? {}, [e.prop]: n };
-      })) return false;
-      toast(t("savedX", { name, amount: num(n), cur }));
-    }) });
-    row(g, { icon: "trash-2", tint: C.neg, title: t("removeEntry"), titleColor: C.neg, onTap: async () => {
-      if (!await confirmSheet(ctx.app, t("removeEntry"), `${name} \xB7 ${num(e.fromMonth)} ${cur}`, t("delete"))) return;
-      if (await x.writeMonth((f) => del(f, "extra_expenses", e.prop))) toast(t("removedX", { name }));
-    } });
+    const g = h(el2, "div", "zl-c-group");
+    sec(g, t("monthlyEntry").toUpperCase());
+    figures(g, [
+      { icon: "pencil", k: t("monthlyEntry"), v: num(e.fromMonth), onTap: () => x.editAmount(t("monthlyEntry"), e.fromMonth, async (n) => {
+        if (!await x.writeMonth((f) => {
+          f.extra_expenses = { ...f.extra_expenses ?? {}, [e.prop]: n };
+        })) return false;
+        toast(t("savedX", { name, amount: num(n), cur }));
+      }) },
+      { icon: "close", k: t("removeEntry"), v: "", onTap: async () => {
+        if (!await confirmSheet(ctx.app, t("removeEntry"), `${name} \xB7 ${num(e.fromMonth)} ${cur}`, t("delete"))) return;
+        if (await x.writeMonth((f) => del(f, "extra_expenses", e.prop))) toast(t("removedX", { name }));
+      } }
+    ]);
   }
   if (e.days.length) {
-    const g = group2(el2, t("days"));
-    for (const d of e.days) row(g, { icon: "calendar", tint: C.faint, title: shortDate(d.name), value: num(d.amount), valueColor: C.warn, chevron: true, onTap: () => void ctx.plugin.openDay(d.name) });
+    const g = h(el2, "div", "zl-c-group");
+    sec(g, t("days").toUpperCase());
+    figures(g, e.days.map((d) => ({ icon: "calendar", k: shortDate(d.name), v: num(d.amount), onTap: () => void ctx.plugin.openDay(d.name) })));
   }
   return { title: name, el: el2 };
 };

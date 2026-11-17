@@ -3,8 +3,8 @@ import { BudgetRow, computeMonth, countsAs, investBuckets, monthIncome, slug, sp
 import { FILES, FM } from "../data/store";
 import { MONTHS, num, parseNum, shortDate, today } from "../format";
 import { t } from "../i18n";
-import { C, empty, group, h, hero, page, row } from "../ui";
-import { bigLabel, bline, board, budgetBar, dragBoard, figures, reads, sec, summary, waffle } from "../ui/c";
+import { empty, h, page } from "../ui";
+import { bigLabel, bline, board, budgetBar, dragBoard, Fig, figures, reads, sec, summary, waffle } from "../ui/c";
 import { openPad } from "./amount";
 import { notchFor } from "../ui/scrub";
 import { sprite, spriteFor } from "../ui/pixel";
@@ -16,7 +16,6 @@ import type { TabId } from "../settings";
 
 const FULL = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const cap = (s: string) => { const x = String(s).replace(/_/g, " "); return x.charAt(0).toUpperCase() + x.slice(1); };
-const LEVEL = { ok: C.pos, warn: C.warn, over: C.neg };
 
 export const logPage: PageDef = {
     id: "log", label: "tabLog", icon: "calendar-days",
@@ -203,10 +202,14 @@ const thisMonthPage = (x: X, nFixed: number): PageOut => {
 const incomePage = (x: X): PageOut => {
     const { ctx, cur, label, inc } = x;
     const { store } = ctx.plugin;
+    // C list: the month's income → one row per line (a tap changes it for this month)
     const el = page(t("income"));
-    hero(el, { label: t("totalIncome"), value: num(inc.total), unit: cur, color: C.pos });
+    el.addClass("zl-c-list");
+    summary(el, { key: "income", label: t("totalIncome").toUpperCase(), value: num(inc.total), items: [[t("cLines"), String(inc.rows.length)]] });
     if (!inc.rows.length) empty(el, { icon: "arrow-down-to-line", title: t("noIncome") });
-    const g = group(el);
+    const g = h(el, "div", "zl-c-group");
+    if (inc.rows.length) sec(g, label.toUpperCase());
+    const rows: Fig[] = [];
     for (const r of inc.rows) {
         const name = cap(r.label);
         const write = (val: number) => x.writeMonth((f) => {
@@ -230,16 +233,15 @@ const incomePage = (x: X): PageOut => {
             },
         }).open();
         const tag = r.kind === "extra" ? t("oneOff") : r.kind === "bonus" ? t("recurringBonus") : r.overridden ? (r.amount === 0 ? t("skipped") : t("thisMonthOnly")) : undefined;
-        row(g, { title: name, sub: tag, value: num(r.amount), valueColor: r.amount ? C.pos : C.faint, chevron: true, onTap: edit });
+        rows.push({ icon: "income", k: name, s: tag, v: num(r.amount), dim: !r.amount, onTap: edit });
     }
+    if (rows.length) figures(g, rows);
     const add = () => new FormSheet(ctx.app, {
         title: t("addIncome"), subtitle: label, submitText: t("save"),
         fields: [
-            { key: "kind", label: t("incomeKind"), type: "tiles", value: "extra", tiles: [
-                { value: "extra", title: t("kOneOff"), sub: t("kOneOffSub"), icon: "plus", color: C.pos },
-                { value: "bonus", title: t("kBonus"), sub: t("kBonusSub"), icon: "calendar", color: C.pos },
-                { value: "base", title: t("kBase"), sub: t("kBaseSub"), icon: "pencil", color: C.accent },
-            ] },
+            // a choice of three is the boxed segment, the chosen kind said in one line under it
+            { key: "kind", label: t("incomeKind"), type: "select", value: "extra", options: [["extra", t("kOneOff")], ["bonus", t("kBonus")], ["base", t("kBase")]],
+                note: (v) => (v.kind === "bonus" ? t("kBonusSub") : v.kind === "base" ? t("kBaseSub") : t("kOneOffSub")) },
             { key: "name", label: t("name"), type: "text", required: true, showIf: (v) => v.kind !== "base" },
             { key: "which", label: t("name"), type: "select", options: inc.rows.filter((r) => r.kind === "base").map((r): [string, string] => [r.key, cap(r.label)]), showIf: (v) => v.kind === "base" },
             { key: "bmonth", label: t("whichMonth"), type: "select", value: String(ctx.plugin.logMonth.month + 1), options: MONTHS.map((m, i): [string, string] => [String(i + 1), m]), showIf: (v) => v.kind === "bonus" },
@@ -279,25 +281,23 @@ const incomePage = (x: X): PageOut => {
 const savingsPage = (x: X): PageOut => {
     const { ctx, cur, M } = x;
     const { store } = ctx.plugin;
+    // C detail: what is set aside → one row per plan line (a tap opens the tab that owns it) → this month's investment buckets
     const el = page(t("savings"));
-    hero(el, { label: t("setAsideMonth"), value: num(M.saved), unit: cur, color: C.info });
+    el.addClass("zl-c-stack");
+    summary(el, { key: "savings", label: t("setAsideMonth").toUpperCase(), value: num(M.saved), items: [[t("living"), num(M.alloc.living)]] });
     const goalFunds = (Array.isArray(store.fm(store.path(FILES.goals))?.funds) ? (store.fm(store.path(FILES.goals))!.funds as FM[]) : []).map((f) => String(f.key));
-    const g = group(el);
-    row(g, { title: t("living"), sub: t("livingSub"), value: num(M.alloc.living), chevron: false });
-    for (const [k, v] of M.savings) {
-        const owner = k === "investment" ? "invest" : k === "student_loan" ? "debt" : goalFunds.includes(k) ? "goals" : null;
-        row(g, { title: cap(k), value: num(v), valueColor: C.info, chevron: !!owner, onTap: owner ? () => ctx.goTab(owner) : undefined });
-    }
+    figures(h(el, "div", "zl-c-group"), M.savings.map(([k, v]): Fig => {
+        const owner: TabId | null = k === "investment" ? "invest" : k === "student_loan" ? "debt" : goalFunds.includes(k) ? "goals" : null;
+        return { k: cap(k), v: num(v), dim: !v, onTap: owner ? () => ctx.goTab(owner) : undefined };
+    }));
     const plan = Number(M.savings.find(([k]) => k === "investment")?.[1]) || 0;
     const sel = ctx.plugin.logMonth;
     const inv = store.fm(store.path(FILES.invest));
     const buckets = investBuckets(inv, plan, `${sel.year}-${String(sel.month + 1).padStart(2, "0")}`, (c) => ctx.plugin.prices.fx(c, cur, (inv?.fx_fallback ?? {}) as Record<string, number>), cur);
     if (buckets) {
-        const bg = group(el, t("investThisMonth"));
-        for (const b of buckets) {
-            const hit = b.target > 0 && b.bought >= b.target;
-            row(bg, { title: b.label, value: `${num(Math.max(0, b.bought))} / ${num(b.target)}`, valueColor: hit ? C.pos : undefined, progress: [b.target > 0 ? (Math.max(0, b.bought) / b.target) * 100 : 0, C.pos], chevron: true, onTap: () => ctx.goTab("invest") });
-        }
+        const bg = h(el, "div", "zl-c-group");
+        sec(bg, t("investThisMonth").toUpperCase());
+        figures(bg, buckets.map((b): Fig => ({ icon: "invest", k: b.label, s: t("cOfPlan", { n: num(b.target) }), v: num(Math.max(0, b.bought)), dim: !b.bought, onTap: () => ctx.goTab("invest") })));
     }
     return { title: t("savings"), el };
 };
@@ -309,58 +309,62 @@ const setPaid = async (x: X, r: ReturnType<typeof computeMonth>["fixedRows"][num
 };
 const fixedPage = (x: X): PageOut => {
     const { ctx, cur, M } = x;
+    // C list: the month's bills → one row each, paid or not (a tap opens the bill: mark it paid, change the amount)
     const el = page(t("fixedExpenses"));
-    hero(el, { label: t("fixedThisMonth"), value: num(M.fixedTotal), unit: cur, color: C.neg, sub: t("paidN", { n: M.paidCount, m: M.fixedRows.length }) });
-    const g = group(el);
-    for (const r of M.fixedRows) {
-        row(g, {
-            check: { on: r.paid !== 0, color: C.pos, onToggle: (on) => { void setPaid(x, r, on); } },
-            title: r.item.name, value: num(r.paid || r.def), valueColor: r.paid ? C.neg : C.faint, chevron: true,
-            onTap: () => ctx.push({ key: "fixed:" + r.prop, title: r.item.name }),
-        });
-    }
+    el.addClass("zl-c-list");
+    summary(el, { key: "fixed", label: t("fixedThisMonth").toUpperCase(), value: num(M.fixedTotal), items: [[t("notPaid"), num(M.fixedRows.filter((r) => !r.paid).reduce((t0, r) => t0 + r.def, 0))]] });
+    const g = h(el, "div", "zl-c-group");
+    sec(g, t("cFixedBills", { p: M.paidCount, n: M.fixedRows.length }).toUpperCase());
+    figures(g, M.fixedRows.map((r): Fig => ({ icon: "receipt", k: r.item.name, s: r.paid ? t("cPaidS") : t("notPaid"), v: num(r.paid || r.def), dim: !r.paid, onTap: () => ctx.push({ key: "fixed:" + r.prop, title: r.item.name }) })));
     return { title: t("fixedExpenses"), el };
 };
 const fixedItemPage = (x: X, r: ReturnType<typeof computeMonth>["fixedRows"][number]): PageOut => {
     const { cur } = x;
+    // C detail: paid this month → mark paid / not, the amount paid (a tap changes it), the usual amount
     const el = page(r.item.name);
+    el.addClass("zl-c-stack");
     const on = r.paid !== 0;
-    hero(el, { label: on ? t("paidThisMonth") : t("notPaid"), value: num(r.paid), unit: cur, color: on ? C.neg : C.faint });
-    const g = group(el);
-    row(g, { check: { on, color: C.pos, onToggle: (v) => { void setPaid(x, r, v); } }, title: t("paidThisMonth"), onTap: () => { void setPaid(x, r, !on); } });
-    row(g, { icon: "pencil", tint: C.accent, title: t("paidAmount"), value: num(r.paid), chevron: true, onTap: () => x.editAmount(t("paidAmount"), r.paid, async (n) => { if (!(await x.writeMonth((f) => { f[r.prop] = n; }))) return false; toast(t("savedX", { name: r.item.name, amount: num(n), cur })); }) });
-    row(g, { icon: "pin", tint: C.faint, title: t("defaultAmount"), value: num(r.def) });
+    summary(el, { key: "fixed-" + r.prop, label: (on ? t("paidThisMonth") : t("notPaid")).toUpperCase(), value: num(r.paid), dim: !on, items: [[t("defaultAmount"), num(r.def)]] });
+    figures(h(el, "div", "zl-c-group"), [
+        { icon: "check", k: on ? t("cMarkUnpaid") : t("cMarkPaid"), s: on ? t("cMarkUnpaidS") : t("cMarkPaidS", { n: num(r.def) }), v: on ? t("cPaidS").toUpperCase() : "-", dim: !on, onTap: () => { void setPaid(x, r, !on); } },
+        { icon: "pencil", k: t("paidAmount"), v: num(r.paid), dim: !on, onTap: () => x.editAmount(t("paidAmount"), r.paid, async (n) => { if (!(await x.writeMonth((f) => { f[r.prop] = n; }))) return false; toast(t("savedX", { name: r.item.name, amount: num(n), cur })); }) },
+    ]);
     return { title: r.item.name, el };
 };
 
 // ---- extra (one-time) expenses: from daily notes and the month note
 const extraPage = (x: X): PageOut => {
     const { ctx, cur, M } = x;
+    // C list: the month's one-offs → one row each (from daily notes and the month note)
     const el = page(t("extraExpenses"));
-    hero(el, { label: t("extraTotal"), value: num(M.extraTotal), unit: cur, color: C.warn });
+    el.addClass("zl-c-list");
+    summary(el, { key: "extra", label: t("extraTotal").toUpperCase(), value: num(M.extraTotal), items: [[t("cLines"), String(M.extras.length)]] });
     if (!M.extras.length) empty(el, { icon: "sparkles", title: t("noExtra") });
-    else {
-        const g = group(el);
-        for (const e of M.extras) row(g, { title: cap(e.prop), sub: e.days.length ? t("daysN", { n: e.days.length }) : undefined, value: num(e.total), valueColor: C.warn, chevron: true, onTap: () => ctx.push({ key: "extra:" + e.prop, title: cap(e.prop) }) });
-    }
+    else figures(h(el, "div", "zl-c-group"), M.extras.map((e): Fig => ({ k: cap(e.prop), s: e.days.length ? t("daysN", { n: e.days.length }) : t("monthlyEntry"), v: num(e.total), onTap: () => ctx.push({ key: "extra:" + e.prop, title: cap(e.prop) }) })));
     return { title: t("extraExpenses"), el };
 };
 const extraItemPage = (x: X, e: ReturnType<typeof computeMonth>["extras"][number]): PageOut => {
     const { ctx, cur } = x;
     const name = cap(e.prop);
+    // C list: one one-off's total → the month note's entry (change, remove) → the days it was spent on
     const el = page(name);
-    hero(el, { label: t("extraTotal"), value: num(e.total), unit: cur, color: C.warn });
+    el.addClass("zl-c-list");
+    summary(el, { key: "extra-" + e.prop, label: t("extraTotal").toUpperCase(), value: num(e.total), items: [[t("monthlyEntry"), num(e.fromMonth)], [t("days"), String(e.days.length)]] });
     if (e.fromMonth > 0) {
-        const g = group(el, t("monthlyEntry"));
-        row(g, { icon: "pencil", tint: C.warn, title: t("monthlyEntry"), value: num(e.fromMonth), chevron: true, onTap: () => x.editAmount(t("monthlyEntry"), e.fromMonth, async (n) => { if (!(await x.writeMonth((f) => { f.extra_expenses = { ...((f.extra_expenses as FM) ?? {}), [e.prop]: n }; }))) return false; toast(t("savedX", { name, amount: num(n), cur })); }) });
-        row(g, { icon: "trash-2", tint: C.neg, title: t("removeEntry"), titleColor: C.neg, onTap: async () => {
-            if (!(await confirmSheet(ctx.app, t("removeEntry"), `${name} · ${num(e.fromMonth)} ${cur}`, t("delete")))) return;
-            if (await x.writeMonth((f) => del(f, "extra_expenses", e.prop))) toast(t("removedX", { name }));
-        } });
+        const g = h(el, "div", "zl-c-group");
+        sec(g, t("monthlyEntry").toUpperCase());
+        figures(g, [
+            { icon: "pencil", k: t("monthlyEntry"), v: num(e.fromMonth), onTap: () => x.editAmount(t("monthlyEntry"), e.fromMonth, async (n) => { if (!(await x.writeMonth((f) => { f.extra_expenses = { ...((f.extra_expenses as FM) ?? {}), [e.prop]: n }; }))) return false; toast(t("savedX", { name, amount: num(n), cur })); }) },
+            { icon: "close", k: t("removeEntry"), v: "", onTap: async () => {
+                if (!(await confirmSheet(ctx.app, t("removeEntry"), `${name} · ${num(e.fromMonth)} ${cur}`, t("delete")))) return;
+                if (await x.writeMonth((f) => del(f, "extra_expenses", e.prop))) toast(t("removedX", { name }));
+            } },
+        ]);
     }
     if (e.days.length) {
-        const g = group(el, t("days"));
-        for (const d of e.days) row(g, { icon: "calendar", tint: C.faint, title: shortDate(d.name), value: num(d.amount), valueColor: C.warn, chevron: true, onTap: () => void ctx.plugin.openDay(d.name) });
+        const g = h(el, "div", "zl-c-group");
+        sec(g, t("days").toUpperCase());
+        figures(g, e.days.map((d): Fig => ({ icon: "calendar", k: shortDate(d.name), v: num(d.amount), onTap: () => void ctx.plugin.openDay(d.name) })));
     }
     return { title: name, el };
 };
