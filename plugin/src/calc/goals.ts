@@ -1,5 +1,6 @@
 import { dateStr } from "../format";
 import type { FM } from "../data/store";
+import { int } from "./money";
 
 export interface Expense { item: string; amount: number; date: string; index: number }
 export interface Goal {
@@ -19,15 +20,16 @@ const list = (v: unknown): FM[] => (Array.isArray(v) ? v : v ? [v] : []).filter(
 export const buildGoals = (fm: FM | null, savedOf: (key: string) => number): Goals => {
     const funds: Fund[] = list(fm?.funds).map((f) => ({ key: String(f.key ?? ""), label: String(f.label ?? f.key ?? ""), emoji: String(f.emoji ?? ""), goals: [], saved: 0, target: 0, surplus: 0 }));
     const goals: Goal[] = list(fm?.goals).map((g) => {
-        const expenses = list(g.expenses).map((e, index) => ({ item: String(e.item ?? ""), amount: Number(e.amount) || 0, date: dateStr(e.date, ""), index }));
-        return { name: String(g.name ?? ""), fundKey: String(g.fund ?? ""), emoji: String(g.emoji ?? ""), amount: Number(g.goal) || 0, target: dateStr(g.target_date, ""), expenses, alloc: 0, spent: expenses.reduce((s, e) => s + e.amount, 0), cash: 0, pct: 0 };
+        const expenses = list(g.expenses).map((e, index) => ({ item: String(e.item ?? ""), amount: int(e.amount), date: dateStr(e.date, ""), index }));
+        return { name: String(g.name ?? ""), fundKey: String(g.fund ?? ""), emoji: String(g.emoji ?? ""), amount: int(g.goal), target: dateStr(g.target_date, ""), expenses, alloc: 0, spent: expenses.reduce((s, e) => s + e.amount, 0), cash: 0, pct: 0 };
     }).sort((a, b) => (a.target || "9999").localeCompare(b.target || "9999"));
     for (const g of goals) (funds.find((f) => f.key === g.fundKey) ?? funds[0])?.goals.push(g);
     for (const f of funds) {
         f.saved = Number(savedOf(f.key)) || 0;
         let pool = f.saved;
         for (const g of f.goals) {
-            const amount = g.amount || 1;   // a goal of 0 counts as 1 (never divide by zero)
+            if (!(g.amount > 0)) { g.alloc = 0; g.pct = 100; continue; }   // a goal of 0 needs nothing: it takes nothing from the fund
+            const amount = g.amount;
             g.alloc = Math.min(pool, amount);
             pool -= g.alloc;
             g.pct = (g.alloc / amount) * 100;
@@ -47,7 +49,7 @@ export const buildGoals = (fm: FM | null, savedOf: (key: string) => number): Goa
 // The stored expense for a displayed one: same position if it still matches, else the first identical one (-1: gone)
 export const findExpense = (arr: unknown, x: Expense): number => {
     const a = Array.isArray(arr) ? (arr as FM[]) : [];
-    const same = (e: FM | undefined) => !!e && String(e.item ?? "") === x.item && Number(e.amount) === x.amount && dateStr(e.date, "") === x.date;
+    const same = (e: FM | undefined) => !!e && String(e.item ?? "") === x.item && int(e.amount) === x.amount && dateStr(e.date, "") === x.date;
     return same(a[x.index]) ? x.index : a.findIndex((e) => same(e));
 };
 

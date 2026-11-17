@@ -2,7 +2,7 @@
 // "Invest · rules check before a buy"): the THESIS card (why, next check, sell if, vs 0050), its edit sheet, the one-line
 // thesis on the full chart, and the rules check a buy opens first (informs, never blocks).
 import { FILES, type FM } from "../data/store";
-import { journalPath } from "../calc/invest";
+import { journalPath, tickOf, toP } from "../calc/invest";
 import { buyRules, checkState, daysBetween, readThesis, satVsBench, emergencyMinOf, RuleRow, Thesis, vsBench } from "../calc/thesis";
 import { buildAccounts } from "../calc/accounts";
 import { num, parseNum, shortDate, today } from "../format";
@@ -14,7 +14,7 @@ import { FormSheet } from "../ui/sheet";
 import { Modal } from "obsidian";
 import { base } from "../ui/sheet";
 import { ACCOUNTS_FILE } from "./accounts";
-import { pctS, X } from "./invest-shared";
+import { guessCur, pctS, X } from "./invest-shared";
 
 export const BENCH = "0050";
 const list = (v: unknown): FM[] => (Array.isArray(v) ? v : v ? [v] : []) as FM[];
@@ -176,7 +176,7 @@ export const buyCheck = (x: X, tk: string, go: (o: { price?: number; type?: "BUY
             const tap = r.key === "thesis" || r.key === "sell" ? () => editThesis(x, tk, paint)
                 : r.key === "limit" ? () => new FormSheet(x.ctx.app, {
                     title: t("rkLimit"), subtitle: tk, submitText: t("save"),
-                    fields: [{ key: "price", label: t("iPrice"), type: "number", required: true, dec: 2, step: 0.05, value: limit ? limit / 100 : live ?? "", note: () => t("rsLimitNote") }],
+                    fields: [{ key: "price", label: t("iPrice"), type: "number", required: true, dec: 2, step: (v) => tickOf(toP(v.price), p?.currency ?? guessCur(prices.symbol(tk)), tk) / 100, value: limit ? limit / 100 : live ?? "", note: () => t("rsLimitNote") }],
                     onSubmit: async (v) => { limit = Math.round(parseNum(v.price) * 100) || null; paint(); },
                 }).open() : null;
             if (tap) { sprite(row, "back", "zl-px zl-fig-go"); row.addEventListener("click", (e) => { e.preventDefault(); tap(); }); }

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { flowDue, flowGross, flowSides, flowSeries, flowSum, flowTrim, lots, parseT86, streak } from "../src/calc/flows";
+import { flowDue, flowGross, flowSides, flowSeries, flowSum, flowTrim, lots, parseT86, streak, t86NoTrading } from "../src/calc/flows";
 
 const FIELDS = ["證券代號", "證券名稱", "外陸資買進股數(不含外資自營商)", "外陸資賣出股數(不含外資自營商)", "外陸資買賣超股數(不含外資自營商)", "外資自營商買進股數", "外資自營商賣出股數", "外資自營商買賣超股數", "投信買進股數", "投信賣出股數", "投信買賣超股數", "自營商買賣超股數", "自營商買進股數(自行買賣)", "自營商賣出股數(自行買賣)", "自營商買賣超股數(自行買賣)", "自營商買進股數(避險)", "自營商賣出股數(避險)", "自營商買賣超股數(避險)", "三大法人買賣超股數"];
 const row = (c: string, f: string, fd: string, t: string, ds: string, dh: string, g = ["0", "0", "0", "0", "0", "0", "0", "0", "0", "0"]) => [c, "X", g[0], g[1], f, g[2], g[3], fd, g[4], g[5], t, "0", g[6], g[7], ds, g[8], g[9], dh, "0"];
@@ -42,4 +42,13 @@ test("Flows: due weekdays newest first, today only from 15:00, known days skippe
     assert.deepEqual(flowDue(wed(14), {}, 6), ["2026-11-03", "2026-11-02", "2026-10-30", "2026-10-29"]);
     assert.deepEqual(flowDue(wed(15), { "2026-11-03": null }, 1), ["2026-11-04"]);
     assert.deepEqual(Object.keys(flowTrim({ "2026-10-01": null, "2026-10-29": null, "2026-11-04": {} }, wed(10), 6)), ["2026-10-29", "2026-11-04"]);
+});
+
+// review 2026-11, group C: only the exchange's own "no data" marks a holiday
+test("t86NoTrading: the exchange's no-data answer, not a refusal or a broken page", () => {
+    assert.equal(t86NoTrading({ stat: "很抱歉，沒有符合條件的資料!", total: 0 }), true);
+    assert.equal(t86NoTrading({ stat: "查詢過於頻繁，請稍後再試" }), false);
+    assert.equal(t86NoTrading({ stat: "OK", fields: [], data: [] }), false);
+    assert.equal(t86NoTrading(null), false);
+    assert.equal(t86NoTrading("<html>"), false);
 });

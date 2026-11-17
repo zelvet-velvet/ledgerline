@@ -46,8 +46,9 @@ export const revenuePage = (x: X, tk: string): PageOut => {
     if (code) rv.ensure(code);
     const s = code ? statsOf(x, code) : null;
     if (!code || !s) {
-        summary(el, { key: "rev-" + tk, label: t("rvNone"), value: "-", dim: true });
-        h(el, "div", "zl-field-note", t("rvNoneS"));
+        const failed = !!code && rv.failed(code);
+        summary(el, { key: "rev-" + tk, label: t(failed ? "rvFailed" : "rvNone"), value: "-", dim: true });
+        h(el, "div", "zl-field-note", t(failed ? "rvFailedS" : "rvNoneS"));
         if (code) rv.onChange((c) => { if (!el.isConnected) return false; if (c === code) x.ctx.redraw(); return true; });
         return { title, el };
     }

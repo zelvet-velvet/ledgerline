@@ -27,7 +27,7 @@ sticker: lucide//line-chart
 
 ## 🧾 Rows and the change line
 - **The change line** (owner, 2026-11-04, like Apple's Stocks): over a ticker's value sits its change, small, in up / down; a tap on it cycles every change line on the page together: today's % → today's price change (the stock's currency) → your profit (holdings only; the watchlist stays on the price change); remembered on the device.
-- **Holdings and Watchlist rows** (the owner's row, Vellum screen "Invest · Watchlist row"): the ticker big on the left with shares / name beside it on the same level, the change as a small split-flap top right (tiles 14 × 24; the + / − on its own tile, raised 2 px; digits in the tile up / down colours; it flips from the old number when the price moves) with the value under it. Holdings has search; BUY amounts are not loud.
+- **Holdings and Watchlist rows** (the owner's row, Vellum screen "Invest · Watchlist row"): the ticker big on the left with shares / name beside it on the same level, the change as a small split-flap top right (tiles 14 × 24; the + / − on its own tile, its bar just under the seam (Rules - Motion › Split-flaps); digits in the tile up / down colours; it flips from the old number when the price moves) with the value under it. Holdings has search; BUY amounts are not loud.
 - Money: one minus sign (U+2212) and one price format everywhere; a new ticker's currency comes from its market.
 
 ## 📡 Live data

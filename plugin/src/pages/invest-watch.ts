@@ -156,5 +156,5 @@ export const watchPage = (x: X): PageOut => {
             sort.by === "manual" && l.length > 1 ? (order) => { void x.moveWatch(sort.desc ? [...order].reverse() : order); } : undefined);
         if (swapped) g.querySelectorAll(".zl-in").forEach((r) => { r.removeClass("zl-in"); r.addClass("zl-kept"); });
     }
-    return { title, el, actions: [findAct(x, el)], fab: { icon: "plus", text: t("iWatchAdd").toUpperCase(), label: t("iWatchAdd"), onTap: x.addWatch } };
+    return { title, el, actions: [findAct(x, el)], fab: { icon: "plus", text: t("iWatchAdd").toUpperCase(), label: t("iWatchAdd"), onTap: () => x.addWatch(el) } };
 };

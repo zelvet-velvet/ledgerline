@@ -1,4 +1,6 @@
 import type { FM } from "../data/store";
+import { int } from "./money";
+import { grossOf, toBase, toMinor, toP, toQ, tradeTotal } from "./invest";
 
 // Pure Log maths, ported from v2 (Scripts/calc/log.js + FinanceHelpers.getMonthIncome / resolveDailyQuotas).
 export const IGNORE = ["file", "sticker", "cssclasses", "ledger", "date", "title", "tags", "aliases"];
@@ -37,7 +39,7 @@ export const monthIncome = (incomeCfg: FM | null, month: FM | null, monthNumber:
 export const LIVING = "living";
 export interface Allocation { living: number; saved: number; income: number; gap: number }   // gap = income − saved − living
 export const allocation = (plan: FM, month: FM | null, income: number): Allocation => {
-    const val = (k: string) => (month && month[k] !== undefined ? Number(month[k]) || 0 : Number(plan[k]) || 0);
+    const val = (k: string) => int(month && month[k] !== undefined ? month[k] : plan[k]);
     const saved = Object.keys(plan).filter((k) => !k.startsWith("file") && k !== LIVING && typeof plan[k] === "number").reduce((s, k) => s + val(k), 0);
     // a month note made before the living line existed: living is whatever the savings left (as the app always read it)
     const hasLiving = month ? month[LIVING] !== undefined : plan[LIVING] !== undefined;
@@ -48,7 +50,7 @@ export const allocation = (plan: FM, month: FM | null, income: number): Allocati
 export interface MonthInput { month: FM | null; days: Day[]; plan: FM; daily: BudgetItem[]; fixed: BudgetItem[]; income: number }
 export const computeMonth = ({ month, days, plan, daily, fixed, income }: MonthInput) => {
     const has = (k: string) => !!month && month[k] !== undefined;
-    const savings: [string, number][] = Object.keys(plan).filter((k) => !k.startsWith("file") && k !== LIVING && typeof plan[k] === "number").map((k) => [k, has(k) ? Number(month![k]) : Number(plan[k]) || 0]);
+    const savings: [string, number][] = Object.keys(plan).filter((k) => !k.startsWith("file") && k !== LIVING && typeof plan[k] === "number").map((k) => [k, int(has(k) ? month![k] : plan[k])]);
     const alloc = allocation(plan, month, income);
     const saved = alloc.saved;
     const dailyProps = [...new Set(daily.flatMap((x) => x.spending))];
@@ -58,16 +60,16 @@ export const computeMonth = ({ month, days, plan, daily, fixed, income }: MonthI
     for (const d of days) for (const p of [...dailyProps, ...custom]) spending[p] = (spending[p] || 0) + (Number(d.fm[p]) || 0);
     const fixedRows: FixedRow[] = fixed.map((item) => {
         let total = 0;
-        for (const p of item.spending) { const v = has(p) ? Number(month![p]) : item.quota; spending[p] = (spending[p] || 0) + v; total += v; }
+        for (const p of item.spending) { const v = has(p) ? int(month![p]) : item.quota; spending[p] = (spending[p] || 0) + v; total += v; }
         const prop = item.spending[0] ?? "";
-        return { item, prop, def: item.quota, paid: has(prop) ? Number(month![prop]) || 0 : 0 };
+        return { item, prop, def: item.quota, paid: has(prop) ? int(month![prop]) : 0 };
     });
-    const fixedTotal = fixed.reduce((s, item) => s + item.spending.reduce((t, p) => t + (has(p) ? Number(month![p]) : item.quota), 0), 0);
+    const fixedTotal = fixed.reduce((s, item) => s + item.spending.reduce((t, p) => t + (has(p) ? int(month![p]) : item.quota), 0), 0);
     const extraMonth = Object.entries((month?.extra_expenses ?? {}) as FM);
     const extras: ExtraRow[] = [];
     for (const prop of new Set([...custom, ...extraMonth.map(([k]) => k)])) {
         const fromDays = spending[prop] || 0;
-        const fromMonth = Number(((month?.extra_expenses ?? {}) as FM)[prop]) || 0;
+        const fromMonth = int(((month?.extra_expenses ?? {}) as FM)[prop]);
         spending[prop] = fromDays + fromMonth;
         if (fromDays + fromMonth > 0) extras.push({ prop, total: fromDays + fromMonth, fromDays, fromMonth, days: days.filter((d) => Number(d.fm[prop]) > 0).map((d) => ({ name: d.name, path: d.path, amount: Number(d.fm[prop]) })).sort((a, b) => a.name.localeCompare(b.name)) });
     }
@@ -76,7 +78,7 @@ export const computeMonth = ({ month, days, plan, daily, fixed, income }: MonthI
     const budget: BudgetRow[] = daily.map((item, index) => {
         const quotaKey = (item.spending[0] ?? "") + "_quota";
         const isPercent = !has(quotaKey);
-        const quota = isPercent ? Math.floor((spendable * item.quota) / 100) : Number(month![quotaKey]) || 0;
+        const quota = isPercent ? Math.floor((spendable * item.quota) / 100) : int(month![quotaKey]);
         const s = item.spending.reduce((t, p) => t + (spending[p] || 0), 0);
         const remain = quota - s;
         const progress = quota > 0 ? Math.min((s / quota) * 100, 100) : 0;
@@ -90,8 +92,10 @@ export const computeMonth = ({ month, days, plan, daily, fixed, income }: MonthI
 
 export const spentOnDay = (fm: FM): number => Object.keys(fm).filter((k) => !IGNORE.includes(k) && typeof fm[k] === "number").reduce((s, k) => s + (Number(fm[k]) || 0), 0);
 
-// This month's investment plan split over the allocation buckets, and what was bought in each (from the investment config)
-export const investBuckets = (inv: FM | null, plan: number, monthKey: string) => {
+// This month's investment plan split over the allocation buckets, and what was bought in each (from the investment config):
+// the cash each trade moved in the base currency, fees in, at the trade's own FX rate, else fx(currency) now; a foreign
+// trade with no rate known is left out (never counted 1 : 1)
+export const investBuckets = (inv: FM | null, plan: number, monthKey: string, fx: (c: string) => number = () => 0, base = "TWD") => {
     const alloc = arr(inv?.allocation);
     if (!alloc.length || !(plan > 0)) return null;
     const keyOf = (c: unknown) => { const x = String(c ?? "").toLowerCase(); const m = alloc.find((b) => String(b.key).toLowerCase() === x || String(b.label).toLowerCase() === x); return m ? String(m.key).toLowerCase() : null; };
@@ -106,8 +110,11 @@ export const investBuckets = (inv: FM | null, plan: number, monthKey: string) =>
         if (!b) continue;
         for (const tx of arr(a.transactions)) {
             if (String(tx.date ?? "").slice(0, 7) !== monthKey) continue;
-            const amt = (Number(tx.shares) || 0) * (Number(tx.price) || 0) * (Number(tx.fx) || 1);
-            b.bought += tx.type === "SELL" ? -amt : amt;
+            const cur = String(a.currency ?? base).toUpperCase(), sell = String(tx.type).toUpperCase() === "SELL";
+            const rate = cur === base ? 1 : Number(tx.fx) > 0 ? Number(tx.fx) : fx(cur);
+            if (!(rate > 0)) continue;
+            const amt = toBase(tradeTotal(sell ? "SELL" : "BUY", grossOf(toQ(tx.shares), toP(tx.price), cur), toMinor(tx.fee, cur), sell ? toMinor(tx.tax, cur) : 0), cur, rate);
+            b.bought += sell ? -amt : amt;
         }
     }
     return buckets;

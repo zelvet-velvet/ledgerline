@@ -432,11 +432,233 @@ var parseNum = (v) => {
   return s2 === "" ? NaN : Number(s2);
 };
 
+// src/calc/money.ts
+var int = (v) => {
+  const n = typeof v === "string" ? v.trim() === "" ? NaN : Number(v.replace(/,/g, "")) : typeof v === "number" ? v : NaN;
+  return Number.isFinite(n) ? Math.round(n) : 0;
+};
+
+// src/calc/invest.ts
+var arr = (v) => (Array.isArray(v) ? v : v ? [v] : []).filter((x) => x && typeof x === "object");
+var num2 = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+var tickerOf = (a) => String(a.ticker ?? a.name ?? "").toUpperCase();
+var minorOf = (currency) => ["TWD", "JPY", "KRW"].includes(currency) ? 1 : 100;
+var toQ = (shares) => Math.round(num2(shares) * 1e4);
+var toP = (price) => Math.round(num2(price) * 100);
+var toMinor = (amount, currency) => Math.round(num2(amount) * minorOf(currency));
+var grossOf = (q, p, currency) => Math.round(q * p * minorOf(currency) / 1e6);
+var toBase = (minor, currency, rate) => Math.round(minor / minorOf(currency) * rate);
+var tradeIds = (ticker, rows) => {
+  const seen2 = /* @__PURE__ */ new Map();
+  return rows.map((t2) => {
+    if (t2.id) return String(t2.id);
+    const base2 = `${ticker}-${dateStr(t2.date, "")}`, n = (seen2.get(base2) ?? 0) + 1;
+    seen2.set(base2, n);
+    return n === 1 ? base2 : `${base2}-${n}`;
+  });
+};
+var nextDca = (dca, today3) => {
+  if (!dca || !(dca.day >= 1)) return null;
+  const [y, m, d] = today3.split("-").map(Number);
+  const at = (yy, mm) => {
+    const last = new Date(yy, mm, 0).getDate();
+    return `${yy}-${String(mm).padStart(2, "0")}-${String(Math.min(dca.day, last)).padStart(2, "0")}`;
+  };
+  const here = at(y, m);
+  if (Number(here.slice(8)) >= d) return here;
+  return m === 12 ? at(y + 1, 1) : at(y, m + 1);
+};
+var buildPortfolio = (fm, price, fx, today3 = "", base2 = "TWD") => {
+  const alloc = arr(fm?.allocation);
+  const positions = arr(fm?.assets).map((a, index) => {
+    const currency = String(a.currency ?? base2).toUpperCase(), ticker = tickerOf(a), broker = String(a.broker ?? "");
+    const fxRaw = currency === base2 ? 1 : fx(currency), fxOk = fxRaw > 0, fxNow = fxOk ? fxRaw : 0;
+    const rows = arr(a.transactions), ids = tradeIds(ticker, rows);
+    const trades = rows.map((t2, i) => {
+      const type = String(t2.type).toUpperCase() === "SELL" ? "SELL" : "BUY";
+      const q = toQ(t2.shares), p = toP(t2.price), gross = grossOf(q, p, currency);
+      const fee = toMinor(t2.fee, currency), tax = toMinor(t2.tax, currency), rate = currency === base2 ? 1 : num2(t2.fx) || fxNow;
+      const cash = type === "BUY" ? -toBase(gross + fee, currency, rate) : toBase(gross - fee - tax, currency, rate);
+      const settled = dateStr(t2.settled, "");
+      return { id: ids[i], type, date: dateStr(t2.date, ""), settled, broker: String(t2.broker ?? broker), index: i, rate, shares: num2(t2.shares), price: num2(t2.price), fx: num2(t2.fx), q, p, gross, fee, tax, cash, pending: !!today3 && !!settled && settled > today3 };
+    });
+    let held = 0, cost = 0, own = 0, realized = 0, fees = 0, bought = 0, dropped = 0;
+    [...trades].sort((x, y) => x.date.localeCompare(y.date) || x.index - y.index).forEach((t2) => {
+      fees += toBase(t2.fee + t2.tax, currency, t2.rate);
+      bought -= t2.cash;
+      if (t2.type === "BUY") {
+        held += t2.q;
+        cost -= t2.cash;
+        own += t2.gross + t2.fee;
+      } else if (!(held > 0)) dropped += t2.q;
+      else {
+        const sold = Math.min(t2.q, held);
+        dropped += t2.q - sold;
+        const out = sold === held ? cost : Math.round(cost * sold / held);
+        const proceeds = sold === t2.q ? t2.cash : Math.round(t2.cash * sold / t2.q);
+        realized += proceeds - out;
+        own -= sold === held ? own : Math.round(own * sold / held);
+        held -= sold;
+        cost -= out;
+      }
+    });
+    if (!trades.length && num2(a.shares) > 0) {
+      held = toQ(a.shares);
+      own = grossOf(held, toP(a.avg_cost), currency);
+      cost = toBase(own, currency, fxNow);
+    }
+    const fxMissing = currency !== base2 && (!fxOk || trades.some((t2) => !(t2.rate > 0)));
+    const last = price(ticker);
+    const g = last !== null ? grossOf(held, toP(last), currency) : 0;
+    const value2 = last !== null && fxOk ? toBase(g, currency, fxNow) : cost;
+    const exit = held > 0 && last !== null && fxOk ? toBase(autoFee(g, currency) + autoTax(g, currency, ticker), currency, fxNow) : 0;
+    const d = a.dca && typeof a.dca === "object" ? a.dca : null;
+    const dca = d && num2(d.amount) > 0 ? { amount: Math.round(num2(d.amount)), day: Math.round(num2(d.day)) || 1 } : null;
+    return { ticker, name: String(a.name ?? ticker), category: String(a.category ?? "other").toLowerCase(), currency, broker, dca, trades, shares: held / 1e4, q: held, cost, avg: held > 0 ? cost * 1e4 / held : 0, avgP: held > 0 ? Math.round(own * 1e6 / (minorOf(currency) * held)) : 0, fxMissing, realized, fees, bought, price: last, value: value2, exit, pl: value2 - exit - cost, index, dropped: dropped / 1e4 };
+  });
+  const value = positions.reduce((s2, p) => s2 + p.value, 0);
+  const buckets = alloc.map((b) => {
+    const key = String(b.key ?? "").toLowerCase(), label = String(b.label ?? key);
+    const v = positions.filter((p) => p.category === key || p.category === label.toLowerCase()).reduce((s2, p) => s2 + p.value, 0);
+    const pct2 = value > 0 ? v / value * 100 : 0, target = num2(b.pct);
+    return { key, label, target, value: v, pct: pct2, drift: pct2 - target };
+  });
+  const sum = (k) => positions.reduce((s2, p) => s2 + p[k], 0);
+  return {
+    positions: positions.sort((a, b) => b.value - a.value),
+    buckets,
+    value,
+    cost: sum("cost"),
+    pl: sum("pl"),
+    realized: sum("realized"),
+    fees: sum("fees"),
+    bought: sum("bought"),
+    priced: positions.every((p) => p.q <= 0 || p.price !== null && !p.fxMissing),
+    missing: positions.filter((p) => p.q > 0 && (p.price === null || p.fxMissing)).map((p) => p.ticker),
+    threshold: num2(fm?.rebalance_threshold) || 5,
+    watch: arr(fm?.watchlist).map((w) => String(w.ticker ?? "").toUpperCase()).filter(Boolean)
+  };
+};
+var tradeLinks = (P, entries) => P.positions.flatMap((p) => p.trades.map((t2) => {
+  const own = entries.filter((e) => e.trade === t2.id), booked = own.reduce((s2, e) => s2 + e.amount, 0);
+  return { id: t2.id, ticker: p.ticker, cash: t2.cash, booked, diff: t2.pending && !own.length ? 0 : booked - t2.cash, pending: t2.pending };
+}));
+var findTrade = (rows, t2) => {
+  const a = Array.isArray(rows) ? rows : [];
+  const byId = a.findIndex((r) => r && typeof r === "object" && r.id !== void 0 && r.id !== "" && String(r.id) === t2.id);
+  if (byId >= 0) return byId;
+  const same = (r) => !!r && typeof r === "object" && (r.id === void 0 || r.id === "") && (String(r.type).toUpperCase() === "SELL" ? "SELL" : "BUY") === t2.type && num2(r.shares) === t2.shares && num2(r.price) === t2.price && dateStr(r.date, "") === t2.date;
+  return same(a[t2.index]) ? t2.index : a.findIndex((r) => same(r));
+};
+var newTradeId = (ticker, date, taken) => {
+  const base2 = `${ticker}-${date}`;
+  if (!taken.includes(base2)) return base2;
+  let n = 2;
+  while (taken.includes(`${base2}-${n}`)) n++;
+  return `${base2}-${n}`;
+};
+var tradeEntries = (t2, ticker, currency, account) => {
+  const main = (t2.type === "BUY" ? -1 : 1) * toBase(t2.gross, currency, t2.rate), rest = t2.cash - main, date = t2.settled || t2.date;
+  const note = `${ticker} x ${t2.shares} @ ${t2.price}${currency === "TWD" ? "" : ` ${currency}`}`;
+  return [
+    { date, account, amount: main, kind: t2.type === "BUY" ? "buy" : "sell", trade: t2.id, note },
+    ...rest ? [{ date, account, amount: rest, kind: "fee", trade: t2.id, note: `${ticker} fee` }] : []
+  ];
+};
+var syncEntries = (P, accounts, entries, ids, today3) => {
+  const out = [];
+  for (const id of ids) {
+    const own = entries.filter((e) => e.trade === id), booked = own.reduce((s2, e) => s2 + e.amount, 0);
+    const p = P.positions.find((x) => x.trades.some((t3) => t3.id === id)), t2 = p?.trades.find((x) => x.id === id);
+    const account = own[0]?.account ?? accounts.find((a) => a.bucket && a.bucket === p?.category)?.key;
+    if (!account) continue;
+    if (!t2) {
+      if (booked) out.push({ date: today3, account, amount: -booked, kind: "adjust", trade: id, note: "trade deleted" });
+      continue;
+    }
+    if (!own.length) {
+      out.push(...tradeEntries(t2, p.ticker, p.currency, account));
+      continue;
+    }
+    if (booked !== t2.cash) out.push({ date: today3, account, amount: t2.cash - booked, kind: "adjust", trade: id, note: "trade edited" });
+  }
+  return out;
+};
+var investCash = (accounts, keys) => {
+  const own = accounts.filter((a) => a.bucket && keys.includes(a.bucket));
+  return own.length ? own.reduce((s2, a) => s2 + a.balance, 0) : null;
+};
+var journalPath = (ticker) => `Invest/${ticker}.md`;
+var readJournal = (fm) => arr(fm?.journal).map((j, index) => ({ date: dateStr(j.date, ""), trade: String(j.trade ?? ""), why: String(j.why ?? "").trim(), index })).filter((j) => j.why).sort((a, b) => b.date.localeCompare(a.date) || b.index - a.index);
+var DEFAULT_CAP = 15e3;
+var capOf = (fm) => {
+  const n = Math.round(num2(fm?.single_stock_cap));
+  return n > 0 ? n : DEFAULT_CAP;
+};
+var checkRules = (P, cap3, hasReason) => [
+  ...P.positions.filter((p) => p.q > 0 && p.category === "stock" && p.cost > cap3).map((p) => ({ rule: "cap", key: p.ticker, over: p.cost - cap3 })),
+  ...P.value > 0 ? P.buckets.filter((b) => Math.abs(b.drift) > P.threshold).map((b) => ({ rule: "mix", key: b.label, over: Math.round(b.drift) })) : [],
+  ...P.positions.filter((p) => p.q > 0 && !hasReason(p.ticker)).map((p) => ({ rule: "reason", key: p.ticker, over: 0 }))
+];
+var newWarnings = (before, after) => after.filter((w) => !before.some((b) => b.rule === w.rule && b.key === w.key));
+var isTwEtf = (ticker) => /^00\d/.test(ticker);
+var autoFee = (gross, currency) => currency === "TWD" && gross > 0 ? Math.max(20, Math.floor(gross * 1425e-6)) : 0;
+var isTwBondEtf = (ticker) => /^00\d+B$/.test(ticker);
+var autoTax = (gross, currency, ticker) => currency === "TWD" && gross > 0 && !isTwBondEtf(ticker) ? Math.floor(gross * (isTwEtf(ticker) ? 1e-3 : 3e-3)) : 0;
+var tradeTotal = (type, gross, fee, tax) => String(type).toUpperCase() === "SELL" ? gross - fee - tax : gross + fee;
+var legacyFields = (rows) => {
+  let held = 0, cost = 0;
+  for (const t2 of arr(rows)) {
+    const q = toQ(t2.shares), p = toP(t2.price);
+    if (String(t2.type).toUpperCase() !== "SELL") {
+      held += q;
+      cost += q * p;
+    } else if (held > 0) {
+      const s2 = Math.min(q, held);
+      cost -= s2 === held ? cost : Math.round(cost * s2 / held);
+      held -= s2;
+    }
+  }
+  return { shares: held / 1e4, avg_cost: held > 0 ? Math.round(cost / held) / 100 : 0 };
+};
+var tickOf = (p, currency, ticker) => {
+  if (currency !== "TWD") return 1;
+  if (isTwEtf(ticker)) return p < 5e3 ? 1 : 5;
+  return p < 1e3 ? 1 : p < 5e3 ? 5 : p < 1e4 ? 10 : p < 5e4 ? 50 : p < 1e5 ? 100 : 500;
+};
+var addTradingDays = (day, n, closed = () => false) => {
+  const d = /* @__PURE__ */ new Date(`${day}T12:00:00Z`);
+  if (isNaN(d.getTime())) return day;
+  let left = n;
+  while (left > 0) {
+    d.setUTCDate(d.getUTCDate() + 1);
+    const w = d.getUTCDay();
+    if (w !== 0 && w !== 6 && !closed(d.toISOString().slice(0, 10))) left--;
+  }
+  return d.toISOString().slice(0, 10);
+};
+var revalue = (p, np) => {
+  if (p.price === null || !(p.price > 0) || np === p.price) return p;
+  const value = Math.round(p.value * np / p.price);
+  const exit = p.q <= 0 ? 0 : p.currency === "TWD" ? autoFee(value, "TWD") + autoTax(value, "TWD", p.ticker) : Math.round(p.exit * np / p.price);
+  return { ...p, price: np, value, exit, pl: value - exit - p.cost };
+};
+var todayMove = (p, ch, last, today3) => {
+  const buys = p.trades.filter((t2) => t2.date === today3 && t2.type === "BUY");
+  const boughtQ = buys.reduce((s2, t2) => s2 + t2.q, 0);
+  const old = Math.max(0, p.q - boughtQ), keptNew = Math.max(0, p.q - old), share = boughtQ > 0 ? keptNew / boughtQ : 0, m = minorOf(p.currency);
+  const fromBuys = buys.reduce((s2, t2) => s2 + t2.q * share * (last - t2.p) * m / 1e6, 0);
+  return Math.round(old * ch * m / 1e6 + fromBuys);
+};
+
 // src/calc/log.ts
 var IGNORE = ["file", "sticker", "cssclasses", "ledger", "date", "title", "tags", "aliases"];
 var slug = (s2) => String(s2 || "").trim().toLowerCase().replace(/[^a-z0-9一-鿿]+/g, "_").replace(/^_|_$/g, "");
-var arr = (v) => Array.isArray(v) ? v : v === void 0 || v === null ? [] : [v];
-var budgetItems = (fm) => arr(fm?.budget).filter((x) => x && typeof x === "object").map((x) => ({ name: String(x.name ?? ""), quota: Number(x.quota) || 0, spending: arr(x.spending).map(String) }));
+var arr2 = (v) => Array.isArray(v) ? v : v === void 0 || v === null ? [] : [v];
+var budgetItems = (fm) => arr2(fm?.budget).filter((x) => x && typeof x === "object").map((x) => ({ name: String(x.name ?? ""), quota: Number(x.quota) || 0, spending: arr2(x.spending).map(String) }));
 var monthIncome = (incomeCfg, month, monthNumber) => {
   const ov = month?.income_override ?? {};
   const rows = [];
@@ -445,7 +667,7 @@ var monthIncome = (incomeCfg, month, monthNumber) => {
     const has = ov[k] !== void 0;
     rows.push({ key: k, label: k, base: v, amount: has ? Number(ov[k]) || 0 : v, kind: "base", overridden: has });
   }
-  for (const b of arr(incomeCfg?.bonuses)) {
+  for (const b of arr2(incomeCfg?.bonuses)) {
     if (!b || Number(b.month) !== monthNumber) continue;
     const key = "bonus_" + slug(String(b.name));
     const has = ov[key] !== void 0;
@@ -456,7 +678,7 @@ var monthIncome = (incomeCfg, month, monthNumber) => {
 };
 var LIVING = "living";
 var allocation = (plan, month, income) => {
-  const val = (k) => month && month[k] !== void 0 ? Number(month[k]) || 0 : Number(plan[k]) || 0;
+  const val = (k) => int(month && month[k] !== void 0 ? month[k] : plan[k]);
   const saved = Object.keys(plan).filter((k) => !k.startsWith("file") && k !== LIVING && typeof plan[k] === "number").reduce((s2, k) => s2 + val(k), 0);
   const hasLiving = month ? month[LIVING] !== void 0 : plan[LIVING] !== void 0;
   const living = hasLiving ? val(LIVING) : income - saved;
@@ -464,7 +686,7 @@ var allocation = (plan, month, income) => {
 };
 var computeMonth = ({ month, days, plan, daily, fixed, income }) => {
   const has = (k) => !!month && month[k] !== void 0;
-  const savings = Object.keys(plan).filter((k) => !k.startsWith("file") && k !== LIVING && typeof plan[k] === "number").map((k) => [k, has(k) ? Number(month[k]) : Number(plan[k]) || 0]);
+  const savings = Object.keys(plan).filter((k) => !k.startsWith("file") && k !== LIVING && typeof plan[k] === "number").map((k) => [k, int(has(k) ? month[k] : plan[k])]);
   const alloc = allocation(plan, month, income);
   const saved = alloc.saved;
   const dailyProps = [...new Set(daily.flatMap((x) => x.spending))];
@@ -475,19 +697,19 @@ var computeMonth = ({ month, days, plan, daily, fixed, income }) => {
   const fixedRows = fixed.map((item) => {
     let total = 0;
     for (const p of item.spending) {
-      const v = has(p) ? Number(month[p]) : item.quota;
+      const v = has(p) ? int(month[p]) : item.quota;
       spending[p] = (spending[p] || 0) + v;
       total += v;
     }
     const prop = item.spending[0] ?? "";
-    return { item, prop, def: item.quota, paid: has(prop) ? Number(month[prop]) || 0 : 0 };
+    return { item, prop, def: item.quota, paid: has(prop) ? int(month[prop]) : 0 };
   });
-  const fixedTotal = fixed.reduce((s2, item) => s2 + item.spending.reduce((t2, p) => t2 + (has(p) ? Number(month[p]) : item.quota), 0), 0);
+  const fixedTotal = fixed.reduce((s2, item) => s2 + item.spending.reduce((t2, p) => t2 + (has(p) ? int(month[p]) : item.quota), 0), 0);
   const extraMonth = Object.entries(month?.extra_expenses ?? {});
   const extras = [];
   for (const prop of /* @__PURE__ */ new Set([...custom, ...extraMonth.map(([k]) => k)])) {
     const fromDays = spending[prop] || 0;
-    const fromMonth = Number((month?.extra_expenses ?? {})[prop]) || 0;
+    const fromMonth = int((month?.extra_expenses ?? {})[prop]);
     spending[prop] = fromDays + fromMonth;
     if (fromDays + fromMonth > 0) extras.push({ prop, total: fromDays + fromMonth, fromDays, fromMonth, days: days.filter((d) => Number(d.fm[prop]) > 0).map((d) => ({ name: d.name, path: d.path, amount: Number(d.fm[prop]) })).sort((a, b) => a.name.localeCompare(b.name)) });
   }
@@ -496,7 +718,7 @@ var computeMonth = ({ month, days, plan, daily, fixed, income }) => {
   const budget = daily.map((item, index) => {
     const quotaKey = (item.spending[0] ?? "") + "_quota";
     const isPercent = !has(quotaKey);
-    const quota = isPercent ? Math.floor(spendable * item.quota / 100) : Number(month[quotaKey]) || 0;
+    const quota = isPercent ? Math.floor(spendable * item.quota / 100) : int(month[quotaKey]);
     const s2 = item.spending.reduce((t2, p) => t2 + (spending[p] || 0), 0);
     const remain = quota - s2;
     const progress = quota > 0 ? Math.min(s2 / quota * 100, 100) : 0;
@@ -518,8 +740,8 @@ var computeMonth = ({ month, days, plan, daily, fixed, income }) => {
   };
 };
 var spentOnDay = (fm) => Object.keys(fm).filter((k) => !IGNORE.includes(k) && typeof fm[k] === "number").reduce((s2, k) => s2 + (Number(fm[k]) || 0), 0);
-var investBuckets = (inv, plan, monthKey) => {
-  const alloc = arr(inv?.allocation);
+var investBuckets = (inv, plan, monthKey, fx = () => 0, base2 = "TWD") => {
+  const alloc = arr2(inv?.allocation);
   if (!alloc.length || !(plan > 0)) return null;
   const keyOf2 = (c) => {
     const x = String(c ?? "").toLowerCase();
@@ -532,13 +754,16 @@ var investBuckets = (inv, plan, monthKey) => {
     assigned += target;
     return { key: String(b.key).toLowerCase(), label: String(b.label ?? b.key), target, bought: 0 };
   });
-  for (const a of arr(inv?.assets)) {
+  for (const a of arr2(inv?.assets)) {
     const b = buckets.find((x) => x.key === keyOf2(a.category));
     if (!b) continue;
-    for (const tx of arr(a.transactions)) {
+    for (const tx of arr2(a.transactions)) {
       if (String(tx.date ?? "").slice(0, 7) !== monthKey) continue;
-      const amt = (Number(tx.shares) || 0) * (Number(tx.price) || 0) * (Number(tx.fx) || 1);
-      b.bought += tx.type === "SELL" ? -amt : amt;
+      const cur = String(a.currency ?? base2).toUpperCase(), sell = String(tx.type).toUpperCase() === "SELL";
+      const rate = cur === base2 ? 1 : Number(tx.fx) > 0 ? Number(tx.fx) : fx(cur);
+      if (!(rate > 0)) continue;
+      const amt = toBase(tradeTotal(sell ? "SELL" : "BUY", grossOf(toQ(tx.shares), toP(tx.price), cur), toMinor(tx.fee, cur), sell ? toMinor(tx.tax, cur) : 0), cur, rate);
+      b.bought += sell ? -amt : amt;
     }
   }
   return buckets;
@@ -703,7 +928,7 @@ var import_obsidian4 = require("obsidian");
 var RANGES = ["M", "W", "D", "60m", "30m", "15m", "5m", "1m", "I"];
 var isMinutes = (r) => r !== "D" && r !== "W" && r !== "M";
 var emptyBars = () => ({ d: [], o: [], h: [], l: [], c: [], v: [], ohlc: true });
-var toP = (x) => Math.round(Number(x) * 100);
+var toP2 = (x) => Math.round(Number(x) * 100);
 var TZF = /* @__PURE__ */ new Map();
 var zoned = (s2, tz, off) => {
   if (tz) {
@@ -732,17 +957,17 @@ var fromYahoo = (res, minutes = false) => {
     const d = zoned(s2, tz, off).slice(0, minutes ? 16 : 10);
     if (B.d[B.d.length - 1] === d) B.d.pop(), B.o.pop(), B.h.pop(), B.l.pop(), B.c.pop(), B.v.pop();
     B.d.push(d);
-    B.o.push(toP(o));
-    B.h.push(toP(h2));
-    B.l.push(toP(l));
-    B.c.push(toP(c));
+    B.o.push(toP2(o));
+    B.h.push(toP2(h2));
+    B.l.push(toP2(l));
+    B.c.push(toP2(c));
     B.v.push(Math.round(Number(q.volume?.[i]) || 0));
   });
   if (!B.d.length && q.close?.some((x) => typeof x === "number" && x > 0)) {
     ts.forEach((t2, i) => {
       const c = q.close?.[i];
       if (typeof c !== "number" || !(c > 0)) return;
-      const p = toP(c);
+      const p = toP2(c);
       B.d.push(zoned(t2, tz, off).slice(0, 10));
       B.o.push(p);
       B.h.push(p);
@@ -753,7 +978,7 @@ var fromYahoo = (res, minutes = false) => {
     B.ohlc = false;
   }
   const pc = Number(r.meta?.chartPreviousClose);
-  if (minutes && pc > 0) B.pc = toP(pc);
+  if (minutes && pc > 0) B.pc = toP2(pc);
   return B.d.length ? B : null;
 };
 var lastSession = (B) => {
@@ -775,13 +1000,13 @@ var fromFugle = (json, pc) => {
     const o = Number(r.open), h2 = Number(r.high), l = Number(r.low), c = Number(r.close);
     if (!d || ![o, h2, l, c].every((x) => x > 0) || B.d[B.d.length - 1] === d) continue;
     B.d.push(d);
-    B.o.push(toP(o));
-    B.h.push(toP(h2));
-    B.l.push(toP(l));
-    B.c.push(toP(c));
+    B.o.push(toP2(o));
+    B.h.push(toP2(h2));
+    B.l.push(toP2(l));
+    B.c.push(toP2(c));
     B.v.push(Math.round(Number(r.volume) || 0));
   }
-  if (pc && pc > 0) B.pc = toP(pc);
+  if (pc && pc > 0) B.pc = toP2(pc);
   return B.d.length ? B : null;
 };
 var fromTwseMonth = (json) => {
@@ -793,10 +1018,10 @@ var fromTwseMonth = (json) => {
     const o = n(r[3]), h2 = n(r[4]), l = n(r[5]), c = n(r[6]);
     if (!m || ![o, h2, l, c].every((x) => x > 0)) continue;
     B.d.push(`${Number(m[1]) + 1911}-${m[2]}-${m[3]}`);
-    B.o.push(toP(o));
-    B.h.push(toP(h2));
-    B.l.push(toP(l));
-    B.c.push(toP(c));
+    B.o.push(toP2(o));
+    B.h.push(toP2(h2));
+    B.l.push(toP2(l));
+    B.c.push(toP2(c));
     B.v.push(Math.round(n(r[1]) || 0));
   }
   return B.d.length ? B : null;
@@ -1005,14 +1230,14 @@ var dayChange = (B, live, closes, ref) => {
 };
 
 // src/calc/market.ts
-var num2 = (s2) => {
+var num3 = (s2) => {
   const n = Number(String(s2 ?? "").replace(/,/g, ""));
   return Number.isFinite(n) && n > 0 ? n : 0;
 };
 var parseMisIndex = (json, code = "t00") => {
   const r = (json?.msgArray ?? []).find((x) => x.c === code);
   if (!r) return null;
-  const prev = num2(r.y), price = num2(r.z) || num2(r.pz) || prev;
+  const prev = num3(r.y), price = num3(r.z) || num3(r.pz) || prev;
   if (!price) return null;
   const asOf = Number(r.tlong) || Date.now(), d = r.d ?? "";
   return { price, prev: prev || void 0, time: Date.now(), asOf, source: "twse", day: /^\d{8}$/.test(d) ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}` : "" };
@@ -1023,7 +1248,7 @@ var fiveSecBars = (json, day) => {
   const B = emptyBars();
   let key = "";
   for (const r of rows) {
-    const m = /^(\d\d):(\d\d):(\d\d)$/.exec(r[0] ?? ""), v = Math.round(num2(r[1]) * 100);
+    const m = /^(\d\d):(\d\d):(\d\d)$/.exec(r[0] ?? ""), v = Math.round(num3(r[1]) * 100);
     if (!m || !v) continue;
     const s2 = Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]);
     if (s2 <= 9 * 3600) {
@@ -1051,6 +1276,8 @@ var fiveSecBars = (json, day) => {
 
 // src/prices/stream.ts
 var URL = "wss://api.fugle.tw/marketdata/v1.0/stock/streaming";
+var FUGLE_KEY = { refused: "" };
+var fugleRefused = (key) => !!key && FUGLE_KEY.refused === key;
 var FugleStream = class {
   constructor(key, onTrade) {
     this.key = key;
@@ -1068,7 +1295,7 @@ var FugleStream = class {
     return this.authed && this.ids.has(code);
   }
   watch(code) {
-    if (!this.key()) return;
+    if (!this.key() || fugleRefused(this.key())) return;
     if (!this.want.has(code)) {
       this.want.add(code);
       if (this.authed) this.sub(code);
@@ -1104,7 +1331,7 @@ var FugleStream = class {
     this.send({ event: "subscribe", data: { channel: "trades", symbol: code } });
   }
   open() {
-    if (this.ws || !this.want.size || !this.key()) return;
+    if (this.ws || !this.want.size || !this.key() || fugleRefused(this.key())) return;
     let ws;
     try {
       ws = new WebSocket(URL);
@@ -1137,7 +1364,13 @@ var FugleStream = class {
         if (price > 0) this.onTrade(d.symbol, price, us > 0 ? Math.round(us / 1e3) : Date.now(), d);
         return;
       }
-      if (m.event === "error") console.warn("Ledgerline: Fugle stream", d.message ?? d);
+      if (m.event === "error") {
+        console.warn("Ledgerline: Fugle stream", d.message ?? d);
+        if (!this.authed) {
+          FUGLE_KEY.refused = this.key();
+          this.close();
+        }
+      }
     };
     ws.onclose = () => {
       this.ws = null;
@@ -1326,8 +1559,9 @@ var fugleCode = (symbol) => /^(\d{4,6}[A-Z]?)\.TWO?$/.exec(symbol)?.[1] ?? null;
 var fugle = (key) => ({
   async quote(symbol) {
     const code = fugleCode(symbol), k = key();
-    if (!code || !k) return null;
+    if (!code || !k || fugleRefused(k)) return null;
     const r = await (0, import_obsidian4.requestUrl)({ url: `${FUGLE}/quote/${code}`, headers: { "X-API-KEY": k }, throw: false });
+    if (r.status === 401 || r.status === 403) FUGLE_KEY.refused = k;
     const q = r.status === 200 ? parseFugleQuote(r.json) : null;
     const pc = Number(r.status === 200 ? r.json?.previousClose : 0);
     if (pc > 0) fuglePc[code] = { day: (/* @__PURE__ */ new Date()).toDateString(), pc };
@@ -1335,7 +1569,7 @@ var fugle = (key) => ({
   },
   async bars(symbol, range) {
     const m = /^(\d{4,6}[A-Z]?)\.TWO?$/.exec(symbol), k = key();
-    if (range !== "I" || !m || !k) return null;
+    if (range !== "I" || !m || !k || fugleRefused(k)) return null;
     const headers = { "X-API-KEY": k }, day = (/* @__PURE__ */ new Date()).toDateString();
     if (fuglePc[m[1]]?.day !== day) {
       const q = await (0, import_obsidian4.requestUrl)({ url: `${FUGLE}/quote/${m[1]}`, headers, throw: false }).catch(() => null);
@@ -1343,6 +1577,7 @@ var fugle = (key) => ({
       if (pc > 0) fuglePc[m[1]] = { day, pc };
     }
     const r = await (0, import_obsidian4.requestUrl)({ url: `${FUGLE}/candles/${m[1]}?timeframe=1`, headers, throw: false });
+    if (r.status === 401 || r.status === 403) FUGLE_KEY.refused = k;
     return r.status === 200 ? fromFugle(r.json, fuglePc[m[1]]?.pc) : null;
   }
 });
@@ -1407,6 +1642,10 @@ var Prices = class {
     this.taiwan = taiwan;
     this.q = {};
     this.busy = /* @__PURE__ */ new Set();
+    this.otc = null;
+    // sources that did not answer: symbol (or series key) → when and how often in a row. A failed one is asked again after a
+    // minute at the earliest (it was asked on every redraw), and the pages can say it failed instead of "loading"
+    this.bad = /* @__PURE__ */ new Map();
     // Background (owner, 2026-11-05), called every 5 s (main.ts): while their market trades, the tickers the Invest pages asked
     // for (holdings, watchlist), on any page. Taiwan: with a Fugle key every one streams its trades; the rest (no key, or
     // past the plan's subscription limit) one TWSE request for all every 5 s. Others: Yahoo, one request each every 15 s.
@@ -1446,9 +1685,49 @@ var Prices = class {
     }
   }
   // a ticker as the provider wants it: 4–6 digit tickers are Taiwan listings with the Taiwan option on ("2330" → "2330.TW")
+  // A code that only answers as a TPEx (OTC) listing is remembered (otc) and becomes "00679B.TWO" from then on.
   symbol(ticker) {
     const t2 = ticker.trim().toUpperCase();
-    return this.taiwan() && /^\d{4,6}[A-Z]?$/.test(t2) ? `${t2}.TW` : t2;
+    return this.taiwan() && /^\d{4,6}[A-Z]?$/.test(t2) ? `${t2}.${this.otcSet().has(t2) ? "TWO" : "TW"}` : t2;
+  }
+  otcSet() {
+    if (!this.otc) {
+      try {
+        const v = this.loadOtc?.();
+        this.otc = new Set(Array.isArray(v) ? v : []);
+      } catch {
+        this.otc = /* @__PURE__ */ new Set();
+      }
+    }
+    return this.otc;
+  }
+  // one quote; a Taiwan code never priced that no source has as a TWSE listing is tried once as a TPEx one. [symbol that answered, quote]
+  async ask(s2) {
+    const x = await this.provider.quote(s2).catch(() => null);
+    const m = /^(\d{4,6}[A-Z]?)\.TW$/.exec(s2);
+    if (x || !m || this.q[s2]) return [s2, x];
+    const o = `${m[1]}.TWO`, y = await this.provider.quote(o).catch(() => null);
+    if (!y) return [s2, null];
+    this.otcSet().add(m[1]);
+    try {
+      this.saveOtc?.([...this.otcSet()]);
+    } catch {
+    }
+    if (this.tracked.delete(s2)) this.tracked.add(o);
+    return [o, y];
+  }
+  miss(k) {
+    this.bad.set(k, { t: Date.now(), n: (this.bad.get(k)?.n ?? 0) + 1 });
+  }
+  resting(k) {
+    const b = this.bad.get(k);
+    return !!b && Date.now() - b.t < 60 * 1e3;
+  }
+  failed(ticker) {
+    return this.bad.has(this.symbol(ticker));
+  }
+  seriesFailed(ticker, range) {
+    return this.bad.has(this.sKey(ticker, range));
   }
   get(ticker) {
     return this.q[this.symbol(ticker)] ?? null;
@@ -1456,30 +1735,37 @@ var Prices = class {
   price(ticker) {
     return this.get(ticker)?.price ?? null;
   }
-  // base-currency units per 1 unit of `cur` (fallback: the config's fx_fallback, then 1)
+  // base-currency units per 1 unit of `cur` (fallback: the config's fx_fallback); 0 = not known (never guessed as 1)
   fx(cur, base2, fallback = {}) {
     if (cur === base2) return 1;
-    return this.q[`${cur}${base2}=X`]?.price ?? (Number(fallback[cur]) || 1);
+    return this.q[`${cur}${base2}=X`]?.price ?? (Number(fallback[cur]) || 0);
   }
   fxSymbol(cur, base2) {
     return `${cur}${base2}=X`;
   }
   // fetch what is missing or old, in the background; one redraw when anything changed
   refresh(symbols, force = false) {
-    const due = [...new Set(symbols)].filter((s2) => s2 && !this.busy.has(s2) && (force || !this.q[s2] || Date.now() - this.q[s2].time > TTL || isTwSym(s2) && !this.q[s2].prev));
+    const due = [...new Set(symbols)].filter((s2) => s2 && !this.busy.has(s2) && (force || !this.resting(s2)) && (force || !this.q[s2] || Date.now() - this.q[s2].time > TTL || isTwSym(s2) && !this.q[s2].prev));
     if (!due.length) return;
     due.forEach((s2) => this.busy.add(s2));
-    void Promise.all(due.map((s2) => this.provider.quote(s2).then((x) => {
-      if (x) this.q[s2] = { ...x, closes: x.closes?.length ? x.closes : this.q[s2]?.closes };
-      return !!x;
-    }).catch(() => false).finally(() => this.busy.delete(s2)))).then((ok) => {
-      if (ok.some(Boolean)) {
+    void Promise.all(due.map((s2) => this.ask(s2).then(([k, x]) => {
+      if (x) {
+        this.q[k] = { ...x, closes: x.closes?.length ? x.closes : this.q[k]?.closes };
+        this.bad.delete(s2);
+        this.bad.delete(k);
+        return 1;
+      }
+      const first2 = !this.bad.has(s2);
+      this.miss(s2);
+      return first2 ? 2 : 0;
+    }).catch(() => 0).finally(() => this.busy.delete(s2)))).then((ok) => {
+      if (ok.includes(1)) {
         try {
           this.save(this.q);
         } catch {
         }
-        this.onFresh();
       }
+      if (ok.some(Boolean)) this.onFresh();
     });
   }
   track(symbols) {
@@ -1604,7 +1890,11 @@ var Prices = class {
     });
   }
   hasFugle() {
-    return !!this.fkey();
+    return !!this.fkey() && !fugleRefused(this.fkey());
+  }
+  // a key is set but Fugle turned it away: the pages say so instead of "no key"
+  fugleRefused() {
+    return fugleRefused(this.fkey());
   }
   watch(ticker) {
     const s2 = this.symbol(ticker), c = fugleCode(s2);
@@ -1650,6 +1940,8 @@ var Prices = class {
     this.busy.add(k);
     try {
       const x = await this.provider.quote(s2);
+      if (x) this.bad.delete(s2);
+      else this.miss(s2);
       return x ? this.apply(s2, x) : false;
     } catch {
       return false;
@@ -1676,10 +1968,18 @@ var Prices = class {
   }
   refreshSeries(ticker, range, force = false) {
     const k = this.sKey(ticker, range), have = this.series(ticker, range);
-    if (this.busy.has(k) || !force && have && Date.now() - have.time < (isMinutes(range) ? TTL_MIN : TTL) || !this.provider.bars) return;
+    if (this.busy.has(k) || !force && have && Date.now() - have.time < (isMinutes(range) ? TTL_MIN : TTL) || !force && this.resting(k) || !this.provider.bars) return;
     this.busy.add(k);
     void this.provider.bars(this.symbol(ticker), range).then((b) => {
-      if (!b) return;
+      if (!b) {
+        const first2 = !this.bad.has(k);
+        this.miss(k);
+        if (first2 && !have) {
+          for (const f of [...this.subs]) if (!f(k)) this.subs.delete(f);
+        }
+        return;
+      }
+      this.bad.delete(k);
       this.s[k] = { bars: b, time: Date.now(), source: b.ohlc ? "" : "line" };
       try {
         this.saveSeries?.(Object.fromEntries(Object.entries(this.s).filter(([key]) => !isMinutes(key.split("|")[1]))));
@@ -1690,6 +1990,7 @@ var Prices = class {
     }).catch(() => void 0).finally(() => this.busy.delete(k));
   }
 };
+Prices.OTC_KEY = "ledgerline-otc";
 Prices.KEY = KEY;
 Prices.SERIES_KEY = "ledgerline-bars";
 
@@ -1698,7 +1999,7 @@ var import_obsidian5 = require("obsidian");
 
 // src/calc/flows.ts
 var ZERO = { f: 0, t: 0, ds: 0, dh: 0, fb: 0, fs: 0, tb: 0, ts: 0, dsb: 0, dss: 0, dhb: 0, dhs: 0 };
-var int = (s2) => {
+var int2 = (s2) => {
   const n = Number(String(s2 ?? "").replace(/,/g, "").trim());
   return Number.isFinite(n) ? Math.round(n) : 0;
 };
@@ -1709,15 +2010,15 @@ var parseT86 = (json, codes) => {
   const fx = col("\u5916\u9678\u8CC7\u8CB7\u8CE3\u8D85"), fd = col("\u5916\u8CC7\u81EA\u71DF\u5546\u8CB7\u8CE3\u8D85"), tr = col("\u6295\u4FE1\u8CB7\u8CE3\u8D85"), ds = col("\u81EA\u71DF\u5546\u8CB7\u8CE3\u8D85\u80A1\u6578(\u81EA\u884C"), dh = col("\u81EA\u71DF\u5546\u8CB7\u8CE3\u8D85\u80A1\u6578(\u907F\u96AA");
   const G = { fb: col("\u5916\u9678\u8CC7\u8CB7\u9032"), fs: col("\u5916\u9678\u8CC7\u8CE3\u51FA"), fdb: col("\u5916\u8CC7\u81EA\u71DF\u5546\u8CB7\u9032"), fds: col("\u5916\u8CC7\u81EA\u71DF\u5546\u8CE3\u51FA"), tb: col("\u6295\u4FE1\u8CB7\u9032"), ts: col("\u6295\u4FE1\u8CE3\u51FA"), dsb: col("\u81EA\u71DF\u5546\u8CB7\u9032\u80A1\u6578(\u81EA\u884C"), dss: col("\u81EA\u71DF\u5546\u8CE3\u51FA\u80A1\u6578(\u81EA\u884C"), dhb: col("\u81EA\u71DF\u5546\u8CB7\u9032\u80A1\u6578(\u907F\u96AA"), dhs: col("\u81EA\u71DF\u5546\u8CE3\u51FA\u80A1\u6578(\u907F\u96AA") };
   if ([fx, tr, ds, dh].some((i) => i < 0)) return null;
-  const at = (r, i) => i >= 0 ? int(r[i]) : 0;
+  const at = (r, i) => i >= 0 ? int2(r[i]) : 0;
   const want = new Set(codes), out = {};
   for (const r of j.data) {
     const c = String(r[0] ?? "").trim();
     if (want.has(c)) out[c] = {
-      f: int(r[fx]) + at(r, fd),
-      t: int(r[tr]),
-      ds: int(r[ds]),
-      dh: int(r[dh]),
+      f: int2(r[fx]) + at(r, fd),
+      t: int2(r[tr]),
+      ds: int2(r[ds]),
+      dh: int2(r[dh]),
       fb: at(r, G.fb) + at(r, G.fdb),
       fs: at(r, G.fs) + at(r, G.fds),
       tb: at(r, G.tb),
@@ -1730,6 +2031,7 @@ var parseT86 = (json, codes) => {
   }
   return out;
 };
+var t86NoTrading = (json) => /沒有符合條件|查無/.test(String(json?.stat ?? ""));
 var flowSeries = (days, code) => Object.keys(days).sort().filter((k) => days[k]).map((date) => {
   const x = { ...ZERO, ...days[date][code] }, d = x.ds + x.dh;
   return { date, ...x, d, total: x.f + x.t + d };
@@ -1829,7 +2131,9 @@ var Flows = class {
           break;
         }
         const rows = parseT86(json, this.st.codes);
-        if (rows || date !== today3) this.st.days[date] = rows;
+        if (rows) this.st.days[date] = rows;
+        else if (date !== today3 && t86NoTrading(json)) this.st.days[date] = null;
+        else if (date !== today3) break;
         if (++got % 5 === 0) this.tell();
         await new Promise((ok) => setTimeout(ok, GAP));
       }
@@ -1901,11 +2205,16 @@ var Revenue = class {
     this.m = {};
     this.busy = /* @__PURE__ */ new Set();
     this.subs = /* @__PURE__ */ new Set();
+    this.fail = /* @__PURE__ */ new Map();
     try {
       this.m = this.load() ?? {};
     } catch {
       this.m = {};
     }
+  }
+  // code → when FinMind last did not answer (asked again after 10 minutes)
+  failed(code) {
+    return this.fail.has(code);
   }
   get(code) {
     return this.m[code]?.months ?? [];
@@ -1923,7 +2232,7 @@ var Revenue = class {
     this.subs.add(fn);
   }
   ensure(code) {
-    if (!/^\d{4,6}$/.test(code) || this.busy.has(code)) return;
+    if (!/^\d{4,6}$/.test(code) || this.busy.has(code) || Date.now() - (this.fail.get(code) ?? 0) < 10 * 60 * 1e3) return;
     const k = this.m[code];
     if (k && (this.isOut(code) || Date.now() - k.at < AGAIN_MS)) return;
     void this.fetch(code);
@@ -1934,6 +2243,8 @@ var Revenue = class {
       const from = `${ymAdd(today().slice(0, 7), -26)}-01`;
       const r = await (0, import_obsidian6.requestUrl)({ url: `https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockMonthRevenue&data_id=${code}&start_date=${from}`, throw: false });
       const rows = r.status === 200 ? r.json?.data : null;
+      if (!Array.isArray(rows)) throw new Error(`finmind ${r.status}`);
+      this.fail.delete(code);
       const months = fromFinMind(rows).sort((a, b) => a.ym.localeCompare(b.ym));
       const before = this.latest(code);
       this.m[code] = { months: months.length ? months : this.get(code), at: Date.now() };
@@ -1944,6 +2255,11 @@ var Revenue = class {
       });
       return fresh;
     } catch {
+      const first2 = !this.fail.has(code);
+      this.fail.set(code, Date.now());
+      if (first2) this.subs.forEach((fn) => {
+        if (!fn(code)) this.subs.delete(fn);
+      });
       return false;
     } finally {
       this.busy.delete(code);
@@ -2008,12 +2324,19 @@ var emergencyMinOf = (fm) => {
 };
 
 // src/calc/alerts.ts
-var arr2 = (v) => (Array.isArray(v) ? v : v ? [v] : []).filter((x) => x && typeof x === "object");
+var arr3 = (v) => (Array.isArray(v) ? v : v ? [v] : []).filter((x) => x && typeof x === "object");
 var readAlerts = (fm) => ({
   topic: String(fm?.topic ?? "").trim(),
-  alerts: arr2(fm?.alerts).map((a, index) => ({ id: String(a.id ?? `a${index}`), ticker: String(a.ticker ?? "").toUpperCase(), kind: a.kind === "above" ? "above" : "below", price: Math.round(Number(a.price) * 100), index })).filter((a) => a.ticker && a.price > 0),
-  sent: arr2(fm?.sent).map((s2) => ({ key: String(s2.key ?? ""), date: dateStr(s2.date, ""), text: String(s2.text ?? "") })).filter((s2) => s2.key)
+  alerts: arr3(fm?.alerts).map((a, index) => ({ id: String(a.id ?? `a${index}`), ticker: String(a.ticker ?? "").toUpperCase(), kind: a.kind === "above" ? "above" : "below", price: Math.round(Number(a.price) * 100), index })).filter((a) => a.ticker && a.price > 0),
+  sent: arr3(fm?.sent).map((s2) => ({ key: String(s2.key ?? ""), date: dateStr(s2.date, ""), text: String(s2.text ?? "") })).filter((s2) => s2.key)
 });
+var findAlert = (rows, a) => {
+  const xs2 = Array.isArray(rows) ? rows : [];
+  const byId = xs2.findIndex((r2) => r2 && typeof r2 === "object" && r2.id !== void 0 && String(r2.id) === a.id);
+  if (byId >= 0) return byId;
+  const r = xs2[a.index];
+  return r && typeof r === "object" && r.id === void 0 && String(r.ticker ?? "").toUpperCase() === a.ticker && Math.round(Number(r.price) * 100) === a.price ? a.index : -1;
+};
 var hit = (a, price) => a.kind === "below" ? price <= a.price : price >= a.price;
 var away = (a, price) => price > 0 ? (a.kind === "below" ? price - a.price : a.price - price) / price * 100 : 0;
 var keepSent = (sent, today3) => sent.filter((s2) => s2.date && daysBetween(s2.date, today3) <= 7);
@@ -2044,191 +2367,6 @@ var fromTwt48u = (rows) => (Array.isArray(rows) ? rows : []).map((r) => ({
   date: rocDate(String(r.Date ?? "")),
   cash: Math.round(Number(r.CashDividend || 0) * 100)
 })).filter((e) => e.code && e.date);
-
-// src/calc/invest.ts
-var arr3 = (v) => (Array.isArray(v) ? v : v ? [v] : []).filter((x) => x && typeof x === "object");
-var num3 = (v) => {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
-};
-var tickerOf = (a) => String(a.ticker ?? a.name ?? "").toUpperCase();
-var minorOf = (currency) => ["TWD", "JPY", "KRW"].includes(currency) ? 1 : 100;
-var toQ = (shares) => Math.round(num3(shares) * 1e4);
-var toP2 = (price) => Math.round(num3(price) * 100);
-var toMinor = (amount, currency) => Math.round(num3(amount) * minorOf(currency));
-var grossOf = (q, p, currency) => Math.round(q * p * minorOf(currency) / 1e6);
-var toBase = (minor, currency, rate) => Math.round(minor / minorOf(currency) * rate);
-var tradeIds = (ticker, rows) => {
-  const seen2 = /* @__PURE__ */ new Map();
-  return rows.map((t2) => {
-    if (t2.id) return String(t2.id);
-    const base2 = `${ticker}-${dateStr(t2.date, "")}`, n = (seen2.get(base2) ?? 0) + 1;
-    seen2.set(base2, n);
-    return n === 1 ? base2 : `${base2}-${n}`;
-  });
-};
-var nextDca = (dca, today3) => {
-  if (!dca || !(dca.day >= 1)) return null;
-  const [y, m, d] = today3.split("-").map(Number);
-  const at = (yy, mm) => {
-    const last = new Date(yy, mm, 0).getDate();
-    return `${yy}-${String(mm).padStart(2, "0")}-${String(Math.min(dca.day, last)).padStart(2, "0")}`;
-  };
-  const here = at(y, m);
-  if (Number(here.slice(8)) >= d) return here;
-  return m === 12 ? at(y + 1, 1) : at(y, m + 1);
-};
-var buildPortfolio = (fm, price, fx, today3 = "") => {
-  const alloc = arr3(fm?.allocation);
-  const positions = arr3(fm?.assets).map((a, index) => {
-    const currency = String(a.currency ?? "TWD").toUpperCase(), ticker = tickerOf(a), broker = String(a.broker ?? "");
-    const fxNow = fx(currency);
-    const rows = arr3(a.transactions), ids = tradeIds(ticker, rows);
-    const trades = rows.map((t2, i) => {
-      const type = String(t2.type).toUpperCase() === "SELL" ? "SELL" : "BUY";
-      const q = toQ(t2.shares), p = toP2(t2.price), gross = grossOf(q, p, currency);
-      const fee = toMinor(t2.fee, currency), tax = toMinor(t2.tax, currency), rate = currency === "TWD" ? 1 : num3(t2.fx) || fxNow;
-      const cash = type === "BUY" ? -toBase(gross + fee, currency, rate) : toBase(gross - fee - tax, currency, rate);
-      const settled = dateStr(t2.settled, "");
-      return { id: ids[i], type, date: dateStr(t2.date, ""), settled, broker: String(t2.broker ?? broker), index: i, rate, shares: num3(t2.shares), price: num3(t2.price), fx: num3(t2.fx), q, p, gross, fee, tax, cash, pending: !!today3 && !!settled && settled > today3 };
-    });
-    let held = 0, cost = 0, realized = 0, fees = 0, bought = 0;
-    [...trades].sort((x, y) => x.date.localeCompare(y.date) || x.index - y.index).forEach((t2) => {
-      fees += toBase(t2.fee + t2.tax, currency, t2.rate);
-      bought -= t2.cash;
-      if (t2.type === "BUY") {
-        held += t2.q;
-        cost -= t2.cash;
-      } else if (held > 0) {
-        const sold = Math.min(t2.q, held);
-        const out = sold === held ? cost : Math.round(cost * sold / held);
-        const proceeds = sold === t2.q ? t2.cash : Math.round(t2.cash * sold / t2.q);
-        realized += proceeds - out;
-        held -= sold;
-        cost -= out;
-      }
-    });
-    if (!trades.length && num3(a.shares) > 0) {
-      held = toQ(a.shares);
-      cost = toBase(grossOf(held, toP2(a.avg_cost), currency), currency, fxNow);
-    }
-    const last = price(ticker);
-    const g = last !== null ? grossOf(held, toP2(last), currency) : 0;
-    const value2 = last !== null ? toBase(g, currency, fxNow) : cost;
-    const exit = held > 0 && last !== null ? toBase(autoFee(g, currency) + autoTax(g, currency, ticker), currency, fxNow) : 0;
-    const d = a.dca && typeof a.dca === "object" ? a.dca : null;
-    const dca = d && num3(d.amount) > 0 ? { amount: Math.round(num3(d.amount)), day: Math.round(num3(d.day)) || 1 } : null;
-    return { ticker, name: String(a.name ?? ticker), category: String(a.category ?? "other").toLowerCase(), currency, broker, dca, trades, shares: held / 1e4, q: held, cost, avg: held > 0 ? cost * 1e4 / held : 0, realized, fees, bought, price: last, value: value2, exit, pl: value2 - exit - cost, index };
-  });
-  const value = positions.reduce((s2, p) => s2 + p.value, 0);
-  const buckets = alloc.map((b) => {
-    const key = String(b.key ?? "").toLowerCase(), label = String(b.label ?? key);
-    const v = positions.filter((p) => p.category === key || p.category === label.toLowerCase()).reduce((s2, p) => s2 + p.value, 0);
-    const pct2 = value > 0 ? v / value * 100 : 0, target = num3(b.pct);
-    return { key, label, target, value: v, pct: pct2, drift: pct2 - target };
-  });
-  const sum = (k) => positions.reduce((s2, p) => s2 + p[k], 0);
-  return {
-    positions: positions.sort((a, b) => b.value - a.value),
-    buckets,
-    value,
-    cost: sum("cost"),
-    pl: sum("pl"),
-    realized: sum("realized"),
-    fees: sum("fees"),
-    bought: sum("bought"),
-    priced: positions.every((p) => p.q <= 0 || p.price !== null),
-    threshold: num3(fm?.rebalance_threshold) || 5,
-    watch: arr3(fm?.watchlist).map((w) => String(w.ticker ?? "").toUpperCase()).filter(Boolean)
-  };
-};
-var tradeLinks = (P, entries) => P.positions.flatMap((p) => p.trades.map((t2) => {
-  const own = entries.filter((e) => e.trade === t2.id), booked = own.reduce((s2, e) => s2 + e.amount, 0);
-  return { id: t2.id, ticker: p.ticker, cash: t2.cash, booked, diff: t2.pending && !own.length ? 0 : booked - t2.cash, pending: t2.pending };
-}));
-var newTradeId = (ticker, date, taken) => {
-  const base2 = `${ticker}-${date}`;
-  if (!taken.includes(base2)) return base2;
-  let n = 2;
-  while (taken.includes(`${base2}-${n}`)) n++;
-  return `${base2}-${n}`;
-};
-var tradeEntries = (t2, ticker, currency, account) => {
-  const main = (t2.type === "BUY" ? -1 : 1) * toBase(t2.gross, currency, t2.rate), rest = t2.cash - main, date = t2.settled || t2.date;
-  const note = `${ticker} x ${t2.shares} @ ${t2.price}${currency === "TWD" ? "" : ` ${currency}`}`;
-  return [
-    { date, account, amount: main, kind: t2.type === "BUY" ? "buy" : "sell", trade: t2.id, note },
-    ...rest ? [{ date, account, amount: rest, kind: "fee", trade: t2.id, note: `${ticker} fee` }] : []
-  ];
-};
-var syncEntries = (P, accounts, entries, ids, today3) => {
-  const out = [];
-  for (const id of ids) {
-    const own = entries.filter((e) => e.trade === id), booked = own.reduce((s2, e) => s2 + e.amount, 0);
-    const p = P.positions.find((x) => x.trades.some((t3) => t3.id === id)), t2 = p?.trades.find((x) => x.id === id);
-    const account = own[0]?.account ?? accounts.find((a) => a.bucket && a.bucket === p?.category)?.key;
-    if (!account) continue;
-    if (!t2) {
-      if (booked) out.push({ date: today3, account, amount: -booked, kind: "adjust", trade: id, note: "trade deleted" });
-      continue;
-    }
-    if (!own.length) {
-      out.push(...tradeEntries(t2, p.ticker, p.currency, account));
-      continue;
-    }
-    if (booked !== t2.cash) out.push({ date: today3, account, amount: t2.cash - booked, kind: "adjust", trade: id, note: "trade edited" });
-  }
-  return out;
-};
-var investCash = (accounts, keys) => {
-  const own = accounts.filter((a) => a.bucket && keys.includes(a.bucket));
-  return own.length ? own.reduce((s2, a) => s2 + a.balance, 0) : null;
-};
-var journalPath = (ticker) => `Invest/${ticker}.md`;
-var readJournal = (fm) => arr3(fm?.journal).map((j, index) => ({ date: dateStr(j.date, ""), trade: String(j.trade ?? ""), why: String(j.why ?? "").trim(), index })).filter((j) => j.why).sort((a, b) => b.date.localeCompare(a.date) || b.index - a.index);
-var DEFAULT_CAP = 15e3;
-var capOf = (fm) => {
-  const n = Math.round(num3(fm?.single_stock_cap));
-  return n > 0 ? n : DEFAULT_CAP;
-};
-var checkRules = (P, cap3, hasReason) => [
-  ...P.positions.filter((p) => p.q > 0 && p.category === "stock" && p.cost > cap3).map((p) => ({ rule: "cap", key: p.ticker, over: p.cost - cap3 })),
-  ...P.value > 0 ? P.buckets.filter((b) => Math.abs(b.drift) > P.threshold).map((b) => ({ rule: "mix", key: b.label, over: Math.round(b.drift) })) : [],
-  ...P.positions.filter((p) => p.q > 0 && !hasReason(p.ticker)).map((p) => ({ rule: "reason", key: p.ticker, over: 0 }))
-];
-var newWarnings = (before, after) => after.filter((w) => !before.some((b) => b.rule === w.rule && b.key === w.key));
-var isTwEtf = (ticker) => /^00\d/.test(ticker);
-var autoFee = (gross, currency) => currency === "TWD" && gross > 0 ? Math.max(20, Math.floor(gross * 1425e-6)) : 0;
-var autoTax = (gross, currency, ticker) => currency === "TWD" && gross > 0 ? Math.floor(gross * (isTwEtf(ticker) ? 1e-3 : 3e-3)) : 0;
-var tickOf = (p, currency, ticker) => {
-  if (currency !== "TWD") return 1;
-  if (isTwEtf(ticker)) return p < 5e3 ? 1 : 5;
-  return p < 1e3 ? 1 : p < 5e3 ? 5 : p < 1e4 ? 10 : p < 5e4 ? 50 : p < 1e5 ? 100 : 500;
-};
-var addTradingDays = (day, n, closed = () => false) => {
-  const d = /* @__PURE__ */ new Date(`${day}T12:00:00Z`);
-  if (isNaN(d.getTime())) return day;
-  let left = n;
-  while (left > 0) {
-    d.setUTCDate(d.getUTCDate() + 1);
-    const w = d.getUTCDay();
-    if (w !== 0 && w !== 6 && !closed(d.toISOString().slice(0, 10))) left--;
-  }
-  return d.toISOString().slice(0, 10);
-};
-var revalue = (p, np) => {
-  if (p.price === null || !(p.price > 0) || np === p.price) return p;
-  const value = Math.round(p.value * np / p.price);
-  const exit = p.q <= 0 ? 0 : p.currency === "TWD" ? autoFee(value, "TWD") + autoTax(value, "TWD", p.ticker) : Math.round(p.exit * np / p.price);
-  return { ...p, price: np, value, exit, pl: value - exit - p.cost };
-};
-var todayMove = (p, ch, last, today3) => {
-  const buys = p.trades.filter((t2) => t2.date === today3 && t2.type === "BUY");
-  const boughtQ = buys.reduce((s2, t2) => s2 + t2.q, 0);
-  const old = Math.max(0, p.q - boughtQ), keptNew = Math.max(0, p.q - old), share = boughtQ > 0 ? keptNew / boughtQ : 0, m = minorOf(p.currency);
-  const fromBuys = buys.reduce((s2, t2) => s2 + t2.q * share * (last - t2.p) * m / 1e6, 0);
-  return Math.round(old * ch * m / 1e6 + fromBuys);
-};
 
 // src/i18n.ts
 var en = {
@@ -2744,6 +2882,7 @@ var en = {
   fAsks: "ASKS",
   fSrcFugle: "FUGLE TAPE",
   fSrcMis: "MIS 5 S FROM {t} (no Fugle key)",
+  fSrcMisRefused: "MIS 5 S FROM {t} (Fugle key refused)",
   fWait: "Waiting for trades",
   fClosed: "Market closed: the tape fills from 09:00",
   fSectors: "SECTORS",
@@ -2772,6 +2911,8 @@ var en = {
   iAll: "All",
   iNoneHeld: "Nothing held yet",
   sPlaceholder: "Ticker or name",
+  sTradeWhat: "Which ticker to trade?",
+  sWatchWhat: "Which ticker to watch?",
   sCancel: "CANCEL",
   sRecent: "RECENT",
   sClear: "CLEAR",
@@ -2779,6 +2920,10 @@ var en = {
   sHeld: "HELD",
   sWatch: "WATCHING",
   iPricing: "Prices\u2026",
+  iNoPrice: "No price: {tk}",
+  iNoFx: "No FX rate: {tk}",
+  iNoSource: "NO SOURCE HAS A PRICE",
+  iDropped: "Sold, never held",
   iPL: "Net profit",
   iCash: "Cash to invest",
   iNone: "No holdings yet",
@@ -3072,6 +3217,8 @@ var en = {
   rvNextS: "{m} \xB7 by the 10th",
   rvNone: "No revenue yet",
   rvNoneS: "Loading from FinMind. Taiwan stocks only.",
+  rvFailed: "Revenue did not load",
+  rvFailedS: "FinMind did not answer. It is asked again in 10 minutes.",
   rvSrc: "FinMind monthly revenue \xB7 NT$ \xB7 consolidated",
   alTitle: "Alerts",
   alLink: "Alerts",
@@ -3094,7 +3241,8 @@ var en = {
   alRemoveQ: "Remove the alert for {tk} at {p}?",
   alPriceK: "{tk} {k} {p}",
   alNoPrice: "No price yet",
-  alAway: "Now {now} \xB7 {n}% away",
+  alNow: "Now {now}",
+  alAwayV: "{n}% away",
   alToday: "Today",
   alRevK: "Revenue out \xB7 {tk}",
   alRevS: "Last month's revenue, by the 10th",
@@ -3758,7 +3906,7 @@ var import_obsidian9 = require("obsidian");
 var SPAN_PAGE = { 1: 1, 5: 2, 20: 4 };
 var ent = (s2) => s2.replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
 var txt = (s2) => ent(s2.replace(/<[^>]*>/g, "")).trim();
-var int2 = (s2) => {
+var int3 = (s2) => {
   const n = Number(s2.replace(/,/g, ""));
   return Number.isFinite(n) ? Math.round(n) : NaN;
 };
@@ -3772,8 +3920,8 @@ var parseZco = (html) => {
   for (const tr of html.split(/<tr\b/i).slice(1)) {
     const cells = [...tr.split(/<\/tr>/i)[0].matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)].map((m) => txt(m[1]));
     if (cells[0] === "\u5408\u8A08\u8CB7\u8D85\u5F35\u6578") {
-      out.buyTotal = int2(cells[1]) || 0;
-      out.sellTotal = int2(cells[3]) || 0;
+      out.buyTotal = int3(cells[1]) || 0;
+      out.sellTotal = int3(cells[3]) || 0;
       continue;
     }
     if (cells[0] === "\u5E73\u5747\u8CB7\u8D85\u6210\u672C") {
@@ -3783,7 +3931,7 @@ var parseZco = (html) => {
     }
     if (cells.length < 10) continue;
     const side = (c, sign) => {
-      const [name, b, s2, n] = [c[0], int2(c[1]), int2(c[2]), int2(c[3])];
+      const [name, b, s2, n] = [c[0], int3(c[1]), int3(c[2]), int3(c[3])];
       return name && Number.isFinite(b) && Number.isFinite(s2) && Number.isFinite(n) ? { name, b, s: s2, net: sign * Math.abs(n), pct: hund(c[4]) } : null;
     };
     const a = side(cells.slice(0, 5), 1), z = side(cells.slice(5, 10), -1);
@@ -4728,7 +4876,10 @@ var holdingChart = (parent, o) => {
       const row2 = h(wait, "div", "zl-ch-wait-b");
       for (let i = 0; i < 8; i++) h(row2, "i").style.animationDelay = `${i * 0.1}s`;
       waited = true;
-      h(wait, "div", "zl-ch-wait-t", `LOADING ${IV_LABEL[range]}${isMinutes(range) && range !== "I" ? " MIN" : ""}`);
+      const failed = o.prices.seriesFailed(o.ticker, range);
+      if (failed) wait.addClass("is-failed");
+      h(wait, "div", "zl-ch-wait-t", failed ? `NO ${IV_LABEL[range]} BARS FROM ANY SOURCE` : `LOADING ${IV_LABEL[range]}${isMinutes(range) && range !== "I" ? " MIN" : ""}`);
+      if (failed) h(wait, "div", "zl-ch-wait-s", "Asked again in a minute. Check the ticker and the connection.");
       note.setText(tool ? HINT[tool.type] : "\xA0");
       return;
     }
@@ -4739,7 +4890,7 @@ var holdingChart = (parent, o) => {
       indicators(ind, o, { ma60: [], bb: { mb: [], ub: [], lb: [], sd: [] } }, 0, setShow);
       const wait = h(plot, "div", "zl-ch-wait");
       h(wait, "div", "zl-ch-wait-t", "TODAY STARTS WITH THE NEXT TRADE");
-      if (!o.prices.hasFugle() && !o.ticker.startsWith("^")) h(wait, "div", "zl-ch-wait-s", "For the whole day live, add a Fugle API key in Settings.");
+      if (!o.prices.hasFugle() && !o.ticker.startsWith("^")) h(wait, "div", "zl-ch-wait-s", o.prices.fugleRefused() ? "Fugle turned the API key away: check it in Settings." : "For the whole day live, add a Fugle API key in Settings.");
       note.setText("\xA0");
       return;
     }
@@ -5340,7 +5491,7 @@ var Flap = class {
     while (this.el.children.length < text2.length) this.el.insertBefore(this.mk(), this.el.firstChild);
     const tiles = Array.from(this.el.children).map((t2) => TILES.get(t2));
     const n = text2.length, fromLeft = dir === "del" || !this.leansRight();
-    const tile = this.el.hasClass("is-xs"), still = calm(), punct = (c) => c === " " || !tile && isSign(c);
+    const still = calm(), punct = (c) => c === " " || isSign(c);
     const now = performance.now();
     let order = 0;
     for (let k = 0; k < n; k++) {
@@ -5503,7 +5654,7 @@ var import_obsidian17 = require("obsidian");
 // src/calc/accounts.ts
 var KINDS = ["opening", "adjust", "expense", "deposit", "transfer", "buy", "sell", "fee"];
 var arr4 = (v) => (Array.isArray(v) ? v : v ? [v] : []).filter((x) => x && typeof x === "object");
-var int3 = (v) => {
+var int4 = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? Math.round(n) : 0;
 };
@@ -5514,12 +5665,12 @@ var buildAccounts = (fm, upTo) => {
     bank: String(a.bank ?? ""),
     line: String(a.line ?? ""),
     bucket: String(a.bucket ?? ""),
-    target: int3(a.target)
+    target: int4(a.target)
   })).filter((a) => a.key);
   const entries = arr4(fm?.entries).map((e, index) => ({
     date: dateStr(e.date, ""),
     account: String(e.account ?? ""),
-    amount: int3(e.amount),
+    amount: int4(e.amount),
     kind: KINDS.includes(e.kind) ? e.kind : "adjust",
     note: String(e.note ?? ""),
     planned: e.planned === true,
@@ -6063,11 +6214,11 @@ var reads = (parent, list5) => {
   }
   return box;
 };
-var sec = (parent, label, onMore, moreText = "MORE") => {
+var sec = (parent, label, onMore, moreText = "MORE", hot = false) => {
   const s2 = h(parent, onMore ? "button" : "div", "zl-sec");
   h(s2, "span", "", label);
   if (onMore) {
-    const g = h(s2, "span", "zl-sec-go", moreText);
+    const g = h(s2, "span", "zl-sec-go" + (hot ? " is-hot" : ""), moreText);
     sprite(g, "back");
     s2.addEventListener("click", (e) => {
       e.preventDefault();
@@ -7749,11 +7900,16 @@ var openSearch = (from, src, o) => {
   };
   const recent = () => {
     const r = src.recent();
-    rows(r.map((tk) => ({ tk, name: src.nameOf(tk), ex: "" })), o.texts.recent, r.length ? () => {
-      src.forget();
-      recent();
-    } : void 0);
-    if (!r.length) list5.empty();
+    if (r.length) {
+      rows(r.map((tk) => ({ tk, name: src.nameOf(tk), ex: "" })), o.texts.recent, () => {
+        src.forget();
+        recent();
+      });
+      return;
+    }
+    const mine = o.mine("");
+    rows(mine);
+    if (!mine.length) list5.empty();
   };
   const update = () => {
     const q = input.value.trim();
@@ -8199,6 +8355,17 @@ var liveBadge = (x) => {
   const when = day === today() ? hm2 : `${d.toLocaleDateString("en-US", { weekday: "short" })} ${hm2}`;
   return { text: t("liveOff", { m: s2.next.mkt, t: when }).toUpperCase(), live: false };
 };
+var tickerBadge = (x, tk) => {
+  const pr = x.ctx.plugin.prices, sym = pr.symbol(tk), mkt = isTwSym(sym) ? "TW" : "US", now = /* @__PURE__ */ new Date(), cal = pr.calendar?.cal;
+  if (pr.isOpen(tk, now)) return { text: t("liveOn", { m: mkt }).toUpperCase(), live: true };
+  const why = closedInHours(sym, now, cal);
+  if (why) return { text: t("liveClosed", { m: mkt, w: t(WHY[why]) }).toUpperCase(), live: false };
+  const d = nextOpen(sym, now, cal);
+  if (!d) return void 0;
+  const hm2 = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return { text: t("liveOff", { m: mkt, t: day === today() ? hm2 : `${d.toLocaleDateString("en-US", { weekday: "short" })} ${hm2}` }).toUpperCase(), live: false };
+};
 var findAct = (x, el) => ({ icon: "search", label: t("iFind"), dock: true, onTap: () => x.search(el) });
 var CHG_KEY = "ledgerline-chg";
 var CHG = -1;
@@ -8335,7 +8502,7 @@ var home = (x) => {
   const el = page(title);
   el.addClass("zl-c-stack", "zl-mm");
   const held = P.positions.filter((p) => p.shares > 0).sort((a, b) => b.value - a.value);
-  const fab = { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.trade() };
+  const fab = { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.buy(void 0, el) };
   const day = todayHeld(x, held);
   const rp = P.cost > 0 ? P.pl / P.cost * 100 : 0, r12 = Math.round(rp * 10) / 10;
   const tone = (n) => n > 0 ? "up" : n < 0 ? "down" : void 0;
@@ -8343,9 +8510,9 @@ var home = (x) => {
     key: "invest",
     value: num(P.value),
     label: t("iHoldings"),
-    right: !held.length ? void 0 : !P.priced ? t("iPricing") : day ? t("iTodayChg", { v: signed3(day.ch), p: pctS(day.pct) }) : void 0,
+    right: !held.length ? void 0 : !P.priced ? missingText(x) : day ? t("iTodayChg", { v: signed3(day.ch), p: pctS(day.pct) }) : void 0,
     tone: P.priced && day ? tone(day.ch) : void 0,
-    reads: held.length && P.priced ? [[t("iGainLoss"), signed3(P.pl), { sub: [`${r12 > 0 ? "+" : r12 < 0 ? MINUS : ""}${Math.abs(r12).toFixed(1)}%`, t("iSinceBought")], tone: tone(P.pl) }]] : [[t("iCashWait"), num(x.cash)]]
+    reads: held.length && (P.priced || held.some((p) => p.price !== null && !p.fxMissing)) ? [[t("iGainLoss"), signed3(P.pl), { sub: [`${r12 > 0 ? "+" : r12 < 0 ? MINUS : ""}${Math.abs(r12).toFixed(1)}%`, t("iSinceBought")], tone: tone(P.pl) }]] : [[t("iCashWait"), num(x.cash)]]
   });
   marketCard(el, { prices: ctx.plugin.prices, app: ctx.app, cal: () => ctx.plugin.prices.calendar?.cal, chg: (tk) => todayOf(ctx.plugin.prices, tk) });
   watchStrip(x, el);
@@ -8363,6 +8530,13 @@ var home = (x) => {
   link(t("alLink").toUpperCase(), () => ctx.push({ key: "alerts", title: t("alTitle") }));
   link(t("iMixLink").toUpperCase(), () => ctx.push({ key: "mix", title: t("iMixT") }));
   return { title, el, fab, actions: [findAct(x, el)], badge: liveBadge(x) };
+};
+var missingText = (x) => {
+  const pr = x.ctx.plugin.prices, ps = x.P.positions.filter((p) => x.P.missing.includes(p.ticker));
+  const fx = [...new Set(ps.filter((p) => p.fxMissing).map((p) => p.currency))];
+  if (fx.length) return t("iNoFx", { tk: fx.slice(0, 2).join(", ") });
+  const gone = ps.filter((p) => p.price === null && pr.failed(p.ticker)).map((p) => p.ticker);
+  return gone.length ? t("iNoPrice", { tk: gone.slice(0, 2).join(", ") + (gone.length > 2 ? ` +${gone.length - 2}` : "") }) : t("iPricing");
 };
 var todayHeld = (x, held) => {
   const pr = x.ctx.plugin.prices;
@@ -8546,24 +8720,24 @@ var mixPage = (x) => {
   const title = t("iMixT");
   const el = page(title);
   el.addClass("zl-c-stack");
-  const fab = { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.trade() };
+  const fab = { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.buy(void 0, el) };
   const sel = /* @__PURE__ */ new Date(), mk = `${sel.getFullYear()}-${String(sel.getMonth() + 1).padStart(2, "0")}`;
   const { plan, month } = ctx.plugin.store.monthData(sel.getFullYear(), sel.getMonth());
   const amt = Number(month?.[PLAN_KEY] ?? plan[PLAN_KEY]) || 0;
-  const bs = investBuckets(ctx.plugin.store.fm(ctx.plugin.store.path(FILES.invest)), amt, mk);
+  const bs = investBuckets(ctx.plugin.store.fm(ctx.plugin.store.path(FILES.invest)), amt, mk, x.fx, x.cur);
   const toBuy = bs ? bs.reduce((s2, b) => s2 + Math.max(0, b.target - b.bought), 0) : null;
   summary(el, { key: "mix", label: t("iCashWait"), value: num(x.cash), items: toBuy !== null ? [[t("iToBuy"), num(toBuy)]] : [] });
   const toHoldings = () => ctx.push({ key: "holdings", title: t("iHoldingsT") });
   const toRules = () => ctx.push({ key: "rules", title: t("iRules") });
   if (P.buckets.length && P.value > 0) {
     const g = h(el, "div", "zl-c-group");
-    sec(g, t("iMixT").toUpperCase(), x.warns.length ? toRules : void 0, x.warns.length ? (x.warns.length === 1 ? t("iWarn1") : t("iWarnN", { n: x.warns.length })).toUpperCase() : void 0);
+    sec(g, t("iMixT").toUpperCase(), x.warns.length ? toRules : void 0, x.warns.length ? (x.warns.length === 1 ? t("iWarn1") : t("iWarnN", { n: x.warns.length })).toUpperCase() : void 0, x.warns.length > 0);
     for (const b of P.buckets) bline(g, { name: b.label, spent: b.pct, quota: 100, pace: b.target / 100, value: `${Math.round(b.pct)}%`, of: t("iTargetN", { n: b.target }), hot: Math.abs(b.drift) > P.threshold, mix: true, onTap: toHoldings });
   }
   if (bs?.length) {
     const g = h(el, "div", "zl-c-group");
     sec(g, t("iPlan", { n: num(amt) }).toUpperCase());
-    for (const b of bs) bline(g, { name: b.label, spent: b.bought, quota: b.target, pace: 0, value: num(Math.max(0, b.target - b.bought)), of: t("cLeftOf", { n: num(b.target) }), hot: false, onTap: () => x.trade() });
+    for (const b of bs) bline(g, { name: b.label, spent: b.bought, quota: b.target, pace: 0, value: num(Math.max(0, b.target - b.bought)), of: t("cLeftOf", { n: num(b.target) }), hot: false, onTap: () => x.buy(void 0, el) });
   }
   if (!P.buckets.length && !bs?.length) empty(el, { icon: "trending-up", title: t("iNone"), text: t("iNoneSub") });
   return { title, el, fab, actions: [findAct(x, el)] };
@@ -9136,7 +9310,7 @@ var flowModes = (x, top, cg, tk, chart) => {
     pv.setText(v === null ? "-" : `${v >= 0 ? t("fBids") : t("fAsks")} ${Math.round(Math.abs(v) * 100)}%`);
     pv.toggleClass("is-up", v !== null && v > 0);
     pv.toggleClass("is-hot", v !== null && v < 0);
-    const th = thin(), src = (!tp ? "" : tp.src === "fugle" ? t("fSrcFugle") : t("fSrcMis", { t: hm(tp.since) })) + (th ? ` \xB7 ${th}` : "");
+    const th = thin(), src = (!tp ? "" : tp.src === "fugle" ? t("fSrcFugle") : t(x.ctx.plugin.prices.fugleRefused() ? "fSrcMisRefused" : "fSrcMis", { t: hm(tp.since) })) + (th ? ` \xB7 ${th}` : "");
     const why = r?.why && whyUntil > Date.now() && !cross ? r.why : "";
     if (why) whyEl.setText(why);
     whyEl.toggleClass("is-on", !!why);
@@ -9676,7 +9850,7 @@ var buyCheck = (x, tk, go) => {
         title: t("rkLimit"),
         subtitle: tk,
         submitText: t("save"),
-        fields: [{ key: "price", label: t("iPrice"), type: "number", required: true, dec: 2, step: 0.05, value: limit ? limit / 100 : live ?? "", note: () => t("rsLimitNote") }],
+        fields: [{ key: "price", label: t("iPrice"), type: "number", required: true, dec: 2, step: (v) => tickOf(toP(v.price), p?.currency ?? guessCur(prices.symbol(tk)), tk) / 100, value: limit ? limit / 100 : live ?? "", note: () => t("rsLimitNote") }],
         onSubmit: async (v) => {
           limit = Math.round(parseNum(v.price) * 100) || null;
           paint();
@@ -9765,8 +9939,9 @@ var revenuePage = (x, tk) => {
   if (code) rv.ensure(code);
   const s2 = code ? statsOf(x, code) : null;
   if (!code || !s2) {
-    summary(el, { key: "rev-" + tk, label: t("rvNone"), value: "-", dim: true });
-    h(el, "div", "zl-field-note", t("rvNoneS"));
+    const failed = !!code && rv.failed(code);
+    summary(el, { key: "rev-" + tk, label: t(failed ? "rvFailed" : "rvNone"), value: "-", dim: true });
+    h(el, "div", "zl-field-note", t(failed ? "rvFailedS" : "rvNoneS"));
     if (code) rv.onChange((c) => {
       if (!el.isConnected) return false;
       if (c === code) x.ctx.redraw();
@@ -9812,7 +9987,7 @@ var revenuePage = (x, tk) => {
 };
 
 // src/pages/invest-ticker.ts
-var tradeFab = (x, tk) => ({ icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => buyCheck(x, tk, (o) => x.trade(tk, o)) });
+var tradeFab = (x, tk) => ({ icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.buy(tk) });
 var LAST = /* @__PURE__ */ new Map();
 var asOfText = (ms) => {
   if (!ms) return "";
@@ -9824,7 +9999,7 @@ var assetPage = (x, p) => {
   const { ctx } = x;
   const el = page(p.ticker);
   el.addClass("zl-c-stack");
-  const costP = p.q > 0 ? Math.round(p.avg / x.fx(p.currency) * 100) : null;
+  const costP = p.q > 0 ? p.avgP : null;
   chartBlock(x, el, p.ticker, p.currency, costP);
   thesisCard(x, el, p.ticker);
   const hold = h(el, "div", "zl-c-group zl-hold");
@@ -9863,13 +10038,13 @@ var assetPage = (x, p) => {
     { k: t("iJournal"), icon: "receipt", v: String(thoughts.length), dim: !thoughts.length, onTap: () => ctx.push({ key: "journal:" + p.ticker, title: t("iJournal") }) }
   ].filter((v) => !!v);
   tileGrid(h(el, "div", "zl-c-group"), tiles);
-  return { title: p.ticker, el, still: true, actions: [drawAct(x, p.ticker)], fab: tradeFab(x, p.ticker) };
+  return { title: p.ticker, el, still: true, actions: [drawAct(x, p.ticker)], fab: tradeFab(x, p.ticker), badge: tickerBadge(x, p.ticker) };
 };
 var tradesPage = (x, p) => {
   const title = t("iTrades");
   const el = page(title);
   el.addClass("zl-c-list");
-  summary(el, { key: "trades-" + p.ticker, label: `${p.ticker} \xB7 ${t("iRealized")}`, value: signed3(p.realized), hot: p.realized < 0, items: [[t("iFees"), num(p.fees)], [t("iTrades"), String(p.trades.length)]] });
+  summary(el, { key: "trades-" + p.ticker, label: `${p.ticker} \xB7 ${t("iRealized")}`, value: signed3(p.realized), hot: p.realized < 0, items: [[t("iFees"), num(p.fees)], [t("iTrades"), String(p.trades.length)], ...p.dropped > 0 ? [[t("iDropped"), qty(p.dropped), true]] : []] });
   const g = h(el, "div", "zl-c-group");
   const gap = (tr) => {
     const l = x.links.get(tr.id);
@@ -9883,7 +10058,7 @@ var tradesPage = (x, p) => {
     hot: !!gap(tr),
     onTap: () => x.editTrade(p, tr)
   })));
-  return { title, el, fab: { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.trade(p.ticker) } };
+  return { title, el, fab: { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.buy(p.ticker) } };
 };
 var DRAWN = /* @__PURE__ */ new WeakMap();
 var chartBlock = (x, el, tk, currency, cost) => {
@@ -9921,7 +10096,11 @@ var chartBlock = (x, el, tk, currency, cost) => {
   };
   if (loading) {
     top.addClass("is-loading");
-    window.setTimeout(() => loaded("-"), 15e3);
+    window.setTimeout(() => {
+      if (!loading) return;
+      loaded("-");
+      if (prices.failed(tk)) srcEl.setText(t("iNoSource"));
+    }, 15e3);
   }
   prices.onQuote((sym) => {
     if (!el.isConnected) return false;
@@ -9979,7 +10158,7 @@ var tickerPage = (x, tk) => {
     revenueTile(x, tk)
   ].filter((v) => !!v);
   tileGrid(h(el, "div", "zl-c-group"), tiles);
-  return { title: tk, el, still: true, actions: [drawAct(x, tk)], fab: tradeFab(x, tk) };
+  return { title: tk, el, still: true, actions: [drawAct(x, tk)], fab: tradeFab(x, tk), badge: tickerBadge(x, tk) };
 };
 var journalPage = (x, tk) => {
   const { ctx } = x;
@@ -10007,7 +10186,7 @@ var holdingsPage = (x) => {
   summary(el, { label: t("iWorth"), value: num(P.value), items: [[t("iCost"), num(P.cost)], [t("iPL"), signed3(P.pl), P.pl < 0], [t("iRealized"), signed3(P.realized), P.realized < 0]] });
   const g = h(el, "div", "zl-c-group");
   hrows(x, g, P.positions);
-  return { title, el, actions: [findAct(x, el)], fab: { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.trade() } };
+  return { title, el, actions: [findAct(x, el)], fab: { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.buy(void 0, el) } };
 };
 var retOf = (x, tk, p) => {
   const pr = x.ctx.plugin.prices, ok = p.price !== null;
@@ -10072,8 +10251,11 @@ var alertSheet = (x, a, preset) => {
         type: "number",
         required: true,
         dec: 2,
-        step: 0.05,
         value: a ? a.price / 100 : "",
+        step: (v) => {
+          const tk = a?.ticker ?? preset ?? (v.tk ?? "").trim().toUpperCase();
+          return tickOf(toP(v.price), x.P.positions.find((p) => p.ticker === tk)?.currency ?? guessCur(prices.symbol(tk)), tk) / 100;
+        },
         auto: (v) => {
           const q = prices.price(a?.ticker ?? preset ?? (v.tk ?? "").trim().toUpperCase());
           return q ? String(Math.round(q * 100) / 100) : "";
@@ -10087,7 +10269,8 @@ var alertSheet = (x, a, preset) => {
       await store.update(path, (f) => {
         const xs2 = list2(f.alerts);
         const row2 = { id: a?.id ?? `a${Date.now().toString(36)}`, ticker: tk, kind: v.kind === "above" ? "above" : "below", price: parseNum(v.price) };
-        if (a && xs2[a.index]) xs2[a.index] = row2;
+        const i = a ? findAlert(xs2, a) : -1;
+        if (i >= 0) xs2[i] = row2;
         else xs2.push(row2);
         f.alerts = xs2;
       });
@@ -10095,8 +10278,8 @@ var alertSheet = (x, a, preset) => {
     danger: a ? { text: t("alRemove"), onTap: async () => {
       if (!await confirmSheet(x.ctx.app, t("alRemove"), t("alRemoveQ", { tk: a.ticker, p: p22(a.price) }), t("remove"))) return false;
       await store.update(path, (f) => {
-        const xs2 = list2(f.alerts);
-        xs2.splice(a.index, 1);
+        const xs2 = list2(f.alerts), i = findAlert(xs2, a);
+        if (i >= 0) xs2.splice(i, 1);
         f.alerts = xs2;
       });
       return true;
@@ -10131,8 +10314,10 @@ var alertsPage = (x) => {
       at: "",
       icon: a.kind === "below" ? "down" : "up",
       k: t("alPriceK", { tk: a.ticker, k: a.kind === "below" ? "\u2264" : "\u2265", p: p22(a.price) }),
-      s: now === null ? t("alNoPrice") : t("alAway", { now: p22(now), n: Math.max(0, away(a, now)).toFixed(1) }),
-      v: p22(a.price),
+      // the alert's price is in its name; the value is how far away it is (review 2026-11, F: the price was said twice)
+      s: now === null ? t("alNoPrice") : t("alNow", { now: p22(now) }),
+      v: now === null ? "-" : t("alAwayV", { n: Math.max(0, away(a, now)).toFixed(1) }),
+      hot: now !== null && away(a, now) <= 0,
       onTap: () => alertSheet(x, a)
     });
   }
@@ -10328,7 +10513,7 @@ var watchPage = (x) => {
       r.addClass("zl-kept");
     });
   }
-  return { title, el, actions: [findAct(x, el)], fab: { icon: "plus", text: t("iWatchAdd").toUpperCase(), label: t("iWatchAdd"), onTap: x.addWatch } };
+  return { title, el, actions: [findAct(x, el)], fab: { icon: "plus", text: t("iWatchAdd").toUpperCase(), label: t("iWatchAdd"), onTap: () => x.addWatch(el) } };
 };
 
 // src/pages/invest.ts
@@ -10345,7 +10530,7 @@ var investPage = {
     const CFG = store.path(FILES.invest);
     const fm = store.fm(CFG);
     const fb = fm?.fx_fallback ?? {};
-    const P = buildPortfolio(fm, (tk) => prices.price(tk), (c) => prices.fx(c, cur, fb), today());
+    const P = buildPortfolio(fm, (tk) => prices.price(tk), (c) => prices.fx(c, cur, fb), today(), cur);
     const curs = [...new Set(P.positions.map((p) => p.currency).filter((c) => c !== cur))];
     const held = [...P.positions.filter((p) => p.shares > 0).map((p) => prices.symbol(p.ticker)), ...P.watch.map((w) => prices.symbol(w))];
     prices.refresh([...held, ...curs.map((c) => prices.fxSymbol(c, cur))]);
@@ -10359,7 +10544,7 @@ var investPage = {
     const snap = (f) => JSON.parse(JSON.stringify(f));
     const book = async (fresh, ids) => {
       if (!store.file(ACC)) return;
-      const Q = buildPortfolio(fresh, (tk) => prices.price(tk), (c) => prices.fx(c, cur, fb), today());
+      const Q = buildPortfolio(fresh, (tk) => prices.price(tk), (c) => prices.fx(c, cur, fb), today(), cur);
       let n = 0;
       await store.update(ACC, (a) => {
         const B = buildAccounts(a);
@@ -10379,20 +10564,7 @@ var investPage = {
       return fresh;
     };
     const recalc = (a) => {
-      let held2 = 0, cost = 0;
-      for (const tr of list3(a.transactions)) {
-        const n = Number(tr.shares) || 0, pr = Number(tr.price) || 0;
-        if (String(tr.type).toUpperCase() === "BUY") {
-          held2 += n;
-          cost += n * pr;
-        } else if (held2 > 0) {
-          const s2 = Math.min(n, held2);
-          cost -= s2 * (cost / held2);
-          held2 -= s2;
-        }
-      }
-      a.shares = +held2.toFixed(6);
-      a.avg_cost = held2 > 0 ? +(cost / held2).toFixed(4) : 0;
+      Object.assign(a, legacyFields(a.transactions));
     };
     const trade = (preset, pre = {}) => {
       const tickers = P.positions.map((p) => p.ticker);
@@ -10403,7 +10575,7 @@ var investPage = {
       const curOf = (v) => !preset && v.asset === NEW ? v.currency || cur : posOf(v)?.currency ?? presetCur ?? cur;
       const grossV = (v) => {
         const n = parseNum(v.shares), pr = parseNum(v.price);
-        return n > 0 && pr >= 0 ? grossOf(toQ(n), toP2(pr), curOf(v)) : 0;
+        return n > 0 && pr >= 0 ? grossOf(toQ(n), toP(pr), curOf(v)) : 0;
       };
       const major = (minor2, c) => String(minor2 / minorOf(c));
       const minor = (s2, c) => Math.round((parseNum(s2 ?? "") || 0) * minorOf(c));
@@ -10414,7 +10586,7 @@ var investPage = {
       const closed = (c) => (d) => !!(c === "TWD" ? prices.calendar?.cal.tw : prices.calendar?.cal.us)?.[d];
       const money = (v) => {
         const c = curOf(v), g = grossV(v), fee = minor(v.fee, c), tax = v.type === "SELL" ? minor(v.tax, c) : 0;
-        return { c, g, n: v.type === "SELL" ? g - fee - tax : g + fee };
+        return { c, g, n: tradeTotal(v.type, g, fee, tax) };
       };
       new FormSheet(ctx.app, {
         title: t("iTrade"),
@@ -10434,7 +10606,16 @@ var investPage = {
           ...preset ? [] : [
             { key: "asset", label: t("iAsset"), type: "select", value: tickers[0] ?? NEW, options: [...tickers.map((x2) => [x2, x2]), [NEW, t("iNewAsset")]] },
             { key: "ticker", label: t("iTicker"), type: "text", required: true, showIf: (v) => v.asset === NEW },
-            { key: "currency", label: t("iCurrency"), type: "select", value: cur, options: [[cur, cur], ...["USD", "TWD", "EUR", "JPY"].filter((c) => c !== cur).map((c) => [c, c])], showIf: (v) => v.asset === NEW },
+            {
+              key: "currency",
+              label: t("iCurrency"),
+              type: "select",
+              value: cur,
+              options: [[cur, cur], ...["USD", "TWD", "EUR", "JPY"].filter((c) => c !== cur).map((c) => [c, c])],
+              auto: (v) => (v.ticker ?? "").trim() ? guessCur(prices.symbol(v.ticker.trim().toUpperCase())) : cur,
+              // a new ticker's currency from its market, until picked by hand
+              showIf: (v) => v.asset === NEW
+            },
             { key: "bucket", label: t("iBucket"), type: "select", value: buckets[0]?.[0] ?? "other", options: buckets.length ? buckets : [["other", "Other"]], showIf: (v) => v.asset === NEW }
           ],
           {
@@ -10444,8 +10625,13 @@ var investPage = {
             required: true,
             dec: 4,
             step: (v) => curOf(v) === "TWD" && parseNum(v.shares) >= 1e3 ? 1e3 : 1,
+            // your last trade of that kind; a first SELL starts from all you hold (it was empty, with no sign of what is held)
             auto: (v) => {
-              const last = posOf(v)?.trades.filter((x2) => x2.type === (v.type === "SELL" ? "SELL" : "BUY")).at(-1);
+              const p = posOf(v), last = p?.trades.filter((x2) => x2.type === (v.type === "SELL" ? "SELL" : "BUY")).at(-1);
+              if (v.type === "SELL") {
+                const held2 = p?.shares ?? 0;
+                return held2 > 0 ? String(last && last.shares <= held2 ? last.shares : held2) : "";
+              }
               return last ? String(last.shares) : "";
             }
           },
@@ -10456,13 +10642,14 @@ var investPage = {
             required: true,
             dec: 2,
             ...pre.price ? { value: pre.price } : {},
-            step: (v) => tickOf(toP2(v.price), curOf(v), tkOf(v)) / 100,
+            step: (v) => tickOf(toP(v.price), curOf(v), tkOf(v)) / 100,
             auto: (v) => {
               const q = live(v);
               return q === null ? "" : String(q);
             },
-            tag: (v) => live(v) !== null && parseNum(v.price) === live(v) ? t("iLive") : ""
+            tag: (v) => live(v) !== null && parseNum(v.price) === live(v) && prices.isOpen(tkOf(v)) ? t("iLive") : ""
           },
+          // LIVE only while its market trades: a closed market's last price is not live
           { key: "date", label: t("date"), type: "date", value: today(), required: true },
           {
             key: "fee",
@@ -10492,8 +10679,8 @@ var investPage = {
               const c = curOf(v);
               return major(autoTax(grossV(v), c, tkOf(v)), c);
             },
-            brief: (v) => curOf(v) === "TWD" ? isTwEtf(tkOf(v)) ? "0.1 %" : "0.3 %" : "",
-            note: (v) => curOf(v) === "TWD" ? t("iTaxNote", { pct: isTwEtf(tkOf(v)) ? "0.1 %" : "0.3 %", what: isTwEtf(tkOf(v)) ? "ETF" : t("iStock") }) : t("iFeeNoteX")
+            brief: (v) => curOf(v) === "TWD" ? isTwBondEtf(tkOf(v)) ? "0 %" : isTwEtf(tkOf(v)) ? "0.1 %" : "0.3 %" : "",
+            note: (v) => curOf(v) === "TWD" ? t("iTaxNote", { pct: isTwBondEtf(tkOf(v)) ? "0 %" : isTwEtf(tkOf(v)) ? "0.1 %" : "0.3 %", what: isTwBondEtf(tkOf(v)) ? "bond ETF" : isTwEtf(tkOf(v)) ? "ETF" : t("iStock") }) : t("iFeeNoteX")
           },
           {
             key: "settled",
@@ -10514,7 +10701,10 @@ var investPage = {
             dec: 4,
             step: 0.01,
             showIf: (v) => curOf(v) !== cur,
-            auto: (v) => curOf(v) !== cur ? String(prices.fx(curOf(v), cur, fb)) : "",
+            auto: (v) => {
+              const r = curOf(v) !== cur ? prices.fx(curOf(v), cur, fb) : 0;
+              return r > 0 ? String(r) : "";
+            },
             brief: () => t("iLive").toLowerCase()
           },
           { key: "why", label: t("iWhy"), type: "text", required: false }
@@ -10539,10 +10729,10 @@ var investPage = {
             let a = assets.find((x2) => tickerOf(x2) === tk);
             const nc = preset ? presetCur : v.currency;
             if (!a) {
-              a = { name: tk, ticker: tk, category: v.bucket || "other", ...nc && nc !== "TWD" ? { currency: nc } : {}, shares: 0, avg_cost: 0, transactions: [] };
+              a = { name: tk, ticker: tk, category: v.bucket || "other", ...nc && nc !== cur ? { currency: nc } : {}, shares: 0, avg_cost: 0, transactions: [] };
               assets.push(a);
             }
-            const P2 = buildPortfolio({ assets: [a] }, () => null, () => 1);
+            const P2 = buildPortfolio({ assets: [a] }, () => null, () => 1, "", cur);
             id = tr.id = newTradeId(tk, String(tr.date), P2.positions[0]?.trades.map((x2) => x2.id) ?? []);
             a.transactions = [...list3(a.transactions), tr];
             recalc(a);
@@ -10550,7 +10740,7 @@ var investPage = {
             fresh = snap(f);
           });
           await book(fresh, [id]);
-          const broke2 = newWarnings(checkRules(P, cap3, () => true), checkRules(buildPortfolio(fresh, (q) => prices.price(q), (c) => prices.fx(c, cur, fb), today()), cap3, () => true));
+          const broke2 = newWarnings(checkRules(P, cap3, () => true), checkRules(buildPortfolio(fresh, (q) => prices.price(q), (c) => prices.fx(c, cur, fb), today(), cur), cap3, () => true));
           if (broke2.length) new import_obsidian17.Notice(broke2.map(warnText).join("\n"), 8e3);
           if (v.why?.trim()) await think(tk, { date: tr.date, trade: id, why: v.why.trim() });
           new import_obsidian17.Notice(t("iSaved", { what: v.type === "SELL" ? t("iSell") : t("iBuy"), n: qty(parseNum(v.shares)), tk }));
@@ -10563,7 +10753,7 @@ var investPage = {
       submitText: t("save"),
       fields: [
         { key: "shares", label: t("iShares"), type: "number", value: tr.shares, required: true, dec: 4, step: (v) => p.currency === "TWD" && parseNum(v.shares) >= 1e3 ? 1e3 : 1 },
-        { key: "price", label: t("iPrice"), type: "number", value: tr.price, required: true, dec: 2, step: (v) => tickOf(toP2(v.price), p.currency, p.ticker) / 100 },
+        { key: "price", label: t("iPrice"), type: "number", value: tr.price, required: true, dec: 2, step: (v) => tickOf(toP(v.price), p.currency, p.ticker) / 100 },
         { key: "date", label: t("date"), type: "date", value: tr.date, required: true },
         { key: "fee", label: t("iFee"), type: "number", value: tr.fee ? tr.fee / minorOf(p.currency) : "", required: false, fold: true, dec: minorOf(p.currency) > 1 ? 2 : 0 },
         ...tr.type === "SELL" ? [{ key: "tax", label: t("iTax"), type: "number", value: tr.tax ? tr.tax / minorOf(p.currency) : "", required: false, fold: true, dec: minorOf(p.currency) > 1 ? 2 : 0 }] : [],
@@ -10572,7 +10762,7 @@ var investPage = {
       ],
       onSubmit: async (v) => {
         const fresh = await updateAsset(p.ticker, (a) => {
-          const x2 = list3(a.transactions)[tr.index];
+          const x2 = list3(a.transactions)[findTrade(a.transactions, tr)];
           if (!x2) return;
           x2.id = tr.id;
           x2.shares = parseNum(v.shares);
@@ -10598,10 +10788,12 @@ var investPage = {
         const fresh = await updateAsset(p.ticker, (a) => {
           const xs2 = list3(a.transactions);
           p.trades.forEach((q) => {
-            if (xs2[q.index]) xs2[q.index].id = q.id;
+            const j = findTrade(xs2, q);
+            if (j >= 0) xs2[j].id = q.id;
           });
-          if (xs2[tr.index]) {
-            xs2.splice(tr.index, 1);
+          const k = findTrade(xs2, tr);
+          if (k >= 0) {
+            xs2.splice(k, 1);
             a.transactions = xs2;
             recalc(a);
           }
@@ -10611,7 +10803,10 @@ var investPage = {
       } }
     }).open();
     const cap3 = capOf(fm);
-    const warns = checkRules(P, cap3, (tk) => readJournal(store.fm(journalPath(tk))).length > 0);
+    const warns = checkRules(P, cap3, (tk) => {
+      const f = store.fm(journalPath(tk));
+      return readJournal(f).length > 0 || !!readThesis(f)?.why;
+    });
     const think = (tk, j) => store.update(journalPath(tk), (f) => {
       f.ticker = tk;
       f.journal = [...list3(f.journal), j];
@@ -10658,32 +10853,30 @@ var investPage = {
         new import_obsidian17.Notice(t("iUpdated", { tk: p.ticker }));
       }
     }).open();
-    const addWatch = () => new FormSheet(ctx.app, {
-      title: t("iWatchAdd"),
-      submitText: t("add"),
-      fields: [{ key: "tk", label: t("iTicker"), type: "text", required: true }],
-      validate: (v) => P.watch.includes(v.tk.trim().toUpperCase()) ? t("iExists") : null,
-      onSubmit: async (v) => {
-        await store.update(CFG, (f) => {
-          f.watchlist = [...list3(f.watchlist), { ticker: v.tk.trim().toUpperCase() }];
-        });
+    const addWatch = (from) => search(from, (tk) => {
+      if (xs.P.watch.includes(tk)) {
+        new import_obsidian17.Notice(t("iExists"));
+        return;
       }
-    }).open();
+      void store.update(CFG, (f) => {
+        f.watchlist = [...list3(f.watchlist), { ticker: tk }];
+      });
+    }, t("sWatchWhat"));
     const dropWatch = async (tk) => {
       if (!await confirmSheet(ctx.app, t("iWatchRemove"), t("iWatchRemoveQ", { tk }), t("remove"))) return;
       await store.update(CFG, (f) => {
         f.watchlist = list3(f.watchlist).filter((w) => String(w.ticker ?? "").toUpperCase() !== tk);
       });
     };
-    const search = (from) => {
+    const search = (from, pick, ask) => {
       const src = ctx.plugin.search, held2 = () => xs.P.positions.filter((p) => p.shares > 0).map((p) => p.ticker);
       openSearch(from, src, {
         mine: (q) => {
           const s2 = q.toUpperCase(), hit2 = (tk) => tk.startsWith(s2) || src.nameOf(tk).toUpperCase().includes(s2);
-          return [...held2().filter(hit2).map((tk) => ({ tk, name: src.nameOf(tk), ex: "", mine: "held" })), ...xs.P.watch.filter(hit2).map((tk) => ({ tk, name: src.nameOf(tk), ex: "", mine: "watch" }))];
+          return [...held2().filter(hit2).map((tk) => ({ tk, name: src.nameOf(tk), ex: "", mine: "held" })), ...xs.P.watch.filter((tk) => hit2(tk) && !held2().includes(tk)).map((tk) => ({ tk, name: src.nameOf(tk), ex: "", mine: "watch" }))];
         },
-        pick: (tk) => xs.ctx.push(held2().includes(tk) ? { key: "asset:" + tk, title: tk } : { key: "chart:" + tk, title: tk }),
-        texts: { placeholder: t("sPlaceholder"), cancel: t("sCancel"), recent: t("sRecent"), clear: t("sClear"), none: t("sNone"), held: t("sHeld"), watch: t("sWatch") }
+        pick: pick ?? ((tk) => xs.ctx.push(held2().includes(tk) ? { key: "asset:" + tk, title: tk } : { key: "chart:" + tk, title: tk })),
+        texts: { placeholder: ask ?? t("sPlaceholder"), cancel: t("sCancel"), recent: t("sRecent"), clear: t("sClear"), none: t("sNone"), held: t("sHeld"), watch: t("sWatch") }
       });
     };
     const moveWatch = async (order) => {
@@ -10699,7 +10892,13 @@ var investPage = {
         f.watchlist = [...list3(f.watchlist), { ticker: tk }];
       });
     };
-    const x = { ctx, P, cur, cash, links, warns, cap: cap3, fx: (c) => prices.fx(c, cur, fb), trade, editThesis: (tk) => editThesis(x, tk), editTrade, editPlan, addThought, journal, addWatch, dropWatch, moveWatch, search, watchOn };
+    const buy = (tk, from) => {
+      const check = (k) => buyCheck(xs, k, (o) => trade(k, o));
+      if (tk) check(tk);
+      else if (from) search(from, check, t("sTradeWhat"));
+      else trade();
+    };
+    const x = { ctx, P, cur, cash, links, warns, cap: cap3, fx: (c) => prices.fx(c, cur, fb), trade, buy, editThesis: (tk) => editThesis(x, tk), editTrade, editPlan, addThought, journal, addWatch, dropWatch, moveWatch, search, watchOn };
     xs = x;
     const pageFor = (key) => {
       if (key === "holdings") return holdingsPage(x);
@@ -10710,8 +10909,8 @@ var investPage = {
       if (key === "map") return mapPage(x);
       if (key.startsWith("revenue:")) return revenuePage(x, key.slice(8));
       if (key === "alerts") return alertsPage(x);
-      if (key.startsWith("brokers:")) return brokersPage(ctx, key.slice(8), (tk) => trade(tk));
-      if (key.startsWith("flows:")) return flowsPage(ctx, key.slice(6), flowCodes(ctx, flowTickers(P)), (tk) => trade(tk));
+      if (key.startsWith("brokers:")) return brokersPage(ctx, key.slice(8), (tk) => buy(tk));
+      if (key.startsWith("flows:")) return flowsPage(ctx, key.slice(6), flowCodes(ctx, flowTickers(P)), (tk) => buy(tk));
       if (key.startsWith("trades:")) {
         const p = P.positions.find((q) => q.ticker === key.slice(7));
         if (p) return tradesPage(x, p);
@@ -11297,13 +11496,13 @@ var import_obsidian21 = require("obsidian");
 var DEFAULT_RATE = 775e-5;
 var computeDebt = (fm, planAmount, months, now) => {
   const f = fm ?? {};
-  const principal = Number(f.initial_principal) || 0;
+  const principal = int(f.initial_principal);
   const rate = f.interest_rate === void 0 || f.interest_rate === null || f.interest_rate === "" ? DEFAULT_RATE : Number(f.interest_rate) || 0;
   const start = dateStr(f.start_date, "");
   const raw = Array.isArray(f.payments) ? f.payments : f.payments ? [f.payments] : [];
   const payments = raw.map((p, index) => {
     const o = p ?? {};
-    return { date: dateStr(o.date, ""), amount: Number(o.amount) || 0, note: String(o.note ?? ""), index };
+    return { date: dateStr(o.date, ""), amount: int(o.amount), note: String(o.note ?? ""), index };
   });
   const paid = payments.reduce((s2, p) => s2 + p.amount, 0);
   const day = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -11320,7 +11519,7 @@ var computeDebt = (fm, planAmount, months, now) => {
     principal,
     rate,
     start,
-    monthlyMin: Number(f.monthly_min_payment) || 0,
+    monthlyMin: int(f.monthly_min_payment),
     payments,
     paid,
     balance: Math.max(0, principal - paid),
@@ -11328,10 +11527,15 @@ var computeDebt = (fm, planAmount, months, now) => {
     daysUntilStart,
     grace,
     planAmount,
-    repayment: Number(f.repayment) || planAmount,
+    repayment: int(f.repayment) || planAmount,
     toInvestment,
     loanPrep
   };
+};
+var findPayment = (list5, p) => {
+  const a = Array.isArray(list5) ? list5 : [];
+  const same = (e) => !!e && typeof e === "object" && int(e.amount) === p.amount && dateStr(e.date, "") === p.date && String(e.note ?? "") === p.note;
+  return same(a[p.index]) ? p.index : a.findIndex((e) => same(e));
 };
 var projectDebt = (d, pay, now) => {
   const from = d.start && d.grace ? /* @__PURE__ */ new Date(d.start + "T00:00:00") : new Date(now.getFullYear(), now.getMonth(), 1);
@@ -11383,15 +11587,20 @@ var list4 = (v) => (Array.isArray(v) ? v : v ? [v] : []).filter((x) => x && type
 var buildGoals = (fm, savedOf) => {
   const funds = list4(fm?.funds).map((f) => ({ key: String(f.key ?? ""), label: String(f.label ?? f.key ?? ""), emoji: String(f.emoji ?? ""), goals: [], saved: 0, target: 0, surplus: 0 }));
   const goals = list4(fm?.goals).map((g) => {
-    const expenses = list4(g.expenses).map((e, index) => ({ item: String(e.item ?? ""), amount: Number(e.amount) || 0, date: dateStr(e.date, ""), index }));
-    return { name: String(g.name ?? ""), fundKey: String(g.fund ?? ""), emoji: String(g.emoji ?? ""), amount: Number(g.goal) || 0, target: dateStr(g.target_date, ""), expenses, alloc: 0, spent: expenses.reduce((s2, e) => s2 + e.amount, 0), cash: 0, pct: 0 };
+    const expenses = list4(g.expenses).map((e, index) => ({ item: String(e.item ?? ""), amount: int(e.amount), date: dateStr(e.date, ""), index }));
+    return { name: String(g.name ?? ""), fundKey: String(g.fund ?? ""), emoji: String(g.emoji ?? ""), amount: int(g.goal), target: dateStr(g.target_date, ""), expenses, alloc: 0, spent: expenses.reduce((s2, e) => s2 + e.amount, 0), cash: 0, pct: 0 };
   }).sort((a, b) => (a.target || "9999").localeCompare(b.target || "9999"));
   for (const g of goals) (funds.find((f) => f.key === g.fundKey) ?? funds[0])?.goals.push(g);
   for (const f of funds) {
     f.saved = Number(savedOf(f.key)) || 0;
     let pool = f.saved;
     for (const g of f.goals) {
-      const amount = g.amount || 1;
+      if (!(g.amount > 0)) {
+        g.alloc = 0;
+        g.pct = 100;
+        continue;
+      }
+      const amount = g.amount;
       g.alloc = Math.min(pool, amount);
       pool -= g.alloc;
       g.pct = g.alloc / amount * 100;
@@ -11410,7 +11619,7 @@ var buildGoals = (fm, savedOf) => {
 };
 var findExpense = (arr5, x) => {
   const a = Array.isArray(arr5) ? arr5 : [];
-  const same = (e) => !!e && String(e.item ?? "") === x.item && Number(e.amount) === x.amount && dateStr(e.date, "") === x.date;
+  const same = (e) => !!e && String(e.item ?? "") === x.item && int(e.amount) === x.amount && dateStr(e.date, "") === x.date;
   return same(a[x.index]) ? x.index : a.findIndex((e) => same(e));
 };
 var mIdx = (d) => Number(d.slice(0, 4)) * 12 + Number(d.slice(5, 7)) - 1;
@@ -11445,7 +11654,7 @@ var buildLedger = (list5) => {
   raw.forEach((x, index) => {
     const r = x ?? {};
     if (!r.friend) return;
-    const rec = { friend: String(r.friend), action: String(r.action ?? ""), amount: Number(r.amount) || 0, date: dateStr(r.date, ""), note: String(r.note ?? ""), index };
+    const rec = { friend: String(r.friend), action: String(r.action ?? ""), amount: int(r.amount), date: dateStr(r.date, ""), note: String(r.note ?? ""), index };
     if (!people.has(rec.friend)) people.set(rec.friend, []);
     people.get(rec.friend).push(rec);
   });
@@ -11456,12 +11665,14 @@ var buildLedger = (list5) => {
     const queue = [];
     const consume = (t2, amt) => {
       let rem = amt;
-      while (rem > 0 && queue.length && queue[0].t === t2) {
-        if (queue[0].a <= rem) {
-          rem -= queue[0].a;
-          queue.shift();
+      while (rem > 0) {
+        const i = queue.findIndex((e) => e.t === t2);
+        if (i < 0) break;
+        if (queue[i].a <= rem) {
+          rem -= queue[i].a;
+          queue.splice(i, 1);
         } else {
-          queue[0].a -= rem;
+          queue[i].a -= rem;
           rem = 0;
         }
       }
@@ -11485,7 +11696,7 @@ var buildLedger = (list5) => {
     const net = me - them;
     if (net > 0) oweMe += net;
     else if (net < 0) oweThem -= net;
-    friends.push({ name, net, activeSince: queue[0]?.d || null, records: recs.reverse() });
+    friends.push({ name, net, activeSince: (queue.find((e) => e.t === (net >= 0 ? "me" : "them")) ?? queue[0])?.d || null, records: recs.reverse() });
   }
   friends.sort((a, b) => Math.abs(b.net) - Math.abs(a.net));
   return { friends, oweMe, oweThem, net: oweMe - oweThem, count: raw.length };
@@ -11495,7 +11706,7 @@ var balanceAfter2 = (recs) => {
   const out = /* @__PURE__ */ new Map();
   let b = 0;
   for (const r of [...recs].sort((x, y) => x.date.localeCompare(y.date) || x.index - y.index)) {
-    b += (SIGN[r.action] ?? -1) * r.amount;
+    b += (SIGN[r.action] ?? 0) * r.amount;
     out.set(r, b);
   }
   return out;
@@ -11503,7 +11714,7 @@ var balanceAfter2 = (recs) => {
 var settleOf = (f) => f.net > 0 ? { action: "paid_to_me", amount: f.net } : f.net < 0 ? { action: "paid_to_them", amount: -f.net } : null;
 var findRecord = (list5, r) => {
   const arr5 = Array.isArray(list5) ? list5 : [];
-  const same = (e) => !!e && String(e.friend) === r.friend && String(e.action) === r.action && Number(e.amount) === r.amount && dateStr(e.date, "") === r.date && String(e.note ?? "") === r.note;
+  const same = (e) => !!e && String(e.friend) === r.friend && String(e.action) === r.action && int(e.amount) === r.amount && dateStr(e.date, "") === r.date && String(e.note ?? "") === r.note;
   return same(arr5[r.index]) ? r.index : arr5.findIndex((e) => same(e));
 };
 var daysSince = (d, now = /* @__PURE__ */ new Date()) => {
@@ -11521,7 +11732,7 @@ var netWorth = (plugin) => {
   const G = buildGoals(store.fm(store.path(FILES.goals)), savedOf);
   const inv = store.fm(store.path(FILES.invest));
   const fb = inv?.fx_fallback ?? {};
-  const P = buildPortfolio(inv, (tk) => prices.price(tk), (c) => prices.fx(c, cur, fb));
+  const P = buildPortfolio(inv, (tk) => prices.price(tk), (c) => prices.fx(c, cur, fb), "", cur);
   const d = computeDebt(store.fm(store.path(FILES.debt)), Number(plan.student_loan) || 0, store.monthLines("student_loan"), /* @__PURE__ */ new Date());
   const L2 = buildLedger(store.fm(store.path(FILES.ledger))?.ledger);
   const parts = [
@@ -11592,23 +11803,31 @@ var debtPage = {
         { key: "note", label: t("note"), type: "text", value: p.note, placeholder: t("optional") }
       ],
       onSubmit: async (v) => {
+        let ok = false;
         await store.update(CFG, (f) => {
-          const x = Array.isArray(f.payments) ? f.payments[p.index] : void 0;
-          if (!x) return;
+          const i = findPayment(f.payments, p);
+          if (i < 0) return;
+          const x = f.payments[i];
           x.amount = parseNum(v.amount);
           x.date = v.date;
           x.note = v.note;
+          ok = true;
         });
-        new import_obsidian21.Notice(t("updatedPayment", { amount: num(parseNum(v.amount)), cur }));
+        new import_obsidian21.Notice(ok ? t("updatedPayment", { amount: num(parseNum(v.amount)), cur }) : t("txGone"));
       },
       danger: {
         text: t("deletePayment"),
         onTap: async () => {
           if (!await confirmSheet(ctx.app, t("deletePayment"), t("deletePaymentQ", { amount: num(p.amount), cur, date: p.date || "-" }), t("delete"))) return false;
+          let ok = false;
           await store.update(CFG, (f) => {
-            if (Array.isArray(f.payments) && f.payments[p.index] !== void 0) f.payments.splice(p.index, 1);
+            const i = findPayment(f.payments, p);
+            if (i >= 0) {
+              f.payments.splice(i, 1);
+              ok = true;
+            }
           });
-          new import_obsidian21.Notice(t("deletedPayment", { amount: num(p.amount), cur }));
+          new import_obsidian21.Notice(ok ? t("deletedPayment", { amount: num(p.amount), cur }) : t("txGone"));
           return true;
         }
       }
@@ -12594,7 +12813,8 @@ var savingsPage = (x) => {
   }
   const plan = Number(M.savings.find(([k]) => k === "investment")?.[1]) || 0;
   const sel = ctx.plugin.logMonth;
-  const buckets = investBuckets(store.fm(store.path(FILES.invest)), plan, `${sel.year}-${String(sel.month + 1).padStart(2, "0")}`);
+  const inv = store.fm(store.path(FILES.invest));
+  const buckets = investBuckets(inv, plan, `${sel.year}-${String(sel.month + 1).padStart(2, "0")}`, (c) => ctx.plugin.prices.fx(c, cur, inv?.fx_fallback ?? {}), cur);
   if (buckets) {
     const bg = group2(el, t("investThisMonth"));
     for (const b of buckets) {
@@ -13578,7 +13798,7 @@ function registerDiagramIcons(plugin) {
 }
 
 // src/main.ts
-var FUGLE_KEY = "ledgerline-fugle-key";
+var FUGLE_KEY2 = "ledgerline-fugle-key";
 var LedgerlinePlugin = class extends import_obsidian28.Plugin {
   constructor() {
     super(...arguments);
@@ -13599,6 +13819,8 @@ var LedgerlinePlugin = class extends import_obsidian28.Plugin {
     this.prices.calendar = new MarketCalendar(() => this.app.loadLocalStorage(MarketCalendar.KEY), (v) => this.app.saveLocalStorage(MarketCalendar.KEY, v), () => this.prices.onLive?.(false));
     this.registerInterval(window.setInterval(() => this.prices.background(), 5 * 1e3));
     this.prices.onLive = (opening) => this.views().forEach((v) => v.pricesMoved(opening));
+    this.prices.loadOtc = () => this.app.loadLocalStorage(Prices.OTC_KEY);
+    this.prices.saveOtc = (v) => this.app.saveLocalStorage(Prices.OTC_KEY, v);
     this.prices.loadSeries = () => this.app.loadLocalStorage(Prices.SERIES_KEY);
     this.prices.saveSeries = (v) => this.app.saveLocalStorage(Prices.SERIES_KEY, v);
     this.search = new TickerSearch(() => this.app.loadLocalStorage(TickerSearch.KEY), (v) => this.app.saveLocalStorage(TickerSearch.KEY, v), () => this.settings.taiwan);
@@ -13695,10 +13917,10 @@ var LedgerlinePlugin = class extends import_obsidian28.Plugin {
   }
   // the Fugle key lives in this device's local storage only (data.json is in git: the vault backup commits it)
   fugleKey() {
-    return String(this.app.loadLocalStorage(FUGLE_KEY) ?? "");
+    return String(this.app.loadLocalStorage(FUGLE_KEY2) ?? "");
   }
   setFugleKey(v) {
-    this.app.saveLocalStorage(FUGLE_KEY, v.trim() || null);
+    this.app.saveLocalStorage(FUGLE_KEY2, v.trim() || null);
   }
   enabledTabs() {
     const on = tabOrderOf(this.settings.tabOrder).filter((id) => this.settings.tabs[id]);

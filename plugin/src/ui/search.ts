@@ -126,11 +126,14 @@ export const openSearch = (from: HTMLElement, src: TickerSearch, o: SearchOpts):
             tap(r, list, () => go(x.tk, x.name));
         }
     };
-    // nothing typed: the recent searches
+    // nothing typed: the recent searches; none yet, your holdings and watchlist (tagged HELD / WATCHING) rather than a blank
+    // page under a RECENT head (review 2026-11, F)
     const recent = () => {
         const r = src.recent();
-        rows(r.map((tk) => ({ tk, name: src.nameOf(tk), ex: "" })), o.texts.recent, r.length ? () => { src.forget(); recent(); } : undefined);
-        if (!r.length) list.empty();
+        if (r.length) { rows(r.map((tk) => ({ tk, name: src.nameOf(tk), ex: "" })), o.texts.recent, () => { src.forget(); recent(); }); return; }
+        const mine = o.mine("");
+        rows(mine);
+        if (!mine.length) list.empty();
     };
     const update = () => {
         const q = input.value.trim();

@@ -6,7 +6,7 @@ import { h, page } from "../ui";
 import { liveOf, price2 } from "../ui/chart";
 import { Flap } from "../ui/flap";
 import { dayChange } from "../calc/chart";
-import { isTwSym } from "../calc/quotes";
+import { closedInHours, isTwSym, nextOpen } from "../calc/quotes";
 import type { PageCtx } from "./index";
 
 export const PLAN_KEY = "investment";   // the savings-plan line that feeds investing
@@ -19,7 +19,7 @@ export const qty = (n: number) => n.toLocaleString(undefined, { maximumFractionD
 
 export interface X {
     ctx: PageCtx; P: Portfolio; cur: string; cash: number; warns: Warning[]; cap: number; fx(c: string): number; links: Map<string, { booked: number; diff: number }>;
-    trade(preset?: string, o?: { price?: number; type?: "BUY" | "SELL" }): void; editThesis(tk: string): void; editTrade(p: Position, tr: Trade): void; editPlan(p: Position): void; addThought(tk: string): void; journal(tk: string): Thought[]; addWatch(): void; dropWatch(tk: string): Promise<void>; moveWatch(order: string[]): Promise<void>; search(from: HTMLElement): void; watchOn(tk: string): Promise<void>;
+    trade(preset?: string, o?: { price?: number; type?: "BUY" | "SELL" }): void; buy(tk?: string, from?: HTMLElement): void; editThesis(tk: string): void; editTrade(p: Position, tr: Trade): void; editPlan(p: Position): void; addThought(tk: string): void; journal(tk: string): Thought[]; addWatch(from: HTMLElement): void; dropWatch(tk: string): Promise<void>; moveWatch(order: string[]): Promise<void>; search(from: HTMLElement, pick?: (tk: string) => void, ask?: string): void; watchOn(tk: string): Promise<void>;
 }
 
 // the masthead badge (owner, 2026-11-05): which market trades now (TW TRADING, US TRADING), else when the next one opens
@@ -37,11 +37,24 @@ export const liveBadge = (x: X): { text: string; live: boolean } | undefined => 
     const when = day === today() ? hm : `${d.toLocaleDateString("en-US", { weekday: "short" })} ${hm}`;
     return { text: t("liveOff", { m: s.next.mkt, t: when }).toUpperCase(), live: false };
 };
+// a ticker's own page says its own market (owner's rule: the badge names the market that trades): "TW TRADING" on VOO read as
+// if VOO traded. Same words as the tab's badge, for this ticker's market only.
+export const tickerBadge = (x: X, tk: string): { text: string; live: boolean } | undefined => {
+    const pr = x.ctx.plugin.prices, sym = pr.symbol(tk), mkt = isTwSym(sym) ? "TW" : "US", now = new Date(), cal = pr.calendar?.cal;
+    if (pr.isOpen(tk, now)) return { text: t("liveOn", { m: mkt }).toUpperCase(), live: true };
+    const why = closedInHours(sym, now, cal);
+    if (why) return { text: t("liveClosed", { m: mkt, w: t(WHY[why]) }).toUpperCase(), live: false };
+    const d = nextOpen(sym, now, cal);
+    if (!d) return undefined;
+    const hm = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    return { text: t("liveOff", { m: mkt, t: day === today() ? hm : `${d.toLocaleDateString("en-US", { weekday: "short" })} ${hm}` }).toUpperCase(), live: false };
+};
 export const findAct = (x: X, el: HTMLElement) => ({ icon: "search", label: t("iFind"), dock: true, onTap: () => x.search(el) });   // beside + TRADE in the bottom bar
 
 // The change line (owner, 2026-11-04, like Apple's Stocks): a sideways swipe on a row switches every one on the page together, today's % → today's
 // price change → (holdings) your profit; remembered on the device. Watchlist tickers stop at the price change.
-// t = the texts per kind, hot = down, k = its label, ret = your return (not today's move: its own tile colour)
+// t = the texts per kind, hot = down, k = its label, ret = your return (not today's move; same card as every flap since 2026-11-17)
 // tk / re: the ticker and how to work it out again (a new quote changes the line in place)
 export interface Chg { t: string[]; hot: boolean[]; k: string[]; ret: boolean[]; tk?: string; re?: () => Chg }
 export const CHG_KEY = "ledgerline-chg";

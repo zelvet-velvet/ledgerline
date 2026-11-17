@@ -21,7 +21,9 @@ export interface Position {
     shares: number;       // held now
     q: number;            // held now × 10,000
     cost: number;         // cost of what is held (base, whole), buy fees included
-    avg: number;          // cost per share held (display)
+    avg: number;          // cost per share held, in the base currency (display)
+    avgP: number;         // cost per share held in the asset's own currency, hundredths (buy fees included; FX never moves it)
+    fxMissing: boolean;   // a foreign holding with no FX rate known (now, or for a trade without its own): its base amounts are not real
     realized: number;     // profit already taken by sells, after their fees and tax
     fees: number;         // every fee and tax paid (base)
     bought: number;       // net cash put in: buys − sells (base)
@@ -30,9 +32,10 @@ export interface Position {
     exit: number;         // what selling it all now would cost (base): Taiwan broker fee + securities tax, as brokers' 預估損益 count
     pl: number;           // value − exit − cost: the gain or loss if sold now
     index: number;        // position in the `assets` list
+    dropped: number;      // shares of sales the maths could not count (sold before any was bought, or more than was held)
 }
 export interface Bucket { key: string; label: string; target: number; value: number; pct: number; drift: number }
-export interface Portfolio { positions: Position[]; buckets: Bucket[]; value: number; cost: number; pl: number; realized: number; fees: number; bought: number; priced: boolean; threshold: number; watch: string[] }
+export interface Portfolio { positions: Position[]; buckets: Bucket[]; value: number; cost: number; pl: number; realized: number; fees: number; bought: number; priced: boolean; missing: string[]; threshold: number; watch: string[] }   // priced: every holding has a price and an FX rate; missing: the tickers that do not
 
 const arr = (v: unknown): FM[] => (Array.isArray(v) ? v : v ? [v] : []).filter((x) => x && typeof x === "object") as FM[];
 const num = (v: unknown): number => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
@@ -69,41 +72,45 @@ export const nextDca = (dca: Dca | null, today: string): string | null => {
     return m === 12 ? at(y + 1, 1) : at(y, m + 1);
 };
 
-// Pure. price(ticker) = last price in the asset's currency (or null); fx(currency) = base units per 1 unit of it now.
-export const buildPortfolio = (fm: FM | null, price: (t: string) => number | null, fx: (c: string) => number, today = ""): Portfolio => {
+// Pure. price(ticker) = last price in the asset's currency (or null); fx(currency) = base units per 1 unit of it now, 0 or
+// less = not known (never guessed: the holding is then valued at its cost and marked fxMissing). base = the base currency.
+export const buildPortfolio = (fm: FM | null, price: (t: string) => number | null, fx: (c: string) => number, today = "", base = "TWD"): Portfolio => {
     const alloc = arr(fm?.allocation);
     const positions: Position[] = arr(fm?.assets).map((a, index) => {
-        const currency = String(a.currency ?? "TWD").toUpperCase(), ticker = tickerOf(a), broker = String(a.broker ?? "");
-        const fxNow = fx(currency);
+        const currency = String(a.currency ?? base).toUpperCase(), ticker = tickerOf(a), broker = String(a.broker ?? "");
+        const fxRaw = currency === base ? 1 : fx(currency), fxOk = fxRaw > 0, fxNow = fxOk ? fxRaw : 0;
         const rows = arr(a.transactions), ids = tradeIds(ticker, rows);
         const trades: Trade[] = rows.map((t, i) => {
             const type = String(t.type).toUpperCase() === "SELL" ? "SELL" : "BUY";
             const q = toQ(t.shares), p = toP(t.price), gross = grossOf(q, p, currency);
-            const fee = toMinor(t.fee, currency), tax = toMinor(t.tax, currency), rate = currency === "TWD" ? 1 : num(t.fx) || fxNow;
+            const fee = toMinor(t.fee, currency), tax = toMinor(t.tax, currency), rate = currency === base ? 1 : num(t.fx) || fxNow;
             const cash = type === "BUY" ? -toBase(gross + fee, currency, rate) : toBase(gross - fee - tax, currency, rate);
             const settled = dateStr(t.settled, "");
             return { id: ids[i], type, date: dateStr(t.date, ""), settled, broker: String(t.broker ?? broker), index: i, rate, shares: num(t.shares), price: num(t.price), fx: num(t.fx), q, p, gross, fee, tax, cash, pending: !!today && !!settled && settled > today } as Trade;
         });
-        let held = 0, cost = 0, realized = 0, fees = 0, bought = 0;
+        let held = 0, cost = 0, own = 0, realized = 0, fees = 0, bought = 0, dropped = 0;   // own: the cost of what is held in the asset's own minor units
         [...trades].sort((x, y) => x.date.localeCompare(y.date) || x.index - y.index).forEach((t) => {
             fees += toBase(t.fee + t.tax, currency, t.rate);
             bought -= t.cash;
-            if (t.type === "BUY") { held += t.q; cost -= t.cash; }
-            else if (held > 0) {
+            if (t.type === "BUY") { held += t.q; cost -= t.cash; own += t.gross + t.fee; }
+            else if (!(held > 0)) dropped += t.q;
+            else {
                 const sold = Math.min(t.q, held);
+                dropped += t.q - sold;
                 const out = sold === held ? cost : Math.round((cost * sold) / held);   // the last share takes what is left: no cent lost
                 const proceeds = sold === t.q ? t.cash : Math.round((t.cash * sold) / t.q);
-                realized += proceeds - out; held -= sold; cost -= out;
+                realized += proceeds - out; own -= sold === held ? own : Math.round((own * sold) / held); held -= sold; cost -= out;
             }
         });
-        if (!trades.length && num(a.shares) > 0) { held = toQ(a.shares); cost = toBase(grossOf(held, toP(a.avg_cost), currency), currency, fxNow); }
+        if (!trades.length && num(a.shares) > 0) { held = toQ(a.shares); own = grossOf(held, toP(a.avg_cost), currency); cost = toBase(own, currency, fxNow); }
+        const fxMissing = currency !== base && (!fxOk || trades.some((t) => !(t.rate > 0)));
         const last = price(ticker);
         const g = last !== null ? grossOf(held, toP(last), currency) : 0;
-        const value = last !== null ? toBase(g, currency, fxNow) : cost;
-        const exit = held > 0 && last !== null ? toBase(autoFee(g, currency) + autoTax(g, currency, ticker), currency, fxNow) : 0;
+        const value = last !== null && fxOk ? toBase(g, currency, fxNow) : cost;
+        const exit = held > 0 && last !== null && fxOk ? toBase(autoFee(g, currency) + autoTax(g, currency, ticker), currency, fxNow) : 0;
         const d = a.dca && typeof a.dca === "object" ? (a.dca as FM) : null;
         const dca = d && num(d.amount) > 0 ? { amount: Math.round(num(d.amount)), day: Math.round(num(d.day)) || 1 } : null;
-        return { ticker, name: String(a.name ?? ticker), category: String(a.category ?? "other").toLowerCase(), currency, broker, dca, trades, shares: held / 10000, q: held, cost, avg: held > 0 ? (cost * 10000) / held : 0, realized, fees, bought, price: last, value, exit, pl: value - exit - cost, index };
+        return { ticker, name: String(a.name ?? ticker), category: String(a.category ?? "other").toLowerCase(), currency, broker, dca, trades, shares: held / 10000, q: held, cost, avg: held > 0 ? (cost * 10000) / held : 0, avgP: held > 0 ? Math.round((own * 1e6) / (minorOf(currency) * held)) : 0, fxMissing, realized, fees, bought, price: last, value, exit, pl: value - exit - cost, index, dropped: dropped / 10000 };
     });
     const value = positions.reduce((s, p) => s + p.value, 0);
     const buckets: Bucket[] = alloc.map((b) => {
@@ -116,7 +123,7 @@ export const buildPortfolio = (fm: FM | null, price: (t: string) => number | nul
     return {
         positions: positions.sort((a, b) => b.value - a.value), buckets, value,
         cost: sum("cost"), pl: sum("pl"), realized: sum("realized"), fees: sum("fees"), bought: sum("bought"),
-        priced: positions.every((p) => p.q <= 0 || p.price !== null), threshold: num(fm?.rebalance_threshold) || 5,
+        priced: positions.every((p) => p.q <= 0 || (p.price !== null && !p.fxMissing)), missing: positions.filter((p) => p.q > 0 && (p.price === null || p.fxMissing)).map((p) => p.ticker), threshold: num(fm?.rebalance_threshold) || 5,
         watch: arr(fm?.watchlist).map((w) => String(w.ticker ?? "").toUpperCase()).filter(Boolean),
     };
 };
@@ -129,6 +136,17 @@ export const tradeLinks = (P: Portfolio, entries: { trade?: string; amount: numb
         const own = entries.filter((e) => e.trade === t.id), booked = own.reduce((s, e) => s + e.amount, 0);
         return { id: t.id, ticker: p.ticker, cash: t.cash, booked, diff: t.pending && !own.length ? 0 : booked - t.cash, pending: t.pending };
     }));
+
+// The stored row of a displayed trade (the raw `transactions` list): by its id; a row without one by its position if it is
+// still the same trade, else the first identical row (-1: gone). Never by position alone: a sync may have changed the note.
+export const findTrade = (rows: unknown, t: Pick<Trade, "id" | "index" | "type" | "shares" | "price" | "date">): number => {
+    const a = Array.isArray(rows) ? (rows as FM[]) : [];
+    const byId = a.findIndex((r) => r && typeof r === "object" && r.id !== undefined && r.id !== "" && String(r.id) === t.id);
+    if (byId >= 0) return byId;
+    const same = (r: FM | undefined) => !!r && typeof r === "object" && (r.id === undefined || r.id === "") && (String(r.type).toUpperCase() === "SELL" ? "SELL" : "BUY") === t.type
+        && num(r.shares) === t.shares && num(r.price) === t.price && dateStr(r.date, "") === t.date;
+    return same(a[t.index]) ? t.index : a.findIndex((r) => same(r));
+};
 
 // A new trade's id, kept in the trade so it never shifts: TICKER-date, then -2, -3 … when taken.
 export const newTradeId = (ticker: string, date: string, taken: string[]): string => {
@@ -195,11 +213,25 @@ export const checkRules = (P: Portfolio, cap: number, hasReason: (ticker: string
 export const newWarnings = (before: Warning[], after: Warning[]): Warning[] => after.filter((w) => !before.some((b) => b.rule === w.rule && b.key === w.key));
 
 // Sheet kit K (2026-11-05): what the trade sheet fills in for you. Taiwan (TWD): broker fee 0.1425 % of the trade, rounded
-// down, at least 20 (a 15,000 buy → 21); securities tax on a sale 0.3 %, ETFs (codes from 00) 0.1 %, rounded down;
+// down, at least 20 (a 15,000 buy → 21); securities tax on a sale 0.3 %, ETFs (codes from 00) 0.1 %, bond ETFs (00…B) none, rounded down;
 // price steps by the TWSE tick table; settlement two trading days later. Elsewhere no fee or tax is guessed, a cent step.
 export const isTwEtf = (ticker: string): boolean => /^00\d/.test(ticker);
 export const autoFee = (gross: number, currency: string): number => (currency === "TWD" && gross > 0 ? Math.max(20, Math.floor(gross * 0.001425)) : 0);
-export const autoTax = (gross: number, currency: string, ticker: string): number => (currency === "TWD" && gross > 0 ? Math.floor(gross * (isTwEtf(ticker) ? 0.001 : 0.003)) : 0);
+export const isTwBondEtf = (ticker: string): boolean => /^00\d+B$/.test(ticker);
+export const autoTax = (gross: number, currency: string, ticker: string): number => (currency === "TWD" && gross > 0 && !isTwBondEtf(ticker) ? Math.floor(gross * (isTwEtf(ticker) ? 0.001 : 0.003)) : 0);
+// what a trade moves in its own currency's minor units: a buy costs gross + fee, a sale brings gross − fee − tax
+export const tradeTotal = (type: string, gross: number, fee: number, tax: number): number => (String(type).toUpperCase() === "SELL" ? gross - fee - tax : gross + fee);
+// the v2 fields kept in step with the trades (`shares`, `avg_cost` = the average buy price in the asset's currency, fees left
+// out), in integers: a sale takes its share of the cost, the last share what is left
+export const legacyFields = (rows: unknown): { shares: number; avg_cost: number } => {
+    let held = 0, cost = 0;   // shares × 10,000; shares × 10,000 × price in hundredths
+    for (const t of arr(rows)) {
+        const q = toQ(t.shares), p = toP(t.price);
+        if (String(t.type).toUpperCase() !== "SELL") { held += q; cost += q * p; }
+        else if (held > 0) { const s = Math.min(q, held); cost -= s === held ? cost : Math.round((cost * s) / held); held -= s; }
+    }
+    return { shares: held / 10000, avg_cost: held > 0 ? Math.round(cost / held) / 100 : 0 };
+};
 // one price step in hundredths, at price p (hundredths)
 export const tickOf = (p: number, currency: string, ticker: string): number => {
     if (currency !== "TWD") return 1;

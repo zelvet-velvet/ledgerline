@@ -1,6 +1,6 @@
 import { Notice } from "obsidian";
 import { buildAccounts } from "../calc/accounts";
-import { addTradingDays, autoFee, autoTax, grossOf, isTwEtf, tickOf, toP, toQ, buildPortfolio, capOf, checkRules, investCash, newWarnings, journalPath, minorOf, newTradeId, nextDca, readJournal, Position, syncEntries, tickerOf, Trade, tradeLinks } from "../calc/invest";
+import { findTrade, addTradingDays, autoFee, autoTax, grossOf, isTwBondEtf, isTwEtf, legacyFields, tickOf, tradeTotal, toP, toQ, buildPortfolio, capOf, checkRules, investCash, newWarnings, journalPath, minorOf, newTradeId, nextDca, readJournal, Position, syncEntries, tickerOf, Trade, tradeLinks } from "../calc/invest";
 import { ACCOUNTS_FILE } from "./accounts";
 import { FILES, FM } from "../data/store";
 import { num, parseNum, shortDate, today } from "../format";
@@ -15,7 +15,8 @@ import { home } from "./invest-home";
 import { mixPage, rulesPage } from "./invest-mix";
 import { assetPage, tradesPage, tickerPage, journalPage } from "./invest-ticker";
 import { holdingsPage } from "./invest-holdings";
-import { editThesis } from "./invest-thesis";
+import { buyCheck, editThesis } from "./invest-thesis";
+import { readThesis } from "../calc/thesis";
 import { revenuePage } from "./invest-revenue";
 import { alertsPage } from "./invest-alerts";
 import { mapPage } from "./invest-flow";
@@ -36,7 +37,7 @@ export const investPage: PageDef = {
         const CFG = store.path(FILES.invest);
         const fm = store.fm(CFG);
         const fb = (fm?.fx_fallback ?? {}) as Record<string, number>;
-        const P = buildPortfolio(fm, (tk) => prices.price(tk), (c) => prices.fx(c, cur, fb), today());
+        const P = buildPortfolio(fm, (tk) => prices.price(tk), (c) => prices.fx(c, cur, fb), today(), cur);
         // what is due: every held ticker, the watchlist, the FX rates they need
         const curs = [...new Set(P.positions.map((p) => p.currency).filter((c) => c !== cur))];
         const held = [...P.positions.filter((p) => p.shares > 0).map((p) => prices.symbol(p.ticker)), ...P.watch.map((w) => prices.symbol(w))];
@@ -55,7 +56,7 @@ export const investPage: PageDef = {
         // after a trade is saved, edited or deleted: append the Accounts entries that make the books agree (never rewrite old ones)
         const book = async (fresh: FM, ids: string[]) => {
             if (!store.file(ACC)) return;
-            const Q = buildPortfolio(fresh, (tk) => prices.price(tk), (c) => prices.fx(c, cur, fb), today());
+            const Q = buildPortfolio(fresh, (tk) => prices.price(tk), (c) => prices.fx(c, cur, fb), today(), cur);
             let n = 0;
             await store.update(ACC, (a) => {
                 const B = buildAccounts(a);
@@ -67,11 +68,7 @@ export const investPage: PageDef = {
         };
 
         const updateAsset = async (ticker: string, fn: (a: FM) => void): Promise<FM> => { let fresh: FM = {}; await store.update(CFG, (f) => { const a = list(f.assets).find((x) => tickerOf(x) === ticker); if (a) fn(a); fresh = snap(f); }); return fresh; };
-        const recalc = (a: FM) => {   // keep the v2 fields (shares, avg_cost in the asset's currency) in step with the trades
-            let held = 0, cost = 0;
-            for (const tr of list(a.transactions)) { const n = Number(tr.shares) || 0, pr = Number(tr.price) || 0; if (String(tr.type).toUpperCase() === "BUY") { held += n; cost += n * pr; } else if (held > 0) { const s = Math.min(n, held); cost -= s * (cost / held); held -= s; } }
-            a.shares = +held.toFixed(6); a.avg_cost = held > 0 ? +(cost / held).toFixed(4) : 0;
-        };
+        const recalc = (a: FM) => { Object.assign(a, legacyFields(a.transactions)); };   // keep the v2 fields (shares, avg_cost in the asset's currency) in step with the trades (calc/invest.ts)
 
         const trade = (preset?: string, pre: { price?: number; type?: "BUY" | "SELL" } = {}) => {
             const tickers = P.positions.map((p) => p.ticker);
@@ -90,7 +87,7 @@ export const investPage: PageDef = {
             const closed = (c: string) => (d: string) => !!(c === "TWD" ? prices.calendar?.cal.tw : prices.calendar?.cal.us)?.[d];
             const money = (v: Record<string, string>) => {
                 const c = curOf(v), g = grossV(v), fee = minor(v.fee, c), tax = v.type === "SELL" ? minor(v.tax, c) : 0;
-                return { c, g, n: v.type === "SELL" ? g - fee - tax : g + fee };
+                return { c, g, n: tradeTotal(v.type, g, fee, tax) };
             };
             new FormSheet(ctx.app, {
                 title: t("iTrade"), subtitle: preset,
@@ -106,16 +103,23 @@ export const investPage: PageDef = {
                     ...(preset ? [] : ([
                         { key: "asset", label: t("iAsset"), type: "select" as const, value: tickers[0] ?? NEW, options: [...tickers.map((x): [string, string] => [x, x]), [NEW, t("iNewAsset")] as [string, string]] },
                         { key: "ticker", label: t("iTicker"), type: "text" as const, required: true, showIf: (v: Record<string, string>) => v.asset === NEW },
-                        { key: "currency", label: t("iCurrency"), type: "select" as const, value: cur, options: [[cur, cur], ...["USD", "TWD", "EUR", "JPY"].filter((c) => c !== cur).map((c): [string, string] => [c, c])], showIf: (v: Record<string, string>) => v.asset === NEW },
+                        { key: "currency", label: t("iCurrency"), type: "select" as const, value: cur, options: [[cur, cur], ...["USD", "TWD", "EUR", "JPY"].filter((c) => c !== cur).map((c): [string, string] => [c, c])],
+                            auto: (v: Record<string, string>) => ((v.ticker ?? "").trim() ? guessCur(prices.symbol(v.ticker.trim().toUpperCase())) : cur),   // a new ticker's currency from its market, until picked by hand
+                            showIf: (v: Record<string, string>) => v.asset === NEW },
                         { key: "bucket", label: t("iBucket"), type: "select" as const, value: buckets[0]?.[0] ?? "other", options: buckets.length ? buckets : [["other", "Other"] as [string, string]], showIf: (v: Record<string, string>) => v.asset === NEW },
                     ] as Field[])),
                     { key: "shares", label: t("iShares"), type: "number", required: true, dec: 4,
                         step: (v) => (curOf(v) === "TWD" && parseNum(v.shares) >= 1000 ? 1000 : 1),
-                        auto: (v) => { const last = posOf(v)?.trades.filter((x) => x.type === (v.type === "SELL" ? "SELL" : "BUY")).at(-1); return last ? String(last.shares) : ""; } },
+                        // your last trade of that kind; a first SELL starts from all you hold (it was empty, with no sign of what is held)
+                        auto: (v) => {
+                            const p = posOf(v), last = p?.trades.filter((x) => x.type === (v.type === "SELL" ? "SELL" : "BUY")).at(-1);
+                            if (v.type === "SELL") { const held = p?.shares ?? 0; return held > 0 ? String(last && last.shares <= held ? last.shares : held) : ""; }
+                            return last ? String(last.shares) : "";
+                        } },
                     { key: "price", label: t("iPrice"), type: "number", required: true, dec: 2, ...(pre.price ? { value: pre.price } : {}),
                         step: (v) => tickOf(toP(v.price), curOf(v), tkOf(v)) / 100,
                         auto: (v) => { const q = live(v); return q === null ? "" : String(q); },
-                        tag: (v) => (live(v) !== null && parseNum(v.price) === live(v) ? t("iLive") : "") },
+                        tag: (v) => (live(v) !== null && parseNum(v.price) === live(v) && prices.isOpen(tkOf(v)) ? t("iLive") : "") },   // LIVE only while its market trades: a closed market's last price is not live
                     { key: "date", label: t("date"), type: "date", value: today(), required: true },
                     { key: "fee", label: t("iFee"), type: "number", required: false, fold: true, dec: (v) => (minorOf(curOf(v)) > 1 ? 2 : 0), step: (v) => (minorOf(curOf(v)) > 1 ? 0.01 : 1),
                         auto: (v) => { const c = curOf(v); return major(autoFee(grossV(v), c), c); },
@@ -123,12 +127,12 @@ export const investPage: PageDef = {
                         note: (v) => (curOf(v) === "TWD" ? t("iFeeNote", { gross: num(grossV(v)) }) : t("iFeeNoteX")) },
                     { key: "tax", label: t("iTax"), type: "number", required: false, fold: true, showIf: (v) => v.type === "SELL", dec: (v) => (minorOf(curOf(v)) > 1 ? 2 : 0), step: (v) => (minorOf(curOf(v)) > 1 ? 0.01 : 1),
                         auto: (v) => { const c = curOf(v); return major(autoTax(grossV(v), c, tkOf(v)), c); },
-                        brief: (v) => (curOf(v) === "TWD" ? (isTwEtf(tkOf(v)) ? "0.1 %" : "0.3 %") : ""),
-                        note: (v) => (curOf(v) === "TWD" ? t("iTaxNote", { pct: isTwEtf(tkOf(v)) ? "0.1 %" : "0.3 %", what: isTwEtf(tkOf(v)) ? "ETF" : t("iStock") }) : t("iFeeNoteX")) },
+                        brief: (v) => (curOf(v) === "TWD" ? (isTwBondEtf(tkOf(v)) ? "0 %" : isTwEtf(tkOf(v)) ? "0.1 %" : "0.3 %") : ""),
+                        note: (v) => (curOf(v) === "TWD" ? t("iTaxNote", { pct: isTwBondEtf(tkOf(v)) ? "0 %" : isTwEtf(tkOf(v)) ? "0.1 %" : "0.3 %", what: isTwBondEtf(tkOf(v)) ? "bond ETF" : isTwEtf(tkOf(v)) ? "ETF" : t("iStock") }) : t("iFeeNoteX")) },
                     { key: "settled", label: t("iSettled"), type: "date", required: false, fold: true, auto: (v) => (v.date ? addTradingDays(v.date, curOf(v) === "TWD" ? 2 : 1, closed(curOf(v))) : ""),
                         brief: (v) => (curOf(v) === "TWD" ? "T+2" : "T+1"), note: (v) => t("iSettleNote", { when: curOf(v) === "TWD" ? "2 trading days after the trade" : "the next trading day" }) },
                     { key: "fx", label: t("iFx", { cur }), type: "number", required: false, fold: true, dec: 4, step: 0.01, showIf: (v) => curOf(v) !== cur,
-                        auto: (v) => (curOf(v) !== cur ? String(prices.fx(curOf(v), cur, fb)) : ""), brief: () => t("iLive").toLowerCase() },
+                        auto: (v) => { const r = curOf(v) !== cur ? prices.fx(curOf(v), cur, fb) : 0; return r > 0 ? String(r) : ""; }, brief: () => t("iLive").toLowerCase() },
                     { key: "why", label: t("iWhy"), type: "text", required: false },
                 ],
                 validate: (v) => {
@@ -150,8 +154,8 @@ export const investPage: PageDef = {
                         const assets = list(f.assets);
                         let a = assets.find((x) => tickerOf(x) === tk);
                         const nc = preset ? presetCur : v.currency;
-                        if (!a) { a = { name: tk, ticker: tk, category: v.bucket || "other", ...(nc && nc !== "TWD" ? { currency: nc } : {}), shares: 0, avg_cost: 0, transactions: [] }; assets.push(a); }
-                        const P2 = buildPortfolio({ assets: [a] }, () => null, () => 1);
+                        if (!a) { a = { name: tk, ticker: tk, category: v.bucket || "other", ...(nc && nc !== cur ? { currency: nc } : {}), shares: 0, avg_cost: 0, transactions: [] }; assets.push(a); }
+                        const P2 = buildPortfolio({ assets: [a] }, () => null, () => 1, "", cur);
                         id = tr.id = newTradeId(tk, String(tr.date), P2.positions[0]?.trades.map((x) => x.id) ?? []);
                         a.transactions = [...list(a.transactions), tr];
                         recalc(a);
@@ -160,7 +164,7 @@ export const investPage: PageDef = {
                     });
                     await book(fresh, [id]);
                     // S5: say which rule this trade newly broke (a warning, the trade is saved)
-                    const broke = newWarnings(checkRules(P, cap, () => true), checkRules(buildPortfolio(fresh, (q) => prices.price(q), (c) => prices.fx(c, cur, fb), today()), cap, () => true));
+                    const broke = newWarnings(checkRules(P, cap, () => true), checkRules(buildPortfolio(fresh, (q) => prices.price(q), (c) => prices.fx(c, cur, fb), today(), cur), cap, () => true));
                     if (broke.length) new Notice(broke.map(warnText).join("\n"), 8000);
                     if (v.why?.trim()) await think(tk, { date: tr.date, trade: id, why: v.why.trim() });
                     new Notice(t("iSaved", { what: v.type === "SELL" ? t("iSell") : t("iBuy"), n: qty(parseNum(v.shares)), tk }));
@@ -181,7 +185,7 @@ export const investPage: PageDef = {
             ],
             onSubmit: async (v) => {
                 const fresh = await updateAsset(p.ticker, (a) => {
-                    const x = list(a.transactions)[tr.index]; if (!x) return;
+                    const x = list(a.transactions)[findTrade(a.transactions, tr)]; if (!x) return;   // the trade itself, not its old position
                     x.id = tr.id;   // keep the id the Accounts entries link to, even when the date changes
                     x.shares = parseNum(v.shares); x.price = parseNum(v.price); x.date = v.date;
                     if (v.fx !== undefined) { if (parseNum(v.fx) > 0) x.fx = parseNum(v.fx); else delete x.fx; }
@@ -195,7 +199,7 @@ export const investPage: PageDef = {
             danger: { text: t("iDeleteTrade"), onTap: async () => {
                 if (!(await confirmSheet(ctx.app, t("iDeleteTrade"), t("iDeleteTradeQ", { n: qty(tr.shares), tk: p.ticker, date: tr.date || "-" }), t("delete")))) return false;
                 // the other trades keep their ids: write the default ids before one is taken out
-                const fresh = await updateAsset(p.ticker, (a) => { const xs = list(a.transactions); p.trades.forEach((q) => { if (xs[q.index]) xs[q.index].id = q.id; }); if (xs[tr.index]) { xs.splice(tr.index, 1); a.transactions = xs; recalc(a); } });
+                const fresh = await updateAsset(p.ticker, (a) => { const xs = list(a.transactions); p.trades.forEach((q) => { const j = findTrade(xs, q); if (j >= 0) xs[j].id = q.id; }); const k = findTrade(xs, tr); if (k >= 0) { xs.splice(k, 1); a.transactions = xs; recalc(a); } });
                 await book(fresh, [tr.id]);
                 return true;
             } },
@@ -203,7 +207,8 @@ export const investPage: PageDef = {
 
         // S5: rules (warnings only)
         const cap = capOf(fm);
-        const warns = checkRules(P, cap, (tk) => readJournal(store.fm(journalPath(tk))).length > 0);
+        // a reason = a line in the journal or a written thesis (the thesis is the reason, kept in the same note)
+        const warns = checkRules(P, cap, (tk) => { const f = store.fm(journalPath(tk)); return readJournal(f).length > 0 || !!readThesis(f)?.why; });
 
         // S4: one line in the holding's journal (the note is made on the first line)
         const think = (tk: string, j: FM) => store.update(journalPath(tk), (f) => { f.ticker = tk; f.journal = [...list(f.journal), j]; });
@@ -233,12 +238,11 @@ export const investPage: PageDef = {
             },
         }).open();
 
-        const addWatch = () => new FormSheet(ctx.app, {
-            title: t("iWatchAdd"), submitText: t("add"),
-            fields: [{ key: "tk", label: t("iTicker"), type: "text", required: true }],
-            validate: (v) => (P.watch.includes(v.tk.trim().toUpperCase()) ? t("iExists") : null),
-            onSubmit: async (v) => { await store.update(CFG, (f) => { f.watchlist = [...list(f.watchlist), { ticker: v.tk.trim().toUpperCase() }]; }); },
-        }).open();
+        // + WATCH: the ticker from the search (it knows every listing; a typed one could be a typo with no price)
+        const addWatch = (from: HTMLElement) => search(from, (tk) => {
+            if (xs.P.watch.includes(tk)) { new Notice(t("iExists")); return; }
+            void store.update(CFG, (f) => { f.watchlist = [...list(f.watchlist), { ticker: tk }]; });
+        }, t("sWatchWhat"));
         const dropWatch = async (tk: string) => {
             if (!(await confirmSheet(ctx.app, t("iWatchRemove"), t("iWatchRemoveQ", { tk }), t("remove")))) return;
             await store.update(CFG, (f) => { f.watchlist = list(f.watchlist).filter((w) => String(w.ticker ?? "").toUpperCase() !== tk); });
@@ -246,15 +250,16 @@ export const investPage: PageDef = {
 
         // the scope: a search bar across the top line (ui/search.ts); a pick opens the ticker's chart (a holding: its page)
         // the search reads the newest page context (xs, set on every render): it stays open through live redraws
-        const search = (from: HTMLElement) => {
+        // pick (+ TRADE): the ticker goes to the rules check instead
+        const search = (from: HTMLElement, pick?: (tk: string) => void, ask?: string) => {
             const src = ctx.plugin.search, held = () => xs.P.positions.filter((p) => p.shares > 0).map((p) => p.ticker);
             openSearch(from, src, {
                 mine: (q) => {
                     const s = q.toUpperCase(), hit = (tk: string) => tk.startsWith(s) || src.nameOf(tk).toUpperCase().includes(s);
-                    return [...held().filter(hit).map((tk) => ({ tk, name: src.nameOf(tk), ex: "", mine: "held" as const })), ...xs.P.watch.filter(hit).map((tk) => ({ tk, name: src.nameOf(tk), ex: "", mine: "watch" as const }))];
+                    return [...held().filter(hit).map((tk) => ({ tk, name: src.nameOf(tk), ex: "", mine: "held" as const })), ...xs.P.watch.filter((tk) => hit(tk) && !held().includes(tk)).map((tk) => ({ tk, name: src.nameOf(tk), ex: "", mine: "watch" as const }))];   // a held ticker is listed once
                 },
-                pick: (tk) => xs.ctx.push(held().includes(tk) ? { key: "asset:" + tk, title: tk } : { key: "chart:" + tk, title: tk }),
-                texts: { placeholder: t("sPlaceholder"), cancel: t("sCancel"), recent: t("sRecent"), clear: t("sClear"), none: t("sNone"), held: t("sHeld"), watch: t("sWatch") },
+                pick: pick ?? ((tk) => xs.ctx.push(held().includes(tk) ? { key: "asset:" + tk, title: tk } : { key: "chart:" + tk, title: tk })),
+                texts: { placeholder: ask ?? t("sPlaceholder"), cancel: t("sCancel"), recent: t("sRecent"), clear: t("sClear"), none: t("sNone"), held: t("sHeld"), watch: t("sWatch") },
             });
         };
         // a new order for some watched tickers (a drag in MANUAL): they take the places they held, in the given order, so the
@@ -269,7 +274,13 @@ export const investPage: PageDef = {
         };
         const watchOn = async (tk: string) => { await store.update(CFG, (f) => { f.watchlist = [...list(f.watchlist), { ticker: tk }]; }); };
 
-        const x: X = { ctx, P, cur, cash, links, warns, cap, fx: (c: string) => prices.fx(c, cur, fb), trade, editThesis: (tk: string) => editThesis(x, tk), editTrade, editPlan, addThought, journal, addWatch, dropWatch, moveWatch, search, watchOn };
+        // + TRADE, from any page: the ticker (asked with the search when the page has none), the rules check, then the trade
+        // sheet. The check is where the rules are kept, so no way to buy skips it (review 2026-11, F)
+        const buy = (tk?: string, from?: HTMLElement) => {
+            const check = (k: string) => buyCheck(xs, k, (o) => trade(k, o));
+            if (tk) check(tk); else if (from) search(from, check, t("sTradeWhat")); else trade();
+        };
+        const x: X = { ctx, P, cur, cash, links, warns, cap, fx: (c: string) => prices.fx(c, cur, fb), trade, buy, editThesis: (tk: string) => editThesis(x, tk), editTrade, editPlan, addThought, journal, addWatch, dropWatch, moveWatch, search, watchOn };
         xs = x;
         const pageFor = (key: string): PageOut => {
             if (key === "holdings") return holdingsPage(x);
@@ -280,8 +291,8 @@ export const investPage: PageDef = {
             if (key === "map") return mapPage(x);
             if (key.startsWith("revenue:")) return revenuePage(x, key.slice(8));
             if (key === "alerts") return alertsPage(x);
-            if (key.startsWith("brokers:")) return brokersPage(ctx, key.slice(8), (tk) => trade(tk));
-            if (key.startsWith("flows:")) return flowsPage(ctx, key.slice(6), flowCodes(ctx, flowTickers(P)), (tk) => trade(tk));
+            if (key.startsWith("brokers:")) return brokersPage(ctx, key.slice(8), (tk) => buy(tk));
+            if (key.startsWith("flows:")) return flowsPage(ctx, key.slice(6), flowCodes(ctx, flowTickers(P)), (tk) => buy(tk));
             if (key.startsWith("trades:")) { const p = P.positions.find((q) => q.ticker === key.slice(7)); if (p) return tradesPage(x, p); }
             if (key.startsWith("journal:")) return journalPage(x, key.slice(8));
             if (key.startsWith("asset:")) { const p = P.positions.find((q) => q.ticker === key.slice(6)); if (p) return assetPage(x, p); }

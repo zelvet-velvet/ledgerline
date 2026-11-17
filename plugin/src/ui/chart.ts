@@ -276,7 +276,10 @@ export const holdingChart = (parent: HTMLElement, o: ChartOpts): ChartView => {
             const row = h(wait, "div", "zl-ch-wait-b");
             for (let i = 0; i < 8; i++) h(row, "i").style.animationDelay = `${i * 0.1}s`;
             waited = true;
-            h(wait, "div", "zl-ch-wait-t", `LOADING ${IV_LABEL[range]}${isMinutes(range) && range !== "I" ? " MIN" : ""}`);
+            const failed = o.prices.seriesFailed(o.ticker, range);   // no source answered: say so, the lights stop (asked again in a minute)
+            if (failed) wait.addClass("is-failed");
+            h(wait, "div", "zl-ch-wait-t", failed ? `NO ${IV_LABEL[range]} BARS FROM ANY SOURCE` : `LOADING ${IV_LABEL[range]}${isMinutes(range) && range !== "I" ? " MIN" : ""}`);
+            if (failed) h(wait, "div", "zl-ch-wait-s", "Asked again in a minute. Check the ticker and the connection.");
             note.setText(tool ? HINT[tool.type] : "\u00a0");
             return;
         }
@@ -290,7 +293,7 @@ export const holdingChart = (parent: HTMLElement, o: ChartOpts): ChartView => {
             indicators(ind, o, { ma60: [], bb: { mb: [], ub: [], lb: [], sd: [] } }, 0, setShow);
             const wait = h(plot, "div", "zl-ch-wait");
             h(wait, "div", "zl-ch-wait-t", "TODAY STARTS WITH THE NEXT TRADE");
-            if (!o.prices.hasFugle() && !o.ticker.startsWith("^")) h(wait, "div", "zl-ch-wait-s", "For the whole day live, add a Fugle API key in Settings.");
+            if (!o.prices.hasFugle() && !o.ticker.startsWith("^")) h(wait, "div", "zl-ch-wait-s", o.prices.fugleRefused() ? "Fugle turned the API key away: check it in Settings." : "For the whole day live, add a Fugle API key in Settings.");
             note.setText("\u00a0");
             return;
         }

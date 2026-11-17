@@ -14,6 +14,8 @@ export class Revenue {
     private m: Record<string, Kept> = {};
     private busy = new Set<string>();
     private subs = new Set<(code: string) => boolean>();
+    private fail = new Map<string, number>();   // code → when FinMind last did not answer (asked again after 10 minutes)
+    failed(code: string): boolean { return this.fail.has(code); }
     constructor(private load: Load, private save: Save) { try { this.m = (this.load() as Record<string, Kept>) ?? {}; } catch { this.m = {}; } }
     static key = KEY;
     get(code: string): RevMonth[] { return this.m[code]?.months ?? []; }
@@ -23,7 +25,7 @@ export class Revenue {
     isOut(code: string, day = today()): boolean { return this.latest(code) >= expectedYm(day); }
     onChange(fn: (code: string) => boolean): void { this.subs.add(fn); }
     ensure(code: string): void {
-        if (!/^\d{4,6}$/.test(code) || this.busy.has(code)) return;
+        if (!/^\d{4,6}$/.test(code) || this.busy.has(code) || Date.now() - (this.fail.get(code) ?? 0) < 10 * 60 * 1000) return;
         const k = this.m[code];
         if (k && (this.isOut(code) || Date.now() - k.at < AGAIN_MS)) return;
         void this.fetch(code);
@@ -34,6 +36,8 @@ export class Revenue {
             const from = `${ymAdd(today().slice(0, 7), -26)}-01`;
             const r = await requestUrl({ url: `https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockMonthRevenue&data_id=${code}&start_date=${from}`, throw: false });
             const rows = r.status === 200 ? (r.json as { data?: unknown })?.data : null;
+            if (!Array.isArray(rows)) throw new Error(`finmind ${r.status}`);   // failed, not "no revenue": nothing is stamped as asked
+            this.fail.delete(code);
             const months = fromFinMind(rows).sort((a, b) => a.ym.localeCompare(b.ym));
             const before = this.latest(code);
             this.m[code] = { months: months.length ? months : this.get(code), at: Date.now() };
@@ -41,6 +45,11 @@ export class Revenue {
             const fresh = this.latest(code) !== before;
             if (fresh) this.subs.forEach((fn) => { if (!fn(code)) this.subs.delete(fn); });
             return fresh;
-        } catch { return false; } finally { this.busy.delete(code); }
+        } catch {
+            const first = !this.fail.has(code);
+            this.fail.set(code, Date.now());
+            if (first) this.subs.forEach((fn) => { if (!fn(code)) this.subs.delete(fn); });
+            return false;
+        } finally { this.busy.delete(code); }
     }
 }

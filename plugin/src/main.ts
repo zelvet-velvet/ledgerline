@@ -53,6 +53,8 @@ export default class LedgerlinePlugin extends Plugin {
         this.prices.calendar = new MarketCalendar(() => this.app.loadLocalStorage(MarketCalendar.KEY), (v) => this.app.saveLocalStorage(MarketCalendar.KEY, v), () => this.prices.onLive?.(false));
         this.registerInterval(window.setInterval(() => this.prices.background(), 5 * 1000));
         this.prices.onLive = (opening) => this.views().forEach((v) => v.pricesMoved(opening));
+        this.prices.loadOtc = () => this.app.loadLocalStorage(Prices.OTC_KEY);
+        this.prices.saveOtc = (v) => this.app.saveLocalStorage(Prices.OTC_KEY, v);
         this.prices.loadSeries = () => this.app.loadLocalStorage(Prices.SERIES_KEY);
         this.prices.saveSeries = (v) => this.app.saveLocalStorage(Prices.SERIES_KEY, v);
         this.search = new TickerSearch(() => this.app.loadLocalStorage(TickerSearch.KEY), (v) => this.app.saveLocalStorage(TickerSearch.KEY, v), () => this.settings.taiwan);

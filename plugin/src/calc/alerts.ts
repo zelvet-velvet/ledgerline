@@ -16,6 +16,14 @@ export const readAlerts = (fm: FM | null): { topic: string; alerts: PriceAlert[]
         .filter((a) => a.ticker && a.price > 0),
     sent: arr(fm?.sent).map((s) => ({ key: String(s.key ?? ""), date: dateStr(s.date, ""), text: String(s.text ?? "") })).filter((s) => s.key),
 });
+// the stored row of a displayed alert: by its id; a row saved without one by its position if it is still the same alert (-1: gone)
+export const findAlert = (rows: unknown, a: PriceAlert): number => {
+    const xs = Array.isArray(rows) ? (rows as FM[]) : [];
+    const byId = xs.findIndex((r) => r && typeof r === "object" && r.id !== undefined && String(r.id) === a.id);
+    if (byId >= 0) return byId;
+    const r = xs[a.index];
+    return r && typeof r === "object" && r.id === undefined && String(r.ticker ?? "").toUpperCase() === a.ticker && Math.round(Number(r.price) * 100) === a.price ? a.index : -1;
+};
 // a price alert is hit at or past its price (price in hundredths)
 export const hit = (a: PriceAlert, price: number): boolean => (a.kind === "below" ? price <= a.price : price >= a.price);
 // how far the price is from the alert, in % of the price (positive = still to go)

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { addTradingDays, autoFee, autoTax, buildPortfolio, tickOf, capOf, checkRules, grossOf, investCash, newWarnings, readJournal, newTradeId, nextDca, syncEntries, toBase, toP, toQ, tradeLinks } from "../src/calc/invest";
+import { addTradingDays, autoFee, autoTax, buildPortfolio, legacyFields, tradeTotal, tickOf, capOf, checkRules, grossOf, investCash, newWarnings, readJournal, newTradeId, nextDca, syncEntries, toBase, toP, toQ, tradeLinks } from "../src/calc/invest";
 
 const noPrice = () => null;
 const usd = (c: string) => (c === "USD" ? 32 : 1);
@@ -247,4 +247,66 @@ test("today's move: old shares by today's change, today's buys from their buy pr
     assert.equal(r.value, 18000);
     assert.equal(r.exit, autoFee(18000, "TWD") + autoTax(18000, "TWD", "2330"));
     assert.equal(r.pl, 18000 - r.exit - p.cost);
+});
+
+// ---- review 2026-11, group A: foreign holdings, FX never guessed
+const voo = [{ ticker: "VOO", currency: "USD", transactions: [{ type: "BUY", shares: 1.5, price: 612.4, fx: 31.85, date: "2026-10-21" }] }];
+test("a foreign holding's average cost stays in its own currency whatever today's FX", () => {
+    const at = (rate: number) => buildPortfolio({ assets: voo }, () => 680.26, () => rate).positions[0];
+    assert.equal(at(31.85).avgP, 61240);
+    assert.equal(at(32.967).avgP, 61240);   // was 591.64 when the TWD cost was divided by today's rate
+    assert.equal(at(32.967).cost, 29257);   // 918.60 USD at the trade's own 31.85
+});
+test("the average cost in its own currency counts the buy fee and follows a partial sale", () => {
+    const p = buildPortfolio({ assets: [{ ticker: "AAA", currency: "USD", transactions: [
+        { type: "BUY", shares: 2, price: 100, fee: 1, fx: 32, date: "2026-01-02" },
+        { type: "SELL", shares: 1, price: 120, fx: 32, date: "2026-02-02" },
+    ] }] }, noPrice, usd).positions[0];
+    assert.equal(p.avgP, 10050);   // (200 + 1) / 2 per share, the share left keeps it
+    assert.equal(p.shares, 1);
+});
+test("an unknown FX rate is never 1: the holding is marked, valued at its cost, and the portfolio is not priced", () => {
+    const P = buildPortfolio({ assets: voo }, () => 680.26, () => 0);
+    const p = P.positions[0];
+    assert.equal(p.fxMissing, true);
+    assert.equal(p.value, p.cost);
+    assert.equal(p.pl, 0);
+    assert.equal(P.priced, false);
+    assert.deepEqual(P.missing, ["VOO"]);
+});
+test("a foreign trade without its own rate and with none known now marks the holding", () => {
+    const P = buildPortfolio({ assets: [{ ticker: "VOO", currency: "USD", transactions: [{ type: "BUY", shares: 1, price: 600, date: "2026-10-21" }] }] }, () => 600, () => 0);
+    assert.equal(P.positions[0].fxMissing, true);
+    assert.equal(P.positions[0].cost, 0);
+});
+test("a holding without a price is named in missing", () => {
+    const P = one([{ ticker: "00679B", transactions: [{ type: "BUY", shares: 200, price: 27.9, date: "2026-10-01" }] }, { ticker: "0050", transactions: [{ type: "BUY", shares: 1, price: 100, date: "2026-10-01" }] }], (tk) => (tk === "0050" ? 100 : null));
+    assert.deepEqual(P.missing, ["00679B"]);
+    assert.equal(P.priced, false);
+});
+test("the base currency is a parameter: a USD base holds USD at 1 and converts TWD", () => {
+    const P = buildPortfolio({ assets: [
+        { ticker: "VOO", currency: "USD", transactions: [{ type: "BUY", shares: 1, price: 600, date: "2026-10-21" }] },
+        { ticker: "0050", currency: "TWD", transactions: [{ type: "BUY", shares: 100, price: 160, fx: 0.03125, date: "2026-10-21" }] },
+    ] }, () => 100, (c) => (c === "TWD" ? 0.03125 : 0), "", "USD");
+    assert.equal(P.positions.find((p) => p.ticker === "VOO")!.cost, 600);
+    assert.equal(P.positions.find((p) => p.ticker === "0050")!.cost, 500);
+    assert.equal(P.priced, true);
+});
+test("bond ETFs pay no securities tax; stock ETFs 0.1 %, stocks 0.3 %", () => {
+    assert.equal(autoTax(100000, "TWD", "00679B"), 0);
+    assert.equal(autoTax(100000, "TWD", "0050"), 100);
+    assert.equal(autoTax(100000, "TWD", "2330"), 300);
+});
+test("tradeTotal: a buy costs gross + fee, a sale brings gross − fee − tax", () => {
+    assert.equal(tradeTotal("BUY", 15000, 21, 99), 15021);
+    assert.equal(tradeTotal("SELL", 15000, 21, 45), 14934);
+    assert.equal(tradeTotal("sell", 15000, 21, 45), 14934);
+});
+test("legacyFields: shares and the average buy price in integers, fees left out", () => {
+    assert.deepEqual(legacyFields([{ type: "BUY", shares: 10, price: 100 }, { type: "BUY", shares: 10, price: 110 }]), { shares: 20, avg_cost: 105 });
+    assert.deepEqual(legacyFields([{ type: "BUY", shares: 0.1, price: 612.4 }, { type: "BUY", shares: 0.2, price: 612.4 }]), { shares: 0.3, avg_cost: 612.4 });
+    assert.deepEqual(legacyFields([{ type: "BUY", shares: 3, price: 10 }, { type: "SELL", shares: 3, price: 12 }]), { shares: 0, avg_cost: 0 });
+    assert.deepEqual(legacyFields([{ type: "SELL", shares: 3, price: 12 }]), { shares: 0, avg_cost: 0 });
+    assert.deepEqual(legacyFields(undefined), { shares: 0, avg_cost: 0 });
 });

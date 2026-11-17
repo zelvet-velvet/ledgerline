@@ -5,6 +5,9 @@
 // Dropped sockets come back with a growing wait (1 s … 30 s) while a chart still wants them; while a code is not
 // subscribed the chart page keeps polling quotes every 5 s.
 const URL = "wss://api.fugle.tw/marketdata/v1.0/stock/streaming";
+// a key Fugle turned away (401 / 403, or the stream's auth error): not asked again until the key changes, and the pages say so
+export const FUGLE_KEY = { refused: "" };
+export const fugleRefused = (key: string): boolean => !!key && FUGLE_KEY.refused === key;
 
 export class FugleStream {
     private ws: WebSocket | null = null;
@@ -19,7 +22,7 @@ export class FugleStream {
     on(code: string): boolean { return this.authed && this.ids.has(code); }
 
     watch(code: string): void {
-        if (!this.key()) return;
+        if (!this.key() || fugleRefused(this.key())) return;
         if (!this.want.has(code)) { this.want.add(code); if (this.authed) this.sub(code); }
         this.open();
     }
@@ -41,7 +44,7 @@ export class FugleStream {
     private send(m: unknown): void { if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(m)); }
     private sub(code: string): void { this.send({ event: "subscribe", data: { channel: "trades", symbol: code } }); }
     private open(): void {
-        if (this.ws || !this.want.size || !this.key()) return;
+        if (this.ws || !this.want.size || !this.key() || fugleRefused(this.key())) return;
         let ws: WebSocket;
         try { ws = new WebSocket(URL); } catch { this.later(); return; }
         this.ws = ws;
@@ -57,7 +60,10 @@ export class FugleStream {
                 if (price > 0) this.onTrade(d.symbol, price, us > 0 ? Math.round(us / 1000) : Date.now(), d);
                 return;
             }
-            if (m.event === "error") console.warn("Ledgerline: Fugle stream", d.message ?? d);
+            if (m.event === "error") {
+                console.warn("Ledgerline: Fugle stream", d.message ?? d);
+                if (!this.authed) { FUGLE_KEY.refused = this.key(); this.close(); }   // the key was turned away: no retry loop
+            }
         };
         ws.onclose = () => { this.ws = null; this.authed = false; this.ids.clear(); this.later(); };
         ws.onerror = () => { /* onclose follows */ };

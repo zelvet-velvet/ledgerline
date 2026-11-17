@@ -1,5 +1,6 @@
 import { dateStr } from "../format";
 import type { FM } from "../data/store";
+import { int } from "./money";
 
 // Record shape (Ledger Config → `ledger`): { friend, action, amount, date, note }
 //   paid_for: you paid, they owe you · paid_by: they paid, you owe them · paid_to_me: they repaid you · paid_to_them: you repaid them
@@ -18,7 +19,7 @@ export const buildLedger = (list: unknown): Ledger => {
     raw.forEach((x: unknown, index: number) => {
         const r = (x ?? {}) as FM;
         if (!r.friend) return;
-        const rec: Rec = { friend: String(r.friend), action: String(r.action ?? ""), amount: Number(r.amount) || 0, date: dateStr(r.date, ""), note: String(r.note ?? ""), index };
+        const rec: Rec = { friend: String(r.friend), action: String(r.action ?? ""), amount: int(r.amount), date: dateStr(r.date, ""), note: String(r.note ?? ""), index };
         if (!people.has(rec.friend)) people.set(rec.friend, []);
         people.get(rec.friend)!.push(rec);
     });
@@ -29,8 +30,11 @@ export const buildLedger = (list: unknown): Ledger => {
         const queue: { d: string; a: number; t: "me" | "them" }[] = [];
         const consume = (t: "me" | "them", amt: number) => {
             let rem = amt;
-            while (rem > 0 && queue.length && queue[0].t === t) {
-                if (queue[0].a <= rem) { rem -= queue[0].a; queue.shift(); } else { queue[0].a -= rem; rem = 0; }
+            // the oldest open amount of that side, wherever it sits (debts both ways share the queue)
+            while (rem > 0) {
+                const i = queue.findIndex((e) => e.t === t);
+                if (i < 0) break;
+                if (queue[i].a <= rem) { rem -= queue[i].a; queue.splice(i, 1); } else { queue[i].a -= rem; rem = 0; }
             }
         };
         let me = 0, them = 0;
@@ -42,7 +46,7 @@ export const buildLedger = (list: unknown): Ledger => {
         }
         const net = me - them;
         if (net > 0) oweMe += net; else if (net < 0) oweThem -= net;
-        friends.push({ name, net, activeSince: queue[0]?.d || null, records: recs.reverse() });
+        friends.push({ name, net, activeSince: (queue.find((e) => e.t === (net >= 0 ? "me" : "them")) ?? queue[0])?.d || null, records: recs.reverse() });
     }
     friends.sort((a, b) => Math.abs(b.net) - Math.abs(a.net));
     return { friends, oweMe, oweThem, net: oweMe - oweThem, count: raw.length };
@@ -53,7 +57,7 @@ const SIGN: Record<string, number> = { paid_for: 1, paid_by: -1, paid_to_me: -1,
 export const balanceAfter = (recs: Rec[]): Map<Rec, number> => {
     const out = new Map<Rec, number>();
     let b = 0;
-    for (const r of [...recs].sort((x, y) => x.date.localeCompare(y.date) || x.index - y.index)) { b += (SIGN[r.action] ?? -1) * r.amount; out.set(r, b); }
+    for (const r of [...recs].sort((x, y) => x.date.localeCompare(y.date) || x.index - y.index)) { b += (SIGN[r.action] ?? 0) * r.amount; out.set(r, b); }   // an unknown action moves nothing, as in buildLedger
     return out;
 };
 // the record that settles a friend: they pay you back what they owe, or you pay them back
@@ -63,7 +67,7 @@ export const settleOf = (f: Friend): { action: Action; amount: number } | null =
 // The stored record for a displayed one: the same index if it still matches, else the first identical record (-1: gone)
 export const findRecord = (list: unknown, r: Rec): number => {
     const arr = Array.isArray(list) ? (list as FM[]) : [];
-    const same = (e: FM | undefined) => !!e && String(e.friend) === r.friend && String(e.action) === r.action && Number(e.amount) === r.amount
+    const same = (e: FM | undefined) => !!e && String(e.friend) === r.friend && String(e.action) === r.action && int(e.amount) === r.amount
         && dateStr(e.date, "") === r.date && String(e.note ?? "") === r.note;
     return same(arr[r.index]) ? r.index : arr.findIndex((e) => same(e));
 };

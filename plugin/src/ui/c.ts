@@ -140,11 +140,11 @@ export const reads = (parent: HTMLElement, list: [string, string, string, ReadX?
 };
 
 // a section head in pixel type; with onMore it is a button with "MORE ‹"
-export const sec = (parent: HTMLElement, label: string, onMore?: () => void, moreText = "MORE"): HTMLElement => {
+export const sec = (parent: HTMLElement, label: string, onMore?: () => void, moreText = "MORE", hot = false): HTMLElement => {   // hot: the link carries a warning count (loud)
     const s = h(parent, onMore ? "button" : "div", "zl-sec");
     h(s, "span", "", label);
     if (onMore) {
-        const g = h(s, "span", "zl-sec-go", moreText);
+        const g = h(s, "span", "zl-sec-go" + (hot ? " is-hot" : ""), moreText);
         sprite(g, "back");
         s.addEventListener("click", (e) => { e.preventDefault(); onMore(); });
     }
