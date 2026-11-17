@@ -98,9 +98,11 @@ export const RUN = 27, RUN_V = RUN / 1000;   // px a second; px a ms
 // ticker's chart. Three or fewer stand
 // still. Moved by a transform from script (never the browser's own scroll, which a phone smooths and stops), its place kept
 // here, so a redraw (a live price every 5 s) carries on where it was. Calm motion: no run, a finger still drags it.
-export const WM = { pos: 0, v: RUN_V, el: null as HTMLElement | null, run: null as HTMLElement | null, raf: 0, last: 0, held: false };
+// half: one copy's width, measured when the strip's size changes (not read every frame: that laid the strip out again on
+// every move of a drag, and the drag lagged on the phone)
+export const WM = { pos: 0, v: RUN_V, el: null as HTMLElement | null, run: null as HTMLElement | null, raf: 0, last: 0, held: false, half: 0 };
 export const wmPlace = (): void => {
-    const r = WM.run, half = r ? r.scrollWidth / 2 : 0;
+    const r = WM.run, half = WM.half;
     if (!r || half <= 0) return;
     WM.pos = ((WM.pos % half) + half) % half;
     r.style.transform = `translateX(${-WM.pos}px)`;
@@ -191,10 +193,13 @@ export const watchStrip = (x: X, el: HTMLElement): HTMLElement => {
     WM.el = vp; WM.run = run;
     fingers(true);
     // on screen (the page mounts after it is built, or comes back from the cache): back to its place, the run going again
-    new ResizeObserver(() => {
+    WM.half = 0;
+    const ro = new ResizeObserver(() => {
         if (!vp.isConnected || !vp.clientWidth || WM.el !== vp) return;
+        WM.half = run.scrollWidth / 2;
         wmPlace();
         if (!WM.raf) WM.raf = requestAnimationFrame(runWm);
-    }).observe(vp);
+    });
+    ro.observe(vp); ro.observe(run);   // the strip: a longer price or change line makes it wider
     return g;
 };

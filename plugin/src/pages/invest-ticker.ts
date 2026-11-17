@@ -12,7 +12,7 @@ import { flowModes, sectorLine } from "./invest-flow";
 import { flowCodes, flowsTile } from "./flows";
 import type { PageOut } from "./index";
 import { signed, pctS, qty, X, todayOf, atNow, flowTickers, guessCur, tickerBadge } from "./invest-shared";
-import { thesisCard, thesisLine } from "./invest-thesis";
+import { thesisLine } from "./invest-thesis";
 import { revenueTile } from "./invest-revenue";
 
 // TRADE on a chart page: the rules check first (a buy), then the trade sheet (x.buy, the same from every page)
@@ -36,15 +36,24 @@ export const assetPage = (x: X, p: Position): PageOut => {
     el.addClass("zl-c-stack");
     const costP = p.q > 0 ? p.avgP : null;   // cost per share in the asset's own currency, from its trades (calc/invest.ts: today's FX never moves it)
     chartBlock(x, el, p.ticker, p.currency, costP);
-    thesisCard(x, el, p.ticker);
-    const hold = h(el, "div", "zl-c-group zl-hold");
+    thesisStrip(x, el, p.ticker);
+    // the hold strip, four across (owner picked mock B, 2026-11-18): PLAN joined it from the tiles; a tap on it opens the plan sheet
+    const next = nextDca(p.dca, today()), thoughts = x.journal(p.ticker);
+    const hold = h(el, "div", "zl-c-group zl-hold is-4");
+    // a quarter of the row: whole percents from 10 % up (+111%, not +110.78%), one decimal under it
+    const valueK = (pl: number, cost: number) => { const v = cost > 0 ? (pl / cost) * 100 : 0, a = Math.abs(v); return `${t("iValueShort")} ${v > 0 ? "+" : v < 0 ? "\u2212" : ""}${a.toFixed(a >= 10 ? 0 : 1)}%`; };
     const items: [string, string, boolean][] = [
         [t("iYouHold"), qty(p.shares), false],
-        [t("iAvgCost"), costP !== null ? price2(costP) : "-", false],
-        [p.price !== null ? `${t("iValueNow")} ${pctS(p.cost > 0 ? (p.pl / p.cost) * 100 : 0)}` : t("iValueNow"), num(p.value), p.pl < 0],
+        [t("iAvgShort"), costP !== null ? price2(costP) : "-", false],
+        [p.price !== null ? valueK(p.pl, p.cost) : t("iValueShort"), num(p.value), p.pl < 0],
+        [t("iPlanT"), next ? shortDate(next).toUpperCase() : "-", false],
     ];
     const r = h(hold, "div", "zl-sum-items");
     const vals = items.map(([k, v, hot]) => { const it = h(r, "div"); return [h(it, "span", "zl-sum-k", k.toUpperCase()), h(it, "span", "zl-sum-v" + (hot ? " is-hot" : ""), v)]; });
+    const plan = r.lastElementChild as HTMLElement;
+    plan.addClass("zl-hold-go"); plan.toggleClass("is-dim", !p.dca);
+    plan.setAttr("role", "button"); plan.setAttr("aria-label", t("iPlanT"));
+    plan.addEventListener("click", (e) => { e.preventDefault(); x.editPlan(p); });
     // VALUE NOW ±% follows each new quote in place (the page is not redrawn while it is open)
     const pr = ctx.plugin.prices, sym = pr.symbol(p.ticker);
     pr.onQuote((s) => {
@@ -52,18 +61,16 @@ export const assetPage = (x: X, p: Position): PageOut => {
         if (s !== sym) return true;
         const q = atNow(pr, p.ticker, p);
         if (q.price === null) return true;
-        vals[2][0].setText(`${t("iValueNow")} ${pctS(q.cost > 0 ? (q.pl / q.cost) * 100 : 0)}`.toUpperCase());
+        vals[2][0].setText(valueK(q.pl, q.cost).toUpperCase());
         vals[2][1].setText(num(q.value));
         vals[2][1].toggleClass("is-hot", q.pl < 0); vals[2][1].toggleClass("is-up", q.pl > 0);
         return true;
     });
-    const next = nextDca(p.dca, today()), thoughts = x.journal(p.ticker);
     const off = p.trades.some((tr) => { const l = x.links.get(tr.id); return !!l && !!l.diff; }) || p.trades.some((tr) => !x.links.get(tr.id));
     const tiles = [
         flowsTile(ctx, p.ticker, flowCodes(ctx, flowTickers(x.P))),
         revenueTile(x, p.ticker),
         { k: t("iTrades"), icon: "list", v: String(p.trades.length), hot: off, onTap: () => ctx.push({ key: "trades:" + p.ticker, title: t("iTrades") }) },
-        { k: t("iPlanT"), icon: "calendar", v: next ? shortDate(next) : "-", dim: !p.dca, onTap: () => x.editPlan(p) },
         { k: t("iJournal"), icon: "receipt", v: String(thoughts.length), dim: !thoughts.length, onTap: () => ctx.push({ key: "journal:" + p.ticker, title: t("iJournal") }) },
     ].filter((v): v is NonNullable<typeof v> => !!v);
     tileGrid(h(el, "div", "zl-c-group"), tiles);
@@ -153,6 +160,9 @@ export const chartBlock = (x: X, el: HTMLElement, tk: string, currency: string, 
     const cv = holdingChart(cg, { ticker: tk, currency, prices, prefs: readPrefs(ctx.plugin.store.fm(journalPath(tk))), cost, memo, height: 0, onLeave: () => ctx.pop(), fullLine: thesisLine(x, tk) });
     flowModes(x, srcRow, cg, tk, cv.el);   // Taiwan stocks: CANDLE · FOOTPRINT · VOLUME HEAT
 };
+// the thesis on a chart page (owner picked mock B, 2026-11-18: the chart takes the room): the full chart's one line (next check,
+// what must hold, vs 0050); a tap floats the whole card over the chart
+const thesisStrip = (x: X, el: HTMLElement, tk: string): void => thesisLine(x, tk)(h(el, "div", "zl-c-group zl-thline"));
 // CHART (masthead): the settings sheet (Fib levels, snap, cost line, MA), kept in the ticker's note
 export const drawAct = (x: X, tk: string) => ({ text: t("iChartSet"), label: t("dTitle", { tk }), onTap: () => new DrawingsSheet(x.ctx.app, x.ctx.plugin.store, tk, () => x.addThought(tk)).open() });
 
@@ -165,7 +175,7 @@ export const tickerPage = (x: X, tk: string): PageOut => {
     el.addClass("zl-c-stack");
     const watched = P.watch.includes(tk);
     chartBlock(x, el, tk, guessCur(prices.symbol(tk)), null);
-    thesisCard(x, el, tk);
+    thesisStrip(x, el, tk);
     const tiles = [
         watched
             ? { k: "", icon: "eye", v: t("iWatching").toUpperCase(), onTap: () => { void x.dropWatch(tk); } }

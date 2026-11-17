@@ -174,6 +174,7 @@ const KEY = "ledgerline-prices";
 export class Prices {
     private q: Record<string, Quote> = {};
     private busy = new Set<string>();
+    private born = Date.now();   // quotes older than this came from storage
     constructor(private load: () => unknown, private save: (v: unknown) => void, private onFresh: () => void, private provider: PriceProvider = yahoo, private taiwan = () => false) {
         try { this.q = (this.load() as Record<string, Quote>) ?? {}; } catch { this.q = {}; }
     }
@@ -214,8 +215,11 @@ export class Prices {
     fxSymbol(cur: string, base: string): string { return `${cur}${base}=X`; }
     // fetch what is missing or old, in the background; one redraw when anything changed
     refresh(symbols: string[], force = false): void {
-        // a Taiwan quote saved without its reference price (before 2026-11-05) is old at once: today's change is measured from it
-        const due = [...new Set(symbols)].filter((s) => s && !this.busy.has(s) && (force || !this.resting(s)) && (force || !this.q[s] || Date.now() - this.q[s].time > TTL || (isTwSym(s) && !this.q[s].prev)));
+        // a Taiwan quote saved without its reference price (before 2026-11-05) is old at once: today's change is measured from it.
+        // Only a stored one: a fresh answer without it (Yahoo, while TWSE MIS does not answer) waits for the TTL like any other,
+        // else every redraw asked again and every answer redrew the page (Invest pages rebuilt twice a second, 2026-11-17)
+        const noPrev = (s: string) => isTwSym(s) && !this.q[s].prev && this.q[s].time < this.born;
+        const due = [...new Set(symbols)].filter((s) => s && !this.busy.has(s) && (force || !this.resting(s)) && (force || !this.q[s] || Date.now() - this.q[s].time > TTL || noPrev(s)));
         if (!due.length) return;
         due.forEach((s) => this.busy.add(s));
         void Promise.all(due.map((s) => this.ask(s).then(([k, x]) => {

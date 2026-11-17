@@ -53,7 +53,8 @@ export class Flap {
         const dr = document.createElement("b"); dr.className = "dr";
         const lf = document.createElement("span"); lf.className = "lf";
         lf.append(fr, bk);
-        t.append(st, sb, dr, lf);
+        const tx = document.createElement("b"); tx.className = "tx";   // the card's surface: a matte grain over the face (css/c.css)
+        t.append(st, sb, dr, lf, tx);
         const x: Tile = { el: t, st, sb, fr, bk, lf, frSh: fr.lastChild as HTMLElement, bkSh: bk.lastChild as HTMLElement, dr, shown: BLANK, target: BLANK, rolling: false, deadline: 0, wait: 0, gen: 0 };
         TILES.set(t, x);
         this.show(x, BLANK);
