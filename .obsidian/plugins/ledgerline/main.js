@@ -3145,7 +3145,7 @@ var en = {
   dTitle: "Chart settings \xB7 {tk}",
   dSavedIn: "Saved in {path}",
   dFibShown: "Fib levels shown",
-  dFibNote: "Orange levels get the shaded band (50\u201361.8%). 127.2 and up are extensions past the high.",
+  dFibNote: "50 to 61.8 get the shaded band. 127.2 and up are extensions past the high.",
   dDrawing: "Drawing",
   dSnap: "Snap to candle high / low",
   dSnapS: "Swing points land exactly",
@@ -8771,8 +8771,8 @@ var DrawingsSheet = class extends import_obsidian14.Modal {
     h(c, "div", "zl-dsec", t("dFibShown").toUpperCase());
     const chips = h(c, "div", "zl-dchips");
     for (const r of FIB_ALL) {
-      const on = P.fib.some((x) => Math.abs(x - r) < 1e-9), loud = r === 0.5 || Math.abs(r - 0.618) < 1e-9;
-      const b = h(chips, "button", "zl-dchip" + (on ? " is-on" : "") + (on && loud ? " is-loud" : ""), String(+(r * 100).toFixed(1)));
+      const on = P.fib.some((x) => Math.abs(x - r) < 1e-9);
+      const b = h(chips, "button", "zl-dchip" + (on ? " is-on" : ""), String(+(r * 100).toFixed(1)));
       b.addEventListener("click", () => change((x) => {
         const ch = x.chart ?? {};
         ch.fib = on ? P.fib.filter((y) => Math.abs(y - r) > 1e-9) : [...P.fib, r].sort((a, b2) => a - b2);
@@ -8788,6 +8788,8 @@ var DrawingsSheet = class extends import_obsidian14.Modal {
       h(m, "div", "zl-drow-s", sub);
       const b = h(r, "button", "zl-dcheck" + (on ? " is-on" : ""));
       b.setAttribute("aria-label", label);
+      b.setAttribute("role", "switch");
+      b.setAttribute("aria-checked", String(on));
       b.addEventListener("click", () => change((x) => {
         const ch = x.chart ?? {};
         ch[key] = !on;

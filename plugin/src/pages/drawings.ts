@@ -30,8 +30,8 @@ export class DrawingsSheet extends Modal {
         h(c, "div", "zl-dsec", t("dFibShown").toUpperCase());
         const chips = h(c, "div", "zl-dchips");
         for (const r of FIB_ALL) {
-            const on = P.fib.some((x) => Math.abs(x - r) < 1e-9), loud = r === 0.5 || Math.abs(r - 0.618) < 1e-9;
-            const b = h(chips, "button", "zl-dchip" + (on ? " is-on" : "") + (on && loud ? " is-loud" : ""), String(+(r * 100).toFixed(1)));
+            const on = P.fib.some((x) => Math.abs(x - r) < 1e-9);   // two looks only: on (ink) and off (outlined)
+            const b = h(chips, "button", "zl-dchip" + (on ? " is-on" : ""), String(+(r * 100).toFixed(1)));
             b.addEventListener("click", () => change((x) => { const ch = (x.chart ?? {}) as FM; ch.fib = on ? P.fib.filter((y) => Math.abs(y - r) > 1e-9) : [...P.fib, r].sort((a, b2) => a - b2); x.chart = ch; }));
         }
         h(c, "div", "zl-drow-s", t("dFibNote"));
@@ -43,6 +43,7 @@ export class DrawingsSheet extends Modal {
             h(m, "div", "zl-drow-t", label); h(m, "div", "zl-drow-s", sub);
             const b = h(r, "button", "zl-dcheck" + (on ? " is-on" : ""));
             b.setAttribute("aria-label", label);
+            b.setAttribute("role", "switch"); b.setAttribute("aria-checked", String(on));
             b.addEventListener("click", () => change((x) => { const ch = (x.chart ?? {}) as FM; ch[key] = !on; x.chart = ch; }));
         };
         sw(t("dSnap"), t("dSnapS"), P.snap, "snap");

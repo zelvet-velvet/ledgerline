@@ -748,7 +748,7 @@ const en = {
     dTitle: "Chart settings · {tk}",
     dSavedIn: "Saved in {path}",
     dFibShown: "Fib levels shown",
-    dFibNote: "Orange levels get the shaded band (50–61.8%). 127.2 and up are extensions past the high.",
+    dFibNote: "50 to 61.8 get the shaded band. 127.2 and up are extensions past the high.",
     dDrawing: "Drawing",
     dSnap: "Snap to candle high / low",
     dSnapS: "Swing points land exactly",

@@ -1187,13 +1187,16 @@ body.zl-calm .zl-ch-in { animation: none; }
 .zl-drow-m { flex: 1; min-width: 0; }
 .zl-drow-t { font: 14px var(--zl-ui); color: var(--zl-ink); }
 .zl-drow-s { font: 11px var(--zl-ui); color: var(--zl-mut); }
-.zl-dsheet button.zl-dcheck { all: unset; cursor: pointer; width: 18px; height: 18px; border: 1.5px solid var(--zl-ink); flex: none; }
-.zl-dsheet button.zl-dcheck.is-on { background: var(--zl-loud); border-color: var(--zl-loud); box-shadow: inset 0 0 0 3px var(--zl-loud), inset 0 0 0 5px var(--zl-on-loud); }
+/* on / off is the square switch (Rules - Controls): a box with a square knob; on = ink filled, knob paper on the right; 44 px target */
+.zl-dsheet button.zl-dcheck { all: unset; cursor: pointer; position: relative; box-sizing: border-box; width: 40px; height: 22px; border: 2px solid var(--zl-ink); flex: none; }
+.zl-dsheet button.zl-dcheck::before { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; background: var(--zl-ink); transition: left .12s steps(3); }
+.zl-dsheet button.zl-dcheck.is-on { background: var(--zl-ink); }
+.zl-dsheet button.zl-dcheck.is-on::before { left: 20px; background: var(--zl-paper); }
+.zl-dsheet button.zl-dcheck::after { content: ""; position: absolute; inset: -11px -4px; }
 .zl-dsheet button.zl-dx { all: unset; cursor: pointer; font: 16px var(--zl-ui); color: var(--zl-mut); padding: 0 4px; }
 .zl-dchips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 6px 0; }
 .zl-dsheet button.zl-dchip { all: unset; cursor: pointer; text-align: center; padding: 9px 0; font: 12px var(--zl-ui); color: var(--zl-ink); border: 1px solid var(--zl-ink); }
 .zl-dsheet button.zl-dchip.is-on { background: var(--zl-ink); color: var(--zl-paper); }
-.zl-dsheet button.zl-dchip.is-loud { background: var(--zl-loud); border-color: var(--zl-loud); color: var(--zl-on-loud); }
 .zl-dseg { display: flex; gap: 4px; }
 .zl-dsheet .zl-dseg button { all: unset; cursor: pointer; padding: 5px 8px; font: 10px var(--zl-pixel); color: var(--zl-ink); border: 1px solid var(--zl-ink); }
 .zl-dsheet .zl-dseg button.is-on { background: var(--zl-ink); color: var(--zl-paper); }
