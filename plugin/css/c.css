@@ -694,6 +694,9 @@ body.zl-calm .zl-bubble, body.zl-calm .zl-bubble-v.is-tick { animation: none; }
 .zl-tm-bar span { display: block; min-width: 0; }
 .zl-app .zl-tm-line { width: 100%; height: auto; min-height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0; border: 0; border-bottom: 1px solid var(--zl-dim); background: none; color: var(--zl-text); font: 400 15px var(--zl-ui); text-align: left; }
 .zl-app button.zl-tm-line:active { background: var(--zl-dim); }
+.zl-tm-line strong { margin-left: auto; }
+.zl-tm-line .zl-px.zl-fig-go { flex: none; width: 12px; height: 12px; color: var(--zl-muted); transform: scaleX(-1); }
+.zl-tm-line .zl-tm-nogo { flex: none; width: 12px; }   /* keeps the numbers of lines that open nothing in the same column */
 .zl-tm-k { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .zl-tm-k i { flex: none; width: 12px; height: 12px; outline: 1px solid var(--zl-muted); outline-offset: -1px; }
 .zl-tm-d { color: var(--zl-muted); font-size: 13px; }
@@ -704,7 +707,10 @@ body.zl-calm .zl-bubble, body.zl-calm .zl-bubble-v.is-tick { animation: none; }
 .zl-app .zl-tick { flex: none; width: 44px; height: 44px; margin-left: -12px; padding: 0; border: 0; background: none; display: grid; place-items: center; }
 .zl-app .zl-tick::before { content: ""; width: 18px; height: 18px; box-sizing: border-box; border: 2px solid var(--zl-text); }
 .zl-app .zl-tick.is-on::before { background: var(--zl-text); box-shadow: inset 0 0 0 3px var(--zl-bg, var(--background-primary)); }
-.zl-app .zl-tm-bn { flex: 1; min-width: 0; height: 44px; display: flex; justify-content: flex-start; align-items: center; padding: 0; border: 0; background: none; color: var(--zl-text); font: inherit; text-align: left; }
+.zl-app .zl-tm-bn { flex: 1; min-width: 0; height: 44px; display: flex; justify-content: flex-start; gap: 12px; align-items: center; padding: 0; border: 0; background: none; color: var(--zl-text); font: inherit; text-align: left; }
+.zl-tm-bn .zl-tm-bk { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zl-tm-bn .zl-px.zl-fig-go { flex: none; width: 12px; height: 12px; color: var(--zl-muted); transform: scaleX(-1); }
+.zl-app button.zl-tm-bn:active { background: var(--zl-dim); }
 /* amount drawer (readability redesign): over the page, the page dimmed above it */
 .zl-app { position: relative; }
 .zl-drw-wrap { position: absolute; inset: 0; z-index: 60; }

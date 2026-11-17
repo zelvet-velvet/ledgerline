@@ -12714,10 +12714,13 @@ var thisMonthPage = (x, nFixed) => {
     h(kk, "i").style.background = shade(i);
     kk.appendChild(document.createTextNode(k));
     h(r, "strong", gap ? "is-hot" : "", num(v));
-    if (owner) r.addEventListener("click", (e) => {
-      e.preventDefault();
-      ctx.goTab(owner);
-    });
+    if (owner) {
+      sprite(r, "back", "zl-px zl-fig-go");
+      r.addEventListener("click", (e) => {
+        e.preventDefault();
+        ctx.goTab(owner);
+      });
+    } else h(r, "span", "zl-tm-nogo");
   });
   h(top, "p", "zl-c-note" + (gap ? " is-hot" : ""), gap ? t("cPlanCheckOff", { gap: num(Math.abs(gap)), dir: gap < 0 ? t("cPlanOver") : t("cPlanUnder") }) : t("cPlanCheck"));
   if (nFixed) {
@@ -12732,12 +12735,14 @@ var thisMonthPage = (x, nFixed) => {
         e.preventDefault();
         void setPaid(x, r, !on);
       });
-      const nm = h(row2, "button", "zl-tm-bn", r.item.name);
+      const nm = h(row2, "button", "zl-tm-bn");
+      h(nm, "span", "zl-tm-bk", r.item.name);
+      h(nm, "strong", "", num(r.paid || r.def));
+      sprite(nm, "back", "zl-px zl-fig-go");
       nm.addEventListener("click", (e) => {
         e.preventDefault();
         ctx.push({ key: "fixed:" + r.prop, title: r.item.name });
       });
-      h(row2, "strong", "", num(r.paid || r.def));
     }
   }
   const og = h(el2, "div", "zl-c-group");

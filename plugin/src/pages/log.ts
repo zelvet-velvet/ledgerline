@@ -7,7 +7,7 @@ import { C, empty, group, h, hero, page, row } from "../ui";
 import { bigLabel, bline, board, budgetBar, dragBoard, figures, reads, sec, summary, waffle } from "../ui/c";
 import { openPad } from "./amount";
 import { notchFor } from "../ui/scrub";
-import { spriteFor } from "../ui/pixel";
+import { sprite, spriteFor } from "../ui/pixel";
 import { confirmSheet, FormSheet, MonthSheet } from "../ui/sheet";
 import { Flap } from "../ui/flap";
 import { dayAmountPage, dayPage, expenseSheet, itemGroupPage, itemsPage } from "./day";
@@ -153,7 +153,9 @@ const thisMonthPage = (x: X, nFixed: number): PageOut => {
         h(kk, "i").style.background = shade(i);
         kk.appendChild(document.createTextNode(k));
         h(r, "strong", gap ? "is-hot" : "", num(v));
-        if (owner) r.addEventListener("click", (e) => { e.preventDefault(); ctx.goTab(owner); });
+        // a line that opens its tab says so with the row's › (review 2026-11: they looked like the lines that do nothing)
+        if (owner) { sprite(r, "back", "zl-px zl-fig-go"); r.addEventListener("click", (e) => { e.preventDefault(); ctx.goTab(owner); }); }
+        else h(r, "span", "zl-tm-nogo");
     });
     h(top, "p", "zl-c-note" + (gap ? " is-hot" : ""), gap ? t("cPlanCheckOff", { gap: num(Math.abs(gap)), dir: gap < 0 ? t("cPlanOver") : t("cPlanUnder") }) : t("cPlanCheck"));
 
@@ -166,9 +168,12 @@ const thisMonthPage = (x: X, nFixed: number): PageOut => {
             const box = h(row, "button", "zl-tick" + (on ? " is-on" : ""));
             box.setAttribute("aria-label", r.item.name);
             box.addEventListener("click", (e) => { e.preventDefault(); void setPaid(x, r, !on); });
-            const nm = h(row, "button", "zl-tm-bn", r.item.name);
+            // the name and the amount open the bill (one button, its ›); the tick box beside it marks it paid
+            const nm = h(row, "button", "zl-tm-bn");
+            h(nm, "span", "zl-tm-bk", r.item.name);
+            h(nm, "strong", "", num(r.paid || r.def));
+            sprite(nm, "back", "zl-px zl-fig-go");
             nm.addEventListener("click", (e) => { e.preventDefault(); ctx.push({ key: "fixed:" + r.prop, title: r.item.name }); });
-            h(row, "strong", "", num(r.paid || r.def));
         }
     }
     const og = h(el, "div", "zl-c-group");
