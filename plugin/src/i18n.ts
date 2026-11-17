@@ -541,6 +541,7 @@ const en = {
     iAll: "All",
     iNoneHeld: "Nothing held yet",
     sPlaceholder: "Ticker or name",
+    sTradeWhat: "Which ticker to trade?",
     sCancel: "CANCEL",
     sRecent: "RECENT",
     sClear: "CLEAR",

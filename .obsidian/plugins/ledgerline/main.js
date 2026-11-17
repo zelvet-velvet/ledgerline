@@ -2911,6 +2911,7 @@ var en = {
   iAll: "All",
   iNoneHeld: "Nothing held yet",
   sPlaceholder: "Ticker or name",
+  sTradeWhat: "Which ticker to trade?",
   sCancel: "CANCEL",
   sRecent: "RECENT",
   sClear: "CLEAR",
@@ -7897,11 +7898,16 @@ var openSearch = (from, src, o) => {
   };
   const recent = () => {
     const r = src.recent();
-    rows(r.map((tk) => ({ tk, name: src.nameOf(tk), ex: "" })), o.texts.recent, r.length ? () => {
-      src.forget();
-      recent();
-    } : void 0);
-    if (!r.length) list5.empty();
+    if (r.length) {
+      rows(r.map((tk) => ({ tk, name: src.nameOf(tk), ex: "" })), o.texts.recent, () => {
+        src.forget();
+        recent();
+      });
+      return;
+    }
+    const mine = o.mine("");
+    rows(mine);
+    if (!mine.length) list5.empty();
   };
   const update = () => {
     const q = input.value.trim();
@@ -8494,7 +8500,7 @@ var home = (x) => {
   const el = page(title);
   el.addClass("zl-c-stack", "zl-mm");
   const held = P.positions.filter((p) => p.shares > 0).sort((a, b) => b.value - a.value);
-  const fab = { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.trade() };
+  const fab = { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.buy(void 0, el) };
   const day = todayHeld(x, held);
   const rp = P.cost > 0 ? P.pl / P.cost * 100 : 0, r12 = Math.round(rp * 10) / 10;
   const tone = (n) => n > 0 ? "up" : n < 0 ? "down" : void 0;
@@ -8712,7 +8718,7 @@ var mixPage = (x) => {
   const title = t("iMixT");
   const el = page(title);
   el.addClass("zl-c-stack");
-  const fab = { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.trade() };
+  const fab = { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.buy(void 0, el) };
   const sel = /* @__PURE__ */ new Date(), mk = `${sel.getFullYear()}-${String(sel.getMonth() + 1).padStart(2, "0")}`;
   const { plan, month } = ctx.plugin.store.monthData(sel.getFullYear(), sel.getMonth());
   const amt = Number(month?.[PLAN_KEY] ?? plan[PLAN_KEY]) || 0;
@@ -8729,7 +8735,7 @@ var mixPage = (x) => {
   if (bs?.length) {
     const g = h(el, "div", "zl-c-group");
     sec(g, t("iPlan", { n: num(amt) }).toUpperCase());
-    for (const b of bs) bline(g, { name: b.label, spent: b.bought, quota: b.target, pace: 0, value: num(Math.max(0, b.target - b.bought)), of: t("cLeftOf", { n: num(b.target) }), hot: false, onTap: () => x.trade() });
+    for (const b of bs) bline(g, { name: b.label, spent: b.bought, quota: b.target, pace: 0, value: num(Math.max(0, b.target - b.bought)), of: t("cLeftOf", { n: num(b.target) }), hot: false, onTap: () => x.buy(void 0, el) });
   }
   if (!P.buckets.length && !bs?.length) empty(el, { icon: "trending-up", title: t("iNone"), text: t("iNoneSub") });
   return { title, el, fab, actions: [findAct(x, el)] };
@@ -9979,7 +9985,7 @@ var revenuePage = (x, tk) => {
 };
 
 // src/pages/invest-ticker.ts
-var tradeFab = (x, tk) => ({ icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => buyCheck(x, tk, (o) => x.trade(tk, o)) });
+var tradeFab = (x, tk) => ({ icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.buy(tk) });
 var LAST = /* @__PURE__ */ new Map();
 var asOfText = (ms) => {
   if (!ms) return "";
@@ -10050,7 +10056,7 @@ var tradesPage = (x, p) => {
     hot: !!gap(tr),
     onTap: () => x.editTrade(p, tr)
   })));
-  return { title, el, fab: { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.trade(p.ticker) } };
+  return { title, el, fab: { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.buy(p.ticker) } };
 };
 var DRAWN = /* @__PURE__ */ new WeakMap();
 var chartBlock = (x, el, tk, currency, cost) => {
@@ -10178,7 +10184,7 @@ var holdingsPage = (x) => {
   summary(el, { label: t("iWorth"), value: num(P.value), items: [[t("iCost"), num(P.cost)], [t("iPL"), signed3(P.pl), P.pl < 0], [t("iRealized"), signed3(P.realized), P.realized < 0]] });
   const g = h(el, "div", "zl-c-group");
   hrows(x, g, P.positions);
-  return { title, el, actions: [findAct(x, el)], fab: { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.trade() } };
+  return { title, el, actions: [findAct(x, el)], fab: { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.buy(void 0, el) } };
 };
 var retOf = (x, tk, p) => {
   const pr = x.ctx.plugin.prices, ok = p.price !== null;
@@ -10855,15 +10861,15 @@ var investPage = {
         f.watchlist = list3(f.watchlist).filter((w) => String(w.ticker ?? "").toUpperCase() !== tk);
       });
     };
-    const search = (from) => {
+    const search = (from, pick) => {
       const src = ctx.plugin.search, held2 = () => xs.P.positions.filter((p) => p.shares > 0).map((p) => p.ticker);
       openSearch(from, src, {
         mine: (q) => {
           const s2 = q.toUpperCase(), hit2 = (tk) => tk.startsWith(s2) || src.nameOf(tk).toUpperCase().includes(s2);
-          return [...held2().filter(hit2).map((tk) => ({ tk, name: src.nameOf(tk), ex: "", mine: "held" })), ...xs.P.watch.filter(hit2).map((tk) => ({ tk, name: src.nameOf(tk), ex: "", mine: "watch" }))];
+          return [...held2().filter(hit2).map((tk) => ({ tk, name: src.nameOf(tk), ex: "", mine: "held" })), ...xs.P.watch.filter((tk) => hit2(tk) && !held2().includes(tk)).map((tk) => ({ tk, name: src.nameOf(tk), ex: "", mine: "watch" }))];
         },
-        pick: (tk) => xs.ctx.push(held2().includes(tk) ? { key: "asset:" + tk, title: tk } : { key: "chart:" + tk, title: tk }),
-        texts: { placeholder: t("sPlaceholder"), cancel: t("sCancel"), recent: t("sRecent"), clear: t("sClear"), none: t("sNone"), held: t("sHeld"), watch: t("sWatch") }
+        pick: pick ?? ((tk) => xs.ctx.push(held2().includes(tk) ? { key: "asset:" + tk, title: tk } : { key: "chart:" + tk, title: tk })),
+        texts: { placeholder: pick ? t("sTradeWhat") : t("sPlaceholder"), cancel: t("sCancel"), recent: t("sRecent"), clear: t("sClear"), none: t("sNone"), held: t("sHeld"), watch: t("sWatch") }
       });
     };
     const moveWatch = async (order) => {
@@ -10879,7 +10885,13 @@ var investPage = {
         f.watchlist = [...list3(f.watchlist), { ticker: tk }];
       });
     };
-    const x = { ctx, P, cur, cash, links, warns, cap: cap3, fx: (c) => prices.fx(c, cur, fb), trade, editThesis: (tk) => editThesis(x, tk), editTrade, editPlan, addThought, journal, addWatch, dropWatch, moveWatch, search, watchOn };
+    const buy = (tk, from) => {
+      const check = (k) => buyCheck(xs, k, (o) => trade(k, o));
+      if (tk) check(tk);
+      else if (from) search(from, check);
+      else trade();
+    };
+    const x = { ctx, P, cur, cash, links, warns, cap: cap3, fx: (c) => prices.fx(c, cur, fb), trade, buy, editThesis: (tk) => editThesis(x, tk), editTrade, editPlan, addThought, journal, addWatch, dropWatch, moveWatch, search, watchOn };
     xs = x;
     const pageFor = (key) => {
       if (key === "holdings") return holdingsPage(x);
@@ -10890,8 +10902,8 @@ var investPage = {
       if (key === "map") return mapPage(x);
       if (key.startsWith("revenue:")) return revenuePage(x, key.slice(8));
       if (key === "alerts") return alertsPage(x);
-      if (key.startsWith("brokers:")) return brokersPage(ctx, key.slice(8), (tk) => trade(tk));
-      if (key.startsWith("flows:")) return flowsPage(ctx, key.slice(6), flowCodes(ctx, flowTickers(P)), (tk) => trade(tk));
+      if (key.startsWith("brokers:")) return brokersPage(ctx, key.slice(8), (tk) => buy(tk));
+      if (key.startsWith("flows:")) return flowsPage(ctx, key.slice(6), flowCodes(ctx, flowTickers(P)), (tk) => buy(tk));
       if (key.startsWith("trades:")) {
         const p = P.positions.find((q) => q.ticker === key.slice(7));
         if (p) return tradesPage(x, p);

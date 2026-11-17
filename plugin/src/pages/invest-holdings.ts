@@ -17,7 +17,7 @@ export const holdingsPage = (x: X): PageOut => {
     summary(el, { label: t("iWorth"), value: num(P.value), items: [[t("iCost"), num(P.cost)], [t("iPL"), signed(P.pl), P.pl < 0], [t("iRealized"), signed(P.realized), P.realized < 0]] });
     const g = h(el, "div", "zl-c-group");
     hrows(x, g, P.positions);
-    return { title, el, actions: [findAct(x, el)], fab: { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.trade() } };
+    return { title, el, actions: [findAct(x, el)], fab: { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.buy(undefined, el) } };
 };
 
 // Holdings rows (owner picked Layouts row B, 2026-11-05): three columns like a broker's list, ticker / shares, last price /

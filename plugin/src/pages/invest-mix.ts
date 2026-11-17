@@ -16,7 +16,7 @@ export const mixPage = (x: X): PageOut => {
     const title = t("iMixT");
     const el = page(title);
     el.addClass("zl-c-stack");
-    const fab = { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.trade() };
+    const fab = { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.buy(undefined, el) };
     const sel = new Date(), mk = `${sel.getFullYear()}-${String(sel.getMonth() + 1).padStart(2, "0")}`;
     const { plan, month } = ctx.plugin.store.monthData(sel.getFullYear(), sel.getMonth());
     const amt = Number(month?.[PLAN_KEY] ?? plan[PLAN_KEY]) || 0;
@@ -33,7 +33,7 @@ export const mixPage = (x: X): PageOut => {
     if (bs?.length) {
         const g = h(el, "div", "zl-c-group");
         sec(g, t("iPlan", { n: num(amt) }).toUpperCase());
-        for (const b of bs) bline(g, { name: b.label, spent: b.bought, quota: b.target, pace: 0, value: num(Math.max(0, b.target - b.bought)), of: t("cLeftOf", { n: num(b.target) }), hot: false, onTap: () => x.trade() });
+        for (const b of bs) bline(g, { name: b.label, spent: b.bought, quota: b.target, pace: 0, value: num(Math.max(0, b.target - b.bought)), of: t("cLeftOf", { n: num(b.target) }), hot: false, onTap: () => x.buy(undefined, el) });
     }
     if (!P.buckets.length && !bs?.length) empty(el, { icon: "trending-up", title: t("iNone"), text: t("iNoneSub") });
     return { title, el, fab, actions: [findAct(x, el)] };

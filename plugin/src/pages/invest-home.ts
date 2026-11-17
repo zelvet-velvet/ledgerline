@@ -19,7 +19,7 @@ export const home = (x: X): PageOut => {
     const el = page(title);
     el.addClass("zl-c-stack", "zl-mm");
     const held = P.positions.filter((p) => p.shares > 0).sort((a, b) => b.value - a.value);
-    const fab = { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.trade() };
+    const fab = { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.buy(undefined, el) };
     const day = todayHeld(x, held);
     const rp = P.cost > 0 ? (P.pl / P.cost) * 100 : 0, r1 = Math.round(rp * 10) / 10;
     const tone = (n: number) => (n > 0 ? "up" as const : n < 0 ? "down" as const : undefined);

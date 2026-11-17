@@ -15,7 +15,7 @@ import { home } from "./invest-home";
 import { mixPage, rulesPage } from "./invest-mix";
 import { assetPage, tradesPage, tickerPage, journalPage } from "./invest-ticker";
 import { holdingsPage } from "./invest-holdings";
-import { editThesis } from "./invest-thesis";
+import { buyCheck, editThesis } from "./invest-thesis";
 import { readThesis } from "../calc/thesis";
 import { revenuePage } from "./invest-revenue";
 import { alertsPage } from "./invest-alerts";
@@ -246,15 +246,16 @@ export const investPage: PageDef = {
 
         // the scope: a search bar across the top line (ui/search.ts); a pick opens the ticker's chart (a holding: its page)
         // the search reads the newest page context (xs, set on every render): it stays open through live redraws
-        const search = (from: HTMLElement) => {
+        // pick (+ TRADE): the ticker goes to the rules check instead
+        const search = (from: HTMLElement, pick?: (tk: string) => void) => {
             const src = ctx.plugin.search, held = () => xs.P.positions.filter((p) => p.shares > 0).map((p) => p.ticker);
             openSearch(from, src, {
                 mine: (q) => {
                     const s = q.toUpperCase(), hit = (tk: string) => tk.startsWith(s) || src.nameOf(tk).toUpperCase().includes(s);
-                    return [...held().filter(hit).map((tk) => ({ tk, name: src.nameOf(tk), ex: "", mine: "held" as const })), ...xs.P.watch.filter(hit).map((tk) => ({ tk, name: src.nameOf(tk), ex: "", mine: "watch" as const }))];
+                    return [...held().filter(hit).map((tk) => ({ tk, name: src.nameOf(tk), ex: "", mine: "held" as const })), ...xs.P.watch.filter((tk) => hit(tk) && !held().includes(tk)).map((tk) => ({ tk, name: src.nameOf(tk), ex: "", mine: "watch" as const }))];   // a held ticker is listed once
                 },
-                pick: (tk) => xs.ctx.push(held().includes(tk) ? { key: "asset:" + tk, title: tk } : { key: "chart:" + tk, title: tk }),
-                texts: { placeholder: t("sPlaceholder"), cancel: t("sCancel"), recent: t("sRecent"), clear: t("sClear"), none: t("sNone"), held: t("sHeld"), watch: t("sWatch") },
+                pick: pick ?? ((tk) => xs.ctx.push(held().includes(tk) ? { key: "asset:" + tk, title: tk } : { key: "chart:" + tk, title: tk })),
+                texts: { placeholder: pick ? t("sTradeWhat") : t("sPlaceholder"), cancel: t("sCancel"), recent: t("sRecent"), clear: t("sClear"), none: t("sNone"), held: t("sHeld"), watch: t("sWatch") },
             });
         };
         // a new order for some watched tickers (a drag in MANUAL): they take the places they held, in the given order, so the
@@ -269,7 +270,13 @@ export const investPage: PageDef = {
         };
         const watchOn = async (tk: string) => { await store.update(CFG, (f) => { f.watchlist = [...list(f.watchlist), { ticker: tk }]; }); };
 
-        const x: X = { ctx, P, cur, cash, links, warns, cap, fx: (c: string) => prices.fx(c, cur, fb), trade, editThesis: (tk: string) => editThesis(x, tk), editTrade, editPlan, addThought, journal, addWatch, dropWatch, moveWatch, search, watchOn };
+        // + TRADE, from any page: the ticker (asked with the search when the page has none), the rules check, then the trade
+        // sheet. The check is where the rules are kept, so no way to buy skips it (review 2026-11, F)
+        const buy = (tk?: string, from?: HTMLElement) => {
+            const check = (k: string) => buyCheck(xs, k, (o) => trade(k, o));
+            if (tk) check(tk); else if (from) search(from, check); else trade();
+        };
+        const x: X = { ctx, P, cur, cash, links, warns, cap, fx: (c: string) => prices.fx(c, cur, fb), trade, buy, editThesis: (tk: string) => editThesis(x, tk), editTrade, editPlan, addThought, journal, addWatch, dropWatch, moveWatch, search, watchOn };
         xs = x;
         const pageFor = (key: string): PageOut => {
             if (key === "holdings") return holdingsPage(x);
@@ -280,8 +287,8 @@ export const investPage: PageDef = {
             if (key === "map") return mapPage(x);
             if (key.startsWith("revenue:")) return revenuePage(x, key.slice(8));
             if (key === "alerts") return alertsPage(x);
-            if (key.startsWith("brokers:")) return brokersPage(ctx, key.slice(8), (tk) => trade(tk));
-            if (key.startsWith("flows:")) return flowsPage(ctx, key.slice(6), flowCodes(ctx, flowTickers(P)), (tk) => trade(tk));
+            if (key.startsWith("brokers:")) return brokersPage(ctx, key.slice(8), (tk) => buy(tk));
+            if (key.startsWith("flows:")) return flowsPage(ctx, key.slice(6), flowCodes(ctx, flowTickers(P)), (tk) => buy(tk));
             if (key.startsWith("trades:")) { const p = P.positions.find((q) => q.ticker === key.slice(7)); if (p) return tradesPage(x, p); }
             if (key.startsWith("journal:")) return journalPage(x, key.slice(8));
             if (key.startsWith("asset:")) { const p = P.positions.find((q) => q.ticker === key.slice(6)); if (p) return assetPage(x, p); }

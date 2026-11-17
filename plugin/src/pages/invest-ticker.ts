@@ -12,11 +12,11 @@ import { flowModes, sectorLine } from "./invest-flow";
 import { flowCodes, flowsTile } from "./flows";
 import type { PageOut } from "./index";
 import { signed, pctS, qty, X, todayOf, atNow, flowTickers, guessCur, tickerBadge } from "./invest-shared";
-import { buyCheck, thesisCard, thesisLine } from "./invest-thesis";
+import { thesisCard, thesisLine } from "./invest-thesis";
 import { revenueTile } from "./invest-revenue";
 
-// TRADE on a chart page: the rules check first (a buy), then the trade sheet
-const tradeFab = (x: X, tk: string) => ({ icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => buyCheck(x, tk, (o) => x.trade(tk, o)) });
+// TRADE on a chart page: the rules check first (a buy), then the trade sheet (x.buy, the same from every page)
+const tradeFab = (x: X, tk: string) => ({ icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.buy(tk) });
 
 export const LAST = new Map<string, Flap>();   // the last price split-flap per ticker: a new price flips from the old one
 
@@ -83,7 +83,7 @@ export const tradesPage = (x: X, p: Position): PageOut => {
         icon: tr.type === "SELL" ? "up" : "down", k: `${tr.type === "SELL" ? t("iSell") : t("iBuy")} ${qty(tr.shares)}`.toUpperCase(), s: `${tr.date ? shortDate(tr.date) : t("noDate")} · @ ${tr.price.toLocaleString()} ${p.currency}${tr.fee + tr.tax ? ` · ${t("iFeeN", { n: ((tr.fee + tr.tax) / minorOf(p.currency)).toLocaleString() })}` : ""}${tr.pending ? ` · ${t("iPending")}` : ""}${gap(tr)}`,
         v: num(Math.abs(tr.cash)), hot: !!gap(tr), onTap: () => x.editTrade(p, tr),
     })));
-    return { title, el, fab: { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.trade(p.ticker) } };
+    return { title, el, fab: { icon: "plus", text: t("iTrade").toUpperCase(), label: t("iTrade"), onTap: () => x.buy(p.ticker) } };
 };
 
 // chart page (approved mock K): last price with today's change, then the chart. The drawing belongs to the open page (its
