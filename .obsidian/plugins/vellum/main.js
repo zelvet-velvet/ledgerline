@@ -73,6 +73,10 @@ var parseDoc = (source) => {
         delete q.side;
       }
       if (q.inherit !== true) delete q.inherit;
+      if (Array.isArray(p.marks)) {
+        q.marks = p.marks.filter((m) => m && typeof m.id === "string" && ["note", "area", "line"].includes(m.kind) && typeof m.x === "number" && typeof m.y === "number");
+        if (!q.marks.length) delete q.marks;
+      } else delete q.marks;
       return q;
     });
     const doc = { id: typeof v.id === "string" ? v.id : uid(), device: typeof v.device === "string" ? v.device : empty.device, pages };
@@ -106,6 +110,16 @@ var findItem = (items, id) => {
   }
   return null;
 };
+var parentOf = (items, id, up = null) => {
+  for (const it of items) {
+    if (it.id === id) return up;
+    if (it.items) {
+      const f = parentOf(it.items, id, it);
+      if (f !== void 0) return f;
+    }
+  }
+  return void 0;
+};
 var cloneItem = (it) => ({ ...JSON.parse(JSON.stringify(it)), id: uid(), ...it.items ? { items: it.items.map(cloneItem) } : {} });
 var newItem = (type) => {
   const id = uid();
@@ -126,6 +140,8 @@ var newItem = (type) => {
       return { id, type, g: "tl", dx: 16, dy: 16, w: 120, h: 80, src: "", fit: "cover", r: 8 };
     case "icon":
       return { id, type, g: "tl", dx: 16, dy: 16, name: "sparkles", size: 20 };
+    case "group":
+      return { id, type, g: "tl", dx: 16, dy: 16, w: 80, h: 48, items: [] };
   }
 };
 var childrenOf = (pages, id) => pages.filter((p) => id ? p.parent === id : !p.parent || !pages.some((q) => q.id === p.parent));
@@ -268,7 +284,7 @@ var flow = (el, it, dir) => {
   else if (typeof cross === "number") s[dir === "row" ? "height" : "width"] = px(cross);
   s.flexShrink = main === "fill" ? "1" : "0";
 };
-var drawItem = (t, parent, it, inFlow, lineUp = "left") => {
+var drawItem = (t, parent, it, inFlow, lineUp = "left", inGroup = false) => {
   const el = parent.createDiv({ cls: `vl-it vl-i-${it.type}`, attr: { "data-id": it.id } });
   if (inFlow) flow(el, it, inFlow);
   else {
@@ -379,8 +395,15 @@ var drawItem = (t, parent, it, inFlow, lineUp = "left") => {
       for (const c of it.items ?? []) drawItem(t, el, c, it.type, up);
       break;
     }
+    case "group": {
+      if (typeof it.w !== "number" && it.w !== "fill") s.width = "40px";
+      if (typeof it.h !== "number" && it.h !== "fill") s.height = "40px";
+      for (const c of it.items ?? []) drawItem(t, el, c, void 0, "left", true);
+      break;
+    }
   }
-  if (!inFlow) el.setAttr("data-top", "1");
+  if (inGroup) el.setAttr("data-in-group", "1");
+  else if (!inFlow) el.setAttr("data-top", "1");
   return el;
 };
 
@@ -506,6 +529,252 @@ var FolderStore = class {
   }
 };
 
+// src/overlay.ts
+var OVL_DEFAULT = {
+  show: true,
+  notes: true,
+  labels: true,
+  area: null,
+  snap: true,
+  ratio: true,
+  inShow: false,
+  opacity: 0.8,
+  grid: { on: false, size: 8, dots: false },
+  cols: { on: false, count: 4, margin: 16, gutter: 16 },
+  rows: { on: false, count: 6, margin: 16, gutter: 16 },
+  thirds: { on: false },
+  phi: { on: false },
+  spiral: { on: false, flipX: false, flipY: false },
+  diag: { on: false, style: "tri" },
+  center: { on: false },
+  persp: { on: false, two: false, x: 0.5, y: 0.4, x2: 1.4, rays: 24 }
+};
+var ovlOf = (raw) => {
+  const o = raw && typeof raw === "object" ? raw : {}, out = JSON.parse(JSON.stringify(OVL_DEFAULT));
+  for (const k of Object.keys(out)) {
+    const v = o[k];
+    if (v === void 0) continue;
+    if (out[k] !== null && typeof out[k] === "object") Object.assign(out[k], v);
+    else out[k] = v;
+  }
+  return out;
+};
+var compOn = (c) => c.thirds.on || c.phi.on || c.spiral.on || c.diag.on || c.center.on;
+var anyOn = (c) => c.grid.on || c.cols.on || c.rows.on || c.thirds.on || c.phi.on || c.spiral.on || c.diag.on || c.center.on || c.persp.on;
+var PHI = (1 + Math.sqrt(5)) / 2;
+var OVL_COLORS = { grid: "#8a8f98", cols: "#ff4d6d", rows: "#ff4d6d", thirds: "#22b8cf", phi: "#f2a516", spiral: "#f2a516", diag: "#9b6dff", center: "#22b8cf", persp: "#2fbf71" };
+var span = (a, b, n, margin, gutter) => {
+  const x0 = a + margin, x1 = b - margin, n1 = Math.max(1, Math.round(n)), w = (x1 - x0 - gutter * (n1 - 1)) / n1;
+  return w > 0 ? Array.from({ length: n1 }, (_, i) => [x0 + i * (w + gutter), w]) : [];
+};
+function overlayLines(c, W, H, room) {
+  const x = [], y = [];
+  if (!c.show || !c.snap) return { x, y };
+  if (c.cols.on) for (const [a, w] of span(room.l, room.r, c.cols.count, c.cols.margin, c.cols.gutter)) x.push(a, a + w);
+  if (c.rows.on) for (const [a, h] of span(room.t, room.b, c.rows.count, c.rows.margin, c.rows.gutter)) y.push(a, a + h);
+  const A = c.area ?? { x: 0, y: 0, w: W, h: H }, ax = (f) => A.x + A.w * f, ay = (f) => A.y + A.h * f;
+  if (c.thirds.on) {
+    x.push(ax(1 / 3), ax(2 / 3));
+    y.push(ay(1 / 3), ay(2 / 3));
+  }
+  if (c.phi.on) {
+    x.push(ax(1 / PHI / PHI), ax(1 / PHI));
+    y.push(ay(1 / PHI / PHI), ay(1 / PHI));
+  }
+  if (c.center.on) {
+    x.push(ax(0.5));
+    y.push(ay(0.5));
+  }
+  if (c.area && compOn(c)) {
+    x.push(A.x, A.x + A.w);
+    y.push(A.y, A.y + A.h);
+  }
+  return { x, y };
+}
+var NAMED = [[1, "1:1"], [5 / 4, "5:4"], [4 / 3, "4:3"], [3 / 2, "3:2"], [Math.SQRT2, "\u221A2"], [PHI, "\u03C6"], [16 / 10, "16:10"], [16 / 9, "16:9"], [2, "2:1"], [19.5 / 9, "19.5:9"], [21 / 9, "21:9"]];
+function ratioText(w, h) {
+  if (!(w > 0 && h > 0)) return "";
+  const r = Math.max(w, h) / Math.min(w, h), wide = w >= h;
+  const n = NAMED.find(([v]) => Math.abs(r - v) / v < 0.015);
+  const turn = (s) => wide || s === "1:1" ? s : s.includes(":") ? s.split(":").reverse().join(":") : `1:${s}`;
+  const num = wide ? `${r.toFixed(2)} : 1` : `1 : ${r.toFixed(2)}`;
+  return `${Math.round(w)} \xD7 ${Math.round(h)} \xB7 ${num}` + (n ? ` \u2248 ${turn(n[1])}` : "");
+}
+var uidN = 0;
+function drawOverlay(scr, c, W, H, room, z, o = {}) {
+  const C = o.tint ? Object.fromEntries(Object.keys(OVL_COLORS).map((k) => [k, o.tint])) : OVL_COLORS;
+  const iz = 1 / z, fs = 10 * iz, id = `vl-ovl-${++uidN}`;
+  const svg = scr.createSvg("svg", { cls: "vl-ovl", attr: { width: W, height: H, viewBox: `0 0 ${W} ${H}` } });
+  svg.style.opacity = String(c.opacity);
+  const defs = svg.createSvg("defs");
+  const clip = defs.createSvg("clipPath", { attr: { id: `${id}-clip` } });
+  clip.createSvg("rect", { attr: { x: 0, y: 0, width: W, height: H } });
+  const root = svg.createSvg("g", { attr: { "clip-path": `url(#${id}-clip)`, "stroke-width": iz, fill: "none" } });
+  const labels = svg.createSvg("g", { cls: "vl-ovl-labels" });
+  const g = (color) => root.createSvg("g", { attr: { stroke: color } });
+  const ln = (p, x1, y1, x2, y2, dash = false) => p.createSvg("line", { attr: { x1, y1, x2, y2, ...dash ? { "stroke-dasharray": `${4 * iz} ${3 * iz}` } : {} } });
+  const tx = (color, x, y, text, anchor = "start", base = "hanging") => {
+    if (!c.labels) return;
+    const pad = 3 * iz;
+    x = Math.min(W - pad, Math.max(pad, x));
+    y = Math.min(H - pad, Math.max(pad, y));
+    const t = labels.createSvg("text", { attr: { x, y, "font-size": fs, "text-anchor": anchor, "dominant-baseline": base, "stroke-width": 3 * iz } });
+    t.style.fill = color;
+    t.textContent = text;
+  };
+  const fmt = (v) => (Math.round(v * 10) / 10).toString();
+  if (c.grid.on && c.grid.size * z >= 4) {
+    const s = c.grid.size, pat = defs.createSvg("pattern", { attr: { id: `${id}-grid`, width: s, height: s, patternUnits: "userSpaceOnUse" } });
+    if (c.grid.dots) for (const [cx, cy] of [[0, 0], [s, 0], [0, s], [s, s]]) pat.createSvg("circle", { attr: { cx, cy, r: 1.2 * iz, fill: C.grid } });
+    else pat.createSvg("path", { attr: { d: `M ${s} 0 L 0 0 0 ${s}`, fill: "none", stroke: C.grid, "stroke-width": iz, opacity: 0.55 } });
+    root.createSvg("rect", { attr: { x: 0, y: 0, width: W, height: H, fill: `url(#${id}-grid)`, stroke: "none" } });
+    tx(C.grid, room.l + 4 * iz, room.t + 4 * iz, `${s} pt ${c.grid.dots ? "dots" : "grid"}`);
+  }
+  if (c.cols.on) {
+    const gc = g(C.cols), cols = span(room.l, room.r, c.cols.count, c.cols.margin, c.cols.gutter);
+    cols.forEach(([a, w], i) => {
+      gc.createSvg("rect", { attr: { x: a, y: 0, width: w, height: H, fill: C.cols, "fill-opacity": 0.1, stroke: "none" } });
+      ln(gc, a, 0, a, H);
+      ln(gc, a + w, 0, a + w, H);
+      tx(C.cols, a + w / 2, room.t + 4 * iz, String(i + 1), "middle");
+    });
+    if (cols.length) tx(C.cols, cols[0][0] + 2 * iz, room.b - 4 * iz, `${cols.length} cols \xB7 ${fmt(cols[0][1])} pt \xB7 gutter ${c.cols.gutter} \xB7 margin ${c.cols.margin}`, "start", "auto");
+  }
+  if (c.rows.on) {
+    const gr = g(C.rows), rows = span(room.t, room.b, c.rows.count, c.rows.margin, c.rows.gutter);
+    rows.forEach(([a, h], i) => {
+      gr.createSvg("rect", { attr: { x: 0, y: a, width: W, height: h, fill: C.rows, "fill-opacity": 0.07, stroke: "none" } });
+      ln(gr, 0, a, W, a);
+      ln(gr, 0, a + h, W, a + h);
+      tx(C.rows, room.r - 4 * iz, a + h / 2, String(i + 1), "end", "middle");
+    });
+    if (rows.length) tx(C.rows, room.r - 4 * iz, rows[0][0] + 2 * iz, `${rows.length} rows \xB7 ${fmt(rows[0][1])} pt`, "end");
+  }
+  if (c.thirds.on) {
+    const gt = g(C.thirds), col = C.thirds;
+    for (const f of [1 / 3, 2 / 3]) {
+      ln(gt, W * f, 0, W * f, H);
+      ln(gt, 0, H * f, W, H * f);
+    }
+    for (const fx of [1 / 3, 2 / 3]) for (const fy of [1 / 3, 2 / 3]) gt.createSvg("circle", { attr: { cx: W * fx, cy: H * fy, r: 3 * iz, fill: col, stroke: "none" } });
+    tx(col, W / 3 + 3 * iz, 4 * iz, "\u2153");
+    tx(col, 2 * W / 3 + 3 * iz, 4 * iz, "\u2154");
+    tx(col, 4 * iz, H / 3 + 3 * iz, "\u2153");
+    tx(col, 4 * iz, 2 * H / 3 + 3 * iz, "\u2154");
+  }
+  if (c.phi.on) {
+    const gp = g(C.phi), col = C.phi, a = 1 / PHI / PHI, b = 1 / PHI;
+    for (const f of [a, b]) {
+      ln(gp, W * f, 0, W * f, H);
+      ln(gp, 0, H * f, W, H * f);
+    }
+    for (const fx of [a, b]) for (const fy of [a, b]) gp.createSvg("circle", { attr: { cx: W * fx, cy: H * fy, r: 3 * iz, fill: col, stroke: "none" } });
+    tx(col, W * a + 3 * iz, H - 4 * iz, "0.382", "start", "auto");
+    tx(col, W * b + 3 * iz, H - 4 * iz, "0.618 \xB7 \u03C6", "start", "auto");
+    tx(col, W - 4 * iz, H * a + 3 * iz, "0.382", "end");
+    tx(col, W - 4 * iz, H * b + 3 * iz, "0.618", "end");
+  }
+  if (c.spiral.on) {
+    const gs = g(C.spiral), tall = H > W, { flipX, flipY } = c.spiral;
+    const map = (X, Y) => {
+      let u = X / PHI, v = Y;
+      if (tall) [u, v] = [v, u];
+      if (flipX) u = 1 - u;
+      if (flipY) v = 1 - v;
+      return [u * W, v * H];
+    };
+    const sweep = 1 ^ (tall ? 1 : 0) ^ (flipX ? 1 : 0) ^ (flipY ? 1 : 0);
+    let x = 0, y = 0, w = PHI, h = 1, d = "";
+    for (let i = 0; i < 10; i++) {
+      const s = Math.min(w, h), side = i % 4;
+      let sq, from, to;
+      if (side === 0) {
+        sq = [x, y];
+        from = [x, y + s];
+        to = [x + s, y];
+        x += s;
+        w -= s;
+      } else if (side === 1) {
+        sq = [x, y];
+        from = [x, y];
+        to = [x + s, y + s];
+        y += s;
+        h -= s;
+      } else if (side === 2) {
+        sq = [x + w - s, y];
+        from = [x + w, y];
+        to = [x + w - s, y + s];
+        w -= s;
+      } else {
+        sq = [x, y + h - s];
+        from = [x + s, y + h];
+        to = [x, y + h - s];
+        h -= s;
+      }
+      const [ax, ay] = map(sq[0], sq[1]), [bx, by] = map(sq[0] + s, sq[1] + s);
+      gs.createSvg("rect", { attr: { x: Math.min(ax, bx), y: Math.min(ay, by), width: Math.abs(bx - ax), height: Math.abs(by - ay), opacity: 0.45 } });
+      const [fx, fy] = map(...from), [tx2, ty2] = map(...to);
+      const rx = (tall ? s : s / PHI) * W, ry = (tall ? s / PHI : s) * H;
+      d += `${d ? "" : `M ${fx} ${fy} `}A ${rx} ${ry} 0 0 ${sweep} ${tx2} ${ty2} `;
+    }
+    gs.createSvg("path", { attr: { d, "stroke-width": 1.5 * iz } });
+    tx(C.spiral, flipX ? 4 * iz : W - 4 * iz, flipY ? 4 * iz : H - 4 * iz, "golden spiral \xB7 1 : 1.618", flipX ? "start" : "end", flipY ? "hanging" : "auto");
+  }
+  if (c.diag.on) {
+    const gd = g(C.diag), col = C.diag, L = 4 * Math.max(W, H);
+    const foot = (px2, py, ax, ay, dx, dy) => {
+      const t = ((px2 - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy);
+      return [ax + dx * t, ay + dy * t];
+    };
+    const ray = (px2, py, dx, dy) => {
+      const n = Math.hypot(dx, dy);
+      ln(gd, px2, py, px2 + dx / n * L, py + dy / n * L);
+    };
+    if (c.diag.style === "tri") {
+      ln(gd, 0, 0, W, H);
+      const f1 = foot(W, 0, 0, 0, W, H), f2 = foot(0, H, 0, 0, W, H);
+      ln(gd, W, 0, f1[0], f1[1]);
+      ln(gd, 0, H, f2[0], f2[1]);
+      for (const f of [f1, f2]) gd.createSvg("circle", { attr: { cx: f[0], cy: f[1], r: 3 * iz, fill: col, stroke: "none" } });
+      tx(col, 4 * iz, 4 * iz, "golden triangles");
+    } else {
+      ln(gd, 0, 0, W, H);
+      ln(gd, W, 0, 0, H);
+      if (c.diag.style === "arm") {
+        ray(W, 0, -H, W);
+        ray(0, H, H, -W);
+        ray(0, 0, H, W);
+        ray(W, H, -H, -W);
+        tx(col, 4 * iz, 4 * iz, "harmonic armature");
+      }
+    }
+  }
+  if (c.center.on) {
+    const gc = g(C.center);
+    ln(gc, W / 2, 0, W / 2, H, true);
+    ln(gc, 0, H / 2, W, H / 2, true);
+    tx(C.center, W / 2 + 3 * iz, H / 2 + 3 * iz, "\xBD");
+  }
+  if (c.persp.on) {
+    const gq = g(C.persp), col = C.persp, L = 4 * Math.max(W, H), hy = c.persp.y * H;
+    const pts = [[c.persp.x * W, hy], ...c.persp.two ? [[c.persp.x2 * W, hy]] : []];
+    ln(gq, -L, hy, L, hy).setAttr("stroke-width", 1.5 * iz);
+    const n = Math.max(4, Math.min(72, Math.round(c.persp.rays)));
+    for (const [px2, py] of pts) for (let i = 0; i < n; i++) {
+      const a = i / n * Math.PI * 2;
+      ln(gq, px2, py, px2 + Math.cos(a) * L, py + Math.sin(a) * L).setAttr("opacity", "0.6");
+    }
+    tx(col, 4 * iz, hy - 3 * iz, "horizon", "start", "auto");
+    pts.forEach(([px2, py], i) => {
+      const h = svg.createSvg("circle", { cls: "vl-vp", attr: { cx: px2, cy: py, r: 6 * iz, fill: col, "stroke-width": 2 * iz, "data-vp": String(i + 1) } });
+      h.createSvg("title").textContent = "Drag: the vanishing point (and the horizon)";
+      tx(col, px2 + 9 * iz, py + 3 * iz, pts.length > 1 ? `VP${i + 1}` : "VP");
+    });
+  }
+  if (c.labels && o.foot !== false) tx("var(--text-muted)", W - 4 * iz, room.b - 4 * iz - (c.cols.on ? 14 * iz : 0), ratioText(W, H), "end", "auto");
+  return svg;
+}
+
 // src/editor.ts
 var SNAP_DEFAULT = { on: true, dist: 6, grid: 4, margins: [16], frame: true, others: true, guides: true };
 var snap = { ...SNAP_DEFAULT };
@@ -515,12 +784,36 @@ var setSnap = (c, save) => {
   snap = c;
   keepSnap = save;
 };
-var grid = () => Math.max(1, snap.grid || 1);
+var ovlGrid = 0;
+var grid = () => Math.max(1, ovlGrid || snap.grid || 1);
+var ovls = /* @__PURE__ */ new Map();
 var EDIT_DEFAULT = { arrow: 1, hold: true };
 var editCfg = { ...EDIT_DEFAULT };
 var setEdit = (c) => {
   editCfg = c;
 };
+var rgbOf = (c) => {
+  const m = c.match(/rgba?\(([^)]+)\)/);
+  if (!m) return null;
+  const v = m[1].split(/[ ,/]+/).filter(Boolean).map(Number);
+  return [v[0], v[1], v[2], v[3] ?? 1];
+};
+var far = (a, b) => {
+  const r = (a[0] + b[0]) / 2, dr = a[0] - b[0], dg = a[1] - b[1], db = a[2] - b[2];
+  return Math.sqrt((2 + r / 256) * dr * dr + 4 * dg * dg + (2 + (255 - r) / 256) * db * db);
+};
+function selInk(blockEl, itemEl) {
+  const win = blockEl.win, cs = win.getComputedStyle(itemEl);
+  let c = rgbOf(cs.backgroundColor);
+  if (!c || c[3] < 0.3) c = rgbOf(cs.color);
+  if (itemEl.hasClass("vl-i-img")) c = null;
+  const probe = blockEl.createDiv({ cls: "vl-accentprobe" });
+  const acc = rgbOf(win.getComputedStyle(probe).color);
+  probe.remove();
+  if (!c || !acc) return;
+  const base = c, pick = far(acc, base) > 220 ? acc : [acc, [34, 211, 238], [163, 230, 53], [255, 255, 255], [139, 92, 246], [20, 20, 24]].sort((a, b) => far(b, base) - far(a, base))[0];
+  blockEl.setCssProps({ "--vl-sel": `rgb(${pick[0]}, ${pick[1]}, ${pick[2]})`, "--vl-sel-ink": 0.299 * pick[0] + 0.587 * pick[1] + 0.114 * pick[2] > 150 ? "#111" : "#fff" });
+}
 var near = (pts, lines, reach) => {
   let best = null;
   for (const q of pts) for (const l of lines) {
@@ -531,6 +824,8 @@ var near = (pts, lines, reach) => {
 };
 var toD = (a, L, W, bw) => Math.round(a < 0 ? L : a > 0 ? bw - L - W : L + W / 2 - bw / 2);
 var view = /* @__PURE__ */ new Map();
+var MARK_COLORS = { yellow: "#f5c84b", orange: "#ff8a3d", red: "#ff4d6d", green: "#2fbf71", blue: "#3d8bff", purple: "#9b6dff", gray: "#8a8f98" };
+var markColor = (c) => MARK_COLORS[c ?? "yellow"] ?? c ?? MARK_COLORS.yellow;
 var reopen = /* @__PURE__ */ new Map();
 var VIEW = "vellum-editor";
 var editors = /* @__PURE__ */ new Map();
@@ -603,6 +898,12 @@ var Editor = class {
     // it would inherit: a screen colour that names a changed variable reads a copy of Obsidian's value instead (--vlr--…)
     this.ui = {};
     this.stale = null;
+    // ---- marks: notes, areas and guide lines on a screen (in the note, for the people and the agent), in the layout on show
+    this.marking = false;
+    this.focusMark = false;
+    // several blocks chosen at once (an area dragged out, Shift+click, Ctrl+A): kept for the page selection it was made
+    // with, so any other choice lets it go by itself
+    this.group = null;
     this.railTop = 0;
     // a screen as a small picture (the rail's rows): drawn again only when the screen changed
     this.thumbs = /* @__PURE__ */ new Map();
@@ -926,8 +1227,287 @@ var Editor = class {
     this.drawPanel();
     this.drawPages();
   }
+  // the overlays (grids, composition guides, perspective) of this note, kept on the device
+  get ov() {
+    let c = ovls.get(this.doc.id);
+    if (!c) {
+      let raw = null;
+      try {
+        raw = JSON.parse(getLocal(`vellum:ovl:${this.doc.id}`) ?? "null");
+      } catch {
+      }
+      c = ovlOf(raw);
+      ovls.set(this.doc.id, c);
+    }
+    return c;
+  }
+  keepOv() {
+    try {
+      setLocal(`vellum:ovl:${this.doc.id}`, JSON.stringify(this.ov));
+    } catch {
+    }
+  }
+  // the mark tool: a click leaves a note, a drag an area
+  marksOf(p) {
+    return (p.marks ?? []).filter((m) => !!m.land === this.land);
+  }
+  mark() {
+    const p = this.page(), id = this.sel?.mark;
+    return p && id ? (p.marks ?? []).find((m) => m.id === id) : void 0;
+  }
+  markLines(p) {
+    const x = [], y = [];
+    if (!this.ov.notes) return { x, y };
+    for (const m of this.marksOf(p)) {
+      if (m.kind === "line") (m.axis === "x" ? x : y).push(m.axis === "x" ? m.x : m.y);
+      else if (m.kind === "area" && m.w && m.h) {
+        x.push(m.x, m.x + m.w / 2, m.x + m.w);
+        y.push(m.y, m.y + m.h / 2, m.y + m.h);
+      }
+    }
+    return { x, y };
+  }
+  addMark(p, m) {
+    const mk = { id: uid(), ...m, ...this.land ? { land: true } : {} };
+    this.focusMark = true;
+    this.edit(() => {
+      (p.marks ?? (p.marks = [])).push(mk);
+      this.sel = { page: p.id, mark: mk.id };
+    });
+    this.drawPages();
+  }
+  drawMarks(scr, p, z) {
+    scr.querySelector(":scope > .vl-marks")?.remove();
+    const layer = scr.createDiv({ cls: "vl-marks" }), iz = 1 / z;
+    for (const m of this.marksOf(p)) {
+      const on = this.sel?.mark === m.id;
+      const el = layer.createDiv({ cls: `vl-mark is-${m.kind}` + (on ? " is-on" : ""), attr: { "data-mark": m.id } });
+      el.style.setProperty("--mc", markColor(m.color));
+      const by = m.by ? `${m.by}: ` : "";
+      if (m.kind === "note") {
+        Object.assign(el.style, { left: `${m.x}px`, top: `${m.y}px` });
+        el.createDiv({ cls: "vl-mpin" });
+        if (m.text || on) el.createDiv({ cls: "vl-mbub", text: by + (m.text || "Write the note in the panel") });
+      } else if (m.kind === "area") {
+        const w = m.w ?? 100, h = m.h ?? 100;
+        Object.assign(el.style, { left: `${m.x}px`, top: `${m.y}px`, width: `${w}px`, height: `${h}px` });
+        if (m.guide) {
+          const c = ovlOf({ labels: on, [m.guide]: { on: true, ...m.guide === "spiral" ? { flipY: (m.corner ?? "br")[0] === "t", flipX: (m.corner ?? "br")[1] === "l" } : {} } });
+          drawOverlay(el, c, w, h, { l: 0, t: 0, r: w, b: h }, z, { tint: markColor(m.color), foot: false }).addClass("is-inmark");
+        }
+        for (const side of ["t", "r", "b", "l"]) el.createDiv({ cls: `vl-medge is-${side}` });
+        el.createDiv({ cls: "vl-mtag", text: by + (m.text || "Area") + (on ? `  \xB7  ${ratioText(w, h)}` : "") });
+        if (on) el.createDiv({ cls: "vl-mgrip", attr: { "data-mgrip": "1", "aria-label": "Resize (Shift: keep the shape)" } });
+      } else {
+        const across = m.axis !== "x";
+        el.addClass(across ? "is-y" : "is-x");
+        if (across) el.style.top = `${m.y}px`;
+        else el.style.left = `${m.x}px`;
+        el.createDiv({ cls: "vl-mtag", text: by + (m.text ? `${m.text} \xB7 ` : "") + `${across ? "y" : "x"} ${Math.round(across ? m.y : m.x)}` });
+      }
+      el.addEventListener("pointerdown", (e) => this.markDown(e, p, scr, m, z));
+    }
+    layer.style.setProperty("--vl-iz", String(iz));
+  }
+  // a mark: a press chooses it, a drag moves it (an area's corner resizes it); grid steps, Alt 1 px; lines and areas snap
+  markDown(e, p, scr, m, z) {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const grip = !!e.target.closest("[data-mgrip]"), x0 = e.clientX, y0 = e.clientY, st = { ...m };
+    const was = this.sel?.mark === m.id;
+    if (!was) {
+      this.sel = { page: p.id, mark: m.id };
+      this.drawPanel();
+      this.drawMarks(scr, p, z);
+    }
+    const others = (() => {
+      const keep = this.marksOf(p).filter((o) => o !== m), sv = p.marks;
+      p.marks = keep;
+      const l = this.markLines(p);
+      p.marks = sv;
+      const b = this.layers(p).map((x) => x.block);
+      return { x: [...l.x, ...b.flatMap((o) => [o.x, o.x + o.w / 2, o.x + o.w])], y: [...l.y, ...b.flatMap((o) => [o.y, o.y + o.h / 2, o.y + o.h])] };
+    })();
+    const { W, H } = this.screen(p);
+    others.x.push(0, W / 2, W);
+    others.y.push(0, H / 2, H);
+    let moved = false;
+    scr.setPointerCapture(e.pointerId);
+    const move = (ev) => {
+      const dx = (ev.clientX - x0) / z, dy = (ev.clientY - y0) / z;
+      if (!moved && Math.abs(dx) + Math.abs(dy) < 3) return;
+      if (!moved) {
+        moved = true;
+        this.begin();
+      }
+      const on = snap.on && !ev.altKey, reach = snap.dist / z, sn = (v) => ev.altKey ? Math.round(v) : Math.round(v / grid()) * grid();
+      const fit = (v, pts, ls) => {
+        const g = on ? near(pts.map((q) => q + v), ls, reach) : null;
+        return g ? Math.round(v + g.d) : sn(v);
+      };
+      if (grip && m.kind === "area") {
+        m.w = Math.max(8, fit(st.w + dx, [st.x], others.x));
+        m.h = ev.shiftKey && st.w && st.h ? Math.max(8, Math.round(m.w * st.h / st.w)) : Math.max(8, fit(st.h + dy, [st.y], others.y));
+      } else if (m.kind === "line") {
+        if (m.axis === "x") m.x = fit(st.x + dx, [0], others.x);
+        else m.y = fit(st.y + dy, [0], others.y);
+      } else if (m.kind === "area") {
+        m.x = fit(st.x + dx, [0, st.w / 2, st.w], others.x);
+        m.y = fit(st.y + dy, [0, st.h / 2, st.h], others.y);
+      } else {
+        m.x = sn(st.x + dx);
+        m.y = sn(st.y + dy);
+      }
+      this.drawMarks(scr, p, z);
+      this.livePanel();
+    };
+    const up = () => {
+      scr.removeEventListener("pointermove", move);
+      scr.removeEventListener("pointerup", up);
+      scr.removeEventListener("pointercancel", up);
+      if (moved) this.end();
+      else if (!was) this.drawPages();
+    };
+    scr.addEventListener("pointermove", move);
+    scr.addEventListener("pointerup", up);
+    scr.addEventListener("pointercancel", up);
+  }
+  // the mark tool on the screen: a click leaves a note there, a drag draws an area; then the tool is put away
+  markDraw(e, p, scr) {
+    const z = this.v.zoom, r = scr.getBoundingClientRect(), at = (x, y) => [Math.round((x - r.left) / z), Math.round((y - r.top) / z)];
+    const [x0, y0] = at(e.clientX, e.clientY);
+    let box = null, end = [x0, y0];
+    scr.setPointerCapture(e.pointerId);
+    const move = (m) => {
+      end = at(m.clientX, m.clientY);
+      if (!box && Math.abs(end[0] - x0) * z + Math.abs(end[1] - y0) * z < 6) return;
+      box ?? (box = scr.createDiv({ cls: "vl-marq is-mark" }));
+      Object.assign(box.style, { left: `${Math.min(x0, end[0])}px`, top: `${Math.min(y0, end[1])}px`, width: `${Math.abs(end[0] - x0)}px`, height: `${Math.abs(end[1] - y0)}px` });
+    };
+    const up = () => {
+      scr.removeEventListener("pointermove", move);
+      scr.removeEventListener("pointerup", up);
+      scr.removeEventListener("pointercancel", up);
+      box?.remove();
+      this.marking = false;
+      if (box) this.addMark(p, { kind: "area", x: Math.min(x0, end[0]), y: Math.min(y0, end[1]), w: Math.max(8, Math.abs(end[0] - x0)), h: Math.max(8, Math.abs(end[1] - y0)), text: "" });
+      else this.addMark(p, { kind: "note", x: x0, y: y0, text: "" });
+    };
+    scr.addEventListener("pointermove", move);
+    scr.addEventListener("pointerup", up);
+    scr.addEventListener("pointercancel", up);
+  }
+  markPanel(body, p, m) {
+    const names = { note: "Note", area: "Area", line: "Guide line" };
+    const s = this.section(body, names[m.kind]);
+    if (m.by) s.createDiv({ cls: "vl-frameinfo", text: `Written by ${m.by}.` });
+    this.text(s, () => m.text ?? "", (v) => {
+      if (v.trim()) m.text = v;
+      else delete m.text;
+    }, { area: true, placeholder: m.kind === "note" ? "What to look at, what to change\u2026" : m.kind === "area" ? "A name: thumb zone, hero, the eye goes here\u2026" : "A name: content edge, baseline\u2026", title: names[m.kind] });
+    this.chips(s, Object.keys(MARK_COLORS).map((k) => [k, k]), m.color ?? "yellow", (v) => {
+      if (v === "yellow") delete m.color;
+      else m.color = v;
+    }, (v) => MARK_COLORS[v], true);
+    const r = s.createDiv({ cls: "vl-nums" });
+    if (m.kind === "line") {
+      this.chips(s, [["y", "Across", "move-horizontal"], ["x", "Down", "move-vertical"]], m.axis === "x" ? "x" : "y", (v) => {
+        m.axis = v;
+      });
+      if (m.axis === "x") this.num(r, "X", () => m.x, (v) => {
+        m.x = v;
+      });
+      else this.num(r, "Y", () => m.y, (v) => {
+        m.y = v;
+      });
+    } else {
+      this.num(r, "X", () => m.x, (v) => {
+        m.x = v;
+      });
+      this.num(r, "Y", () => m.y, (v) => {
+        m.y = v;
+      });
+    }
+    if (m.kind === "area") {
+      const r2 = s.createDiv({ cls: "vl-nums" });
+      this.num(r2, "W", () => m.w ?? 100, (v) => {
+        m.w = v;
+      }, { min: 8 });
+      this.num(r2, "H", () => m.h ?? 100, (v) => {
+        m.h = v;
+      }, { min: 8 });
+      const g = this.section(body, "Guide in it");
+      this.chips(g, [["none", "None"], ["thirds", "Thirds"], ["phi", "Golden grid"], ["spiral", "Spiral"], ["diag", "Triangles"], ["center", "Centre"]], m.guide ?? "none", (v) => {
+        if (v === "none") delete m.guide;
+        else m.guide = v;
+      });
+      if (m.guide === "spiral") this.chips(g, [["tl", "\u2196"], ["tr", "\u2197"], ["bl", "\u2199"], ["br", "\u2198"]], m.corner ?? "br", (v) => {
+        if (v === "br") delete m.corner;
+        else m.corner = v;
+      });
+      const { W, H } = this.screen(p), PHI2 = (1 + Math.sqrt(5)) / 2;
+      this.actions(g, [
+        ["ratio", "Golden shape", () => this.edit(() => {
+          const w = m.w ?? 100, h = m.h ?? 100;
+          if (w >= h) m.h = Math.round(w / PHI2);
+          else m.w = Math.round(h / PHI2);
+        })],
+        ["square", "Square", () => this.edit(() => {
+          m.h = m.w ?? 100;
+        })],
+        ["maximize", "The whole screen", () => this.edit(() => {
+          m.x = 0;
+          m.y = 0;
+          m.w = W;
+          m.h = H;
+        })]
+      ]);
+    }
+    this.actions(body, [["copy", "Duplicate", () => this.duplicate()], ["trash-2", "Delete", () => this.remove()]]);
+    if (this.focusMark) {
+      this.focusMark = false;
+      window.setTimeout(() => body.querySelector("textarea.vl-text")?.focus());
+    }
+  }
+  get many() {
+    const g = this.group, p = this.page();
+    if (!g || g.sel !== this.sel || !p || g.items) return [];
+    const own = this.blocks(p);
+    return g.ids.map((id) => own.find((b) => b.id === id)).filter((b) => !!b);
+  }
+  // several items (each placed in its block, not in a row), in one block or more
+  get manyItems() {
+    const g = this.group, p = this.page();
+    if (!g?.items || g.sel !== this.sel || !p) return [];
+    const own = this.blocks(p), out = [];
+    for (const x of g.items) {
+      const b = own.find((o) => o.id === x.block), it = b?.items.find((i) => i.id === x.item);
+      if (b && it) out.push({ b, it });
+    }
+    return out;
+  }
+  chooseItems(p, list) {
+    if (list.length === 1) {
+      this.choose({ page: p.id, block: list[0].block, item: list[0].item });
+      return;
+    }
+    const s = { page: p.id };
+    this.group = list.length ? { sel: s, ids: [], items: list } : null;
+    this.choose(s);
+  }
+  chooseMany(p, ids) {
+    if (ids.length === 1) {
+      this.choose({ page: p.id, block: ids[0] });
+      return;
+    }
+    const s = { page: p.id };
+    this.group = ids.length ? { sel: s, ids } : null;
+    this.choose(s);
+  }
   fixSel() {
     if (!this.page()) this.sel = null;
+    else if (this.sel?.mark && !this.mark()) this.sel = { page: this.sel.page };
     else if (this.sel?.block && !this.layer()) this.sel = { page: this.sel.page };
     else if (this.sel?.item && !this.item()) this.sel = { page: this.sel.page, block: this.sel.block };
   }
@@ -1012,6 +1592,7 @@ var Editor = class {
   draw() {
     const R = this.root;
     if (!R) return;
+    const was = this.wall?.isConnected ? { key: this.camKey(), l: this.wall.scrollLeft, t: this.wall.scrollTop } : null;
     R.empty();
     this.panel = null;
     this.bar = R.createDiv({ cls: "vl-top" });
@@ -1031,13 +1612,39 @@ var Editor = class {
       e.preventDefault();
       this.zoomBy(e.deltaY < 0 ? 1.1 : 1 / 1.1, { x: e.clientX, y: e.clientY });
     }, { passive: false });
+    this.wall.addEventListener("pointerdown", (e) => {
+      if (e.button === 1) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.pan(e);
+      }
+    }, true);
+    this.wall.addEventListener("mousedown", (e) => {
+      if (e.button === 1) e.preventDefault();
+    });
+    this.wall.addEventListener("auxclick", (e) => {
+      if (e.button === 1) e.preventDefault();
+    });
+    this.wall.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0 || this.v.show || this.v.map || this.marking || e.target.closest(".vl-screen, button, .vl-empty")) return;
+      const p = this.current(), scr = this.wall.querySelector(".vl-screen");
+      if (p && scr) this.marquee(e, p, scr, true);
+    });
     this.wall.addEventListener("click", (e) => {
-      if (e.target === this.wall && this.sel) this.choose(null);
+      if ((this.v.show || this.v.map) && e.target === this.wall && this.sel) this.choose(null);
     });
     this.zbar = mid.createDiv({ cls: "vl-zbar" });
     this.side = import_obsidian3.Platform.isMobile ? R : body;
     this.drawPanel();
     this.drawPages();
+    if (was && was.key === this.camKey()) {
+      this.wall.scrollLeft = was.l;
+      this.wall.scrollTop = was.t;
+    }
+  }
+  camKey() {
+    const v = this.v;
+    return v.map ? "map" : `${this.current()?.id}|${v.land ? 1 : 0}|${v.show ? 1 : 0}`;
   }
   // unsaved work from before the note changed: offered back, never applied by itself
   drawStale() {
@@ -1157,11 +1764,24 @@ var Editor = class {
       });
     }
     if (!this.v.map && !this.v.show) {
-      this.btn(pill, "magnet", snap.on ? "Snapping on: to edges, middles and other items (Alt while dragging: off; details in Settings \u2192 Vellum)" : "Snapping off: the grid only", () => {
+      this.tip(this.btn(pill, "magnet", "", () => {
         snap.on = !snap.on;
         keepSnap();
         this.drawZoom();
-      }).toggleClass("is-on", snap.on);
+      }), snap.on ? "Snapping on\nAlt while dragging: off" : "Snapping off\nthe grid only").toggleClass("is-on", snap.on);
+    }
+    if (!this.v.map && !this.v.show) {
+      const mt = this.btn(pill, "message-square-plus", "", () => {
+        this.marking = !this.marking;
+        this.drawPages();
+      });
+      this.tip(mt, "Mark (N)\nclick: a note \xB7 drag: an area").toggleClass("is-on", this.marking);
+    }
+    if (!this.v.map) {
+      const ob = this.tip(this.btn(pill, "layout-grid", "", () => this.ovMenu(ob)), "Overlays\nCtrl+' shows / hides");
+      if (!ob.querySelector("svg")) ob.setText("#");
+      ob.addClass("vl-ovbtn");
+      ob.toggleClass("is-on", this.ov.show && anyOn(this.ov));
     }
     pill.createSpan({ cls: "vl-zsep" });
     this.btn(pill, "minus", "Zoom out (Ctrl+wheel)", () => this.zoomBy(1 / 1.25));
@@ -1173,20 +1793,229 @@ var Editor = class {
       this.setView(this.v.map ? { mapFit: true } : { fit: true });
       this.drawPages();
     });
+    z.querySelectorAll("[aria-label]").forEach((e) => e.setAttr("data-tooltip-position", "top"));
+  }
+  // the overlays menu (over the pill): each guide on / off with its settings; kept on the device, drawn at once
+  ovMenu(anchor) {
+    const R = this.root, open = R.querySelector(".vl-menu.is-ovl");
+    R.querySelectorAll(".vl-menu:not(.is-ovl)").forEach((x) => x.remove());
+    if (open) {
+      open.remove();
+      return;
+    }
+    const m = R.createDiv({ cls: "vl-menu is-ovl" });
+    const place2 = () => {
+      const rr = R.getBoundingClientRect(), ar = anchor.getBoundingClientRect();
+      m.style.left = `${Math.max(8, Math.min(rr.width - m.offsetWidth - 8, ar.left - rr.left - 140))}px`;
+      m.style.bottom = `${rr.bottom - ar.top + 10}px`;
+    };
+    const ov = this.ov;
+    const apply = () => {
+      this.keepOv();
+      this.drawPages();
+    };
+    const draw = () => {
+      m.empty();
+      const head = m.createDiv({ cls: "vl-ovhead" });
+      head.createSpan({ cls: "vl-menuh", text: "Overlays" });
+      const sh = head.createEl("button", { cls: "vl-ovtog" + (ov.show ? " is-on" : ""), text: ov.show ? "Shown" : "Hidden", attr: { "aria-label": "Show / hide them all (Ctrl+')" } });
+      sh.addEventListener("click", () => {
+        ov.show = !ov.show;
+        apply();
+        draw();
+      });
+      const num = (row, label2, get, set, o2 = {}) => {
+        const w = row.createEl("label", { cls: "vl-ovnum" });
+        w.createSpan({ text: label2 });
+        const i = w.createEl("input", { attr: { type: "number", step: String(o2.step ?? 1), ...o2.min !== void 0 ? { min: o2.min } : {}, ...o2.max !== void 0 ? { max: o2.max } : {} } });
+        i.value = String(get());
+        i.addEventListener("input", () => {
+          const v = Number(i.value);
+          if (i.value !== "" && !Number.isNaN(v)) {
+            set(Math.min(o2.max ?? Infinity, Math.max(o2.min ?? -Infinity, v)));
+            apply();
+          }
+        });
+        i.addEventListener("keydown", (k) => k.stopPropagation());
+      };
+      const pick = (row, opts, get, set) => {
+        const g = row.createDiv({ cls: "vl-ovseg" });
+        for (const [v, t] of opts) {
+          const b = g.createEl("button", { text: t, cls: get() === v ? "is-on" : "" });
+          b.addEventListener("click", () => {
+            set(v);
+            apply();
+            draw();
+          });
+        }
+      };
+      const item = (k, name, hint, opts) => {
+        const c = ov[k];
+        const r = m.createDiv({ cls: "vl-ovrow" + (c.on ? " is-on" : "") });
+        const b = r.createEl("button", { cls: "vl-ovname", attr: { "aria-label": hint } });
+        b.createSpan({ cls: "vl-ovsw" }).style.background = OVL_COLORS[k];
+        b.createSpan({ text: name });
+        (0, import_obsidian3.setIcon)(b.createSpan({ cls: "vl-ovcheck" }), c.on ? "check" : "plus");
+        b.addEventListener("click", () => {
+          c.on = !c.on;
+          if (c.on) ov.show = true;
+          apply();
+          draw();
+        });
+        if (c.on && opts) opts(r.createDiv({ cls: "vl-ovopts" }));
+      };
+      m.createDiv({ cls: "vl-menuh", text: "Layout" });
+      item("grid", "Grid", "An even grid, as lines or dots", (r) => {
+        num(r, "Size", () => ov.grid.size, (v) => {
+          ov.grid.size = v;
+        }, { min: 2, max: 200 });
+        pick(r, [[false, "Lines"], [true, "Dots"]], () => ov.grid.dots, (v) => {
+          ov.grid.dots = v;
+        });
+      });
+      item("cols", "Columns", "Columns across the safe area: count, margin, gutter", (r) => {
+        num(r, "Count", () => ov.cols.count, (v) => {
+          ov.cols.count = v;
+        }, { min: 1, max: 24 });
+        num(r, "Margin", () => ov.cols.margin, (v) => {
+          ov.cols.margin = v;
+        }, { min: 0 });
+        num(r, "Gutter", () => ov.cols.gutter, (v) => {
+          ov.cols.gutter = v;
+        }, { min: 0 });
+      });
+      item("rows", "Rows", "Rows down the safe area: count, margin, gutter", (r) => {
+        num(r, "Count", () => ov.rows.count, (v) => {
+          ov.rows.count = v;
+        }, { min: 1, max: 48 });
+        num(r, "Margin", () => ov.rows.margin, (v) => {
+          ov.rows.margin = v;
+        }, { min: 0 });
+        num(r, "Gutter", () => ov.rows.gutter, (v) => {
+          ov.rows.gutter = v;
+        }, { min: 0 });
+      });
+      m.createDiv({ cls: "vl-menuh", text: "Composition" });
+      item("thirds", "Rule of thirds", "Thirds across and down, and the four points where they cross");
+      item("phi", "Golden ratio grid", "Lines at 0.382 and 0.618 (\u03C6)");
+      item("spiral", "Golden spiral", "The golden rectangle cut into squares, a spiral through them", (r) => pick(r, [["tl", "\u2196"], ["tr", "\u2197"], ["bl", "\u2199"], ["br", "\u2198"]], () => `${ov.spiral.flipY ? "t" : "b"}${ov.spiral.flipX ? "l" : "r"}`, (v) => {
+        ov.spiral.flipY = v[0] === "t";
+        ov.spiral.flipX = v[1] === "l";
+      }));
+      item("diag", "Diagonals", "The X, golden triangles, or the harmonic armature (dynamic symmetry)", (r) => pick(r, [["x", "X"], ["tri", "Triangles"], ["arm", "Armature"]], () => ov.diag.style, (v) => {
+        ov.diag.style = v;
+      }));
+      item("center", "Centre", "The middle across and down");
+      if (compOn(ov)) {
+        const r = m.createDiv({ cls: "vl-ovopts is-foot" });
+        r.createSpan({ cls: "vl-ovhint", text: "Drag the Composition tag on the screen to move them, its corner to resize." });
+        const p = this.current(), sc = p ? this.screen(p) : null, PHI2 = (1 + Math.sqrt(5)) / 2;
+        const act = (label2, hint, fn) => {
+          const b = r.createEl("button", { cls: "vl-ovflag", text: label2, attr: { "aria-label": hint } });
+          b.addEventListener("click", () => {
+            fn();
+            apply();
+            draw();
+          });
+        };
+        act("Whole screen", "Back over the whole screen", () => {
+          ov.area = null;
+        });
+        if (sc) act("Golden shape", "Its shape 1 : 1.618, as wide as now", () => {
+          const a = ov.area ?? { x: 0, y: 0, w: sc.W, h: sc.H };
+          ov.area = { ...a, h: Math.round(a.w >= a.h ? a.w / PHI2 : a.w * PHI2) };
+        });
+        if (sc) act("Square", "Its shape 1 : 1, as wide as now", () => {
+          const a = ov.area ?? { x: 0, y: 0, w: sc.W, h: sc.H };
+          ov.area = { ...a, h: a.w };
+        });
+      }
+      m.createDiv({ cls: "vl-menuh", text: "Perspective" });
+      item("persp", "Vanishing points", "Rays from one or two vanishing points on a horizon; drag a point on the screen", (r) => {
+        pick(r, [[false, "1 point"], [true, "2 points"]], () => ov.persp.two, (v) => {
+          ov.persp.two = v;
+          if (v && ov.persp.x2 === ov.persp.x) ov.persp.x2 = ov.persp.x + 1;
+        });
+        num(r, "Rays", () => ov.persp.rays, (v) => {
+          ov.persp.rays = v;
+        }, { min: 4, max: 72 });
+        num(r, "Horizon %", () => Math.round(ov.persp.y * 100), (v) => {
+          ov.persp.y = v / 100;
+        }, { min: 0, max: 100 });
+      });
+      m.createDiv({ cls: "vl-menuh", text: "Show" });
+      const o = m.createDiv({ cls: "vl-ovopts is-foot" });
+      const flag = (label2, hint, get, set) => {
+        const b = o.createEl("button", { cls: "vl-ovflag" + (get() ? " is-on" : ""), text: label2, attr: { "aria-label": hint } });
+        b.addEventListener("click", () => {
+          set(!get());
+          apply();
+          draw();
+        });
+      };
+      flag("Marks", "Notes, areas and guide lines on the screens (N: the mark tool)", () => ov.notes, (v) => {
+        ov.notes = v;
+      });
+      flag("Labels", "Where each line falls, its ratio; the screen's size and ratio", () => ov.labels, (v) => {
+        ov.labels = v;
+      });
+      flag("Snap", "Dragging snaps to the overlay lines (the grid's size takes the snap grid's place)", () => ov.snap, (v) => {
+        ov.snap = v;
+      });
+      flag("Ratio", "The chosen block's or item's size and ratio under it", () => ov.ratio, (v) => {
+        ov.ratio = v;
+      });
+      flag("In Show", "Also over the screen in Show", () => ov.inShow, (v) => {
+        ov.inShow = v;
+      });
+      num(o, "Opacity %", () => Math.round(ov.opacity * 100), (v) => {
+        ov.opacity = v / 100;
+      }, { min: 10, max: 100, step: 5 });
+    };
+    draw();
+    place2();
+    for (const ev of ["pointerdown", "mousedown", "click", "wheel"]) m.addEventListener(ev, (x) => x.stopPropagation());
+    const off = (e) => {
+      if (!m.isConnected) return R.doc.removeEventListener("pointerdown", off, true);
+      if (!m.contains(e.target) && !e.target.closest?.(".vl-ovbtn")) {
+        m.remove();
+        R.doc.removeEventListener("pointerdown", off, true);
+      }
+    };
+    window.setTimeout(() => R.doc.addEventListener("pointerdown", off, true));
   }
   // at: the pointer (Ctrl+wheel): the spot under it stays under it. Its place in the map or the phone, as a fraction,
   // before the zoom; after the redraw the stage scrolls that place back under the pointer (content that fits stays centred)
   zoomBy(f, at) {
     const sel = this.v.map ? ".vl-mapbox" : ".vl-phone";
     const r0 = at ? this.wall?.querySelector(sel)?.getBoundingClientRect() : void 0;
-    if (this.v.map) this.setView({ mapFit: false, mapZoom: Math.min(3, Math.max(0.3, Math.round((this.v.mapZoom ?? 1) * f * 100) / 100)) });
-    else this.setView({ fit: false, zoom: Math.min(4, Math.max(0.2, Math.round(this.v.zoom * f * 100) / 100)) });
+    if (this.v.map) this.setView({ mapFit: false, mapZoom: Math.min(MAPMAX, Math.max(0.3, Math.round((this.v.mapZoom ?? 1) * f * 100) / 100)) });
+    else this.setView({ fit: false, zoom: Math.min(ZOOMMAX, Math.max(0.1, Math.round(this.v.zoom * f * 100) / 100)) });
     this.drawPages();
     const r1 = r0 ? this.wall?.querySelector(sel)?.getBoundingClientRect() : void 0;
     if (!at || !r0 || !r1 || !r0.width || !r0.height) return;
     const u = (at.x - r0.left) / r0.width, v = (at.y - r0.top) / r0.height;
     this.wall.scrollLeft += r1.left + u * r1.width - at.x;
     this.wall.scrollTop += r1.top + v * r1.height - at.y;
+  }
+  // the middle button held: the stage scrolls with the pointer
+  pan(e) {
+    const w = this.wall, x0 = e.clientX, y0 = e.clientY, l0 = w.scrollLeft, t0 = w.scrollTop;
+    w.setPointerCapture(e.pointerId);
+    w.addClass("is-panning");
+    const move = (m) => {
+      w.scrollLeft = l0 - (m.clientX - x0);
+      w.scrollTop = t0 - (m.clientY - y0);
+    };
+    const up = () => {
+      w.removeEventListener("pointermove", move);
+      w.removeEventListener("pointerup", up);
+      w.removeEventListener("pointercancel", up);
+      w.removeClass("is-panning");
+    };
+    w.addEventListener("pointermove", move);
+    w.addEventListener("pointerup", up);
+    w.addEventListener("pointercancel", up);
   }
   // a new main page, or one opened from a page
   addPage(parent) {
@@ -1201,6 +2030,11 @@ var Editor = class {
       this.setView({ page: n.id });
     });
     this.draw();
+  }
+  // a short tooltip, a line or two, centred; over the pill it opens above
+  tip(el, text) {
+    (0, import_obsidian3.setTooltip)(el, text, { placement: "top", classes: ["vl-tip"] });
+    return el;
   }
   btn(parent, icon, label2, act, off = false) {
     const x = parent.createEl("button", { cls: "vl-btn" + (off ? " is-off" : ""), attr: { "aria-label": label2 } });
@@ -1217,6 +2051,7 @@ var Editor = class {
       this.wall.scrollTop = sy;
     };
     this.wall.empty();
+    this.wall.toggleClass("is-show", !!this.v.show && !this.v.map);
     if (!this.doc.pages.length) {
       const e = this.wall.createDiv({ cls: "vl-empty" });
       e.createSpan({ text: "No screens yet." });
@@ -1247,8 +2082,8 @@ var Editor = class {
     if (cur) {
       if (this.v.fit) {
         const dev = deviceOf(cur.device ?? this.doc.device), { W, H } = screenOf(dev, this.land);
-        const ph = import_obsidian3.Platform.isMobile;
-        const sw = this.wall.clientWidth - (ph ? 44 : 64), sh = this.wall.clientHeight - (ph ? 100 : 120);
+        const ph = import_obsidian3.Platform.isMobile, show = this.v.show;
+        const sw = this.wall.clientWidth - (ph ? 44 : 64) - (show ? ph ? 72 : 112 : 0), sh = this.wall.clientHeight - (ph ? 100 : 120) - (show ? ph ? 100 : 130 : 0);
         if (sw > 0 && sh > 0) view.set(this.doc.id, { ...this.v, zoom: Math.max(0.2, Math.min(2, Math.floor(Math.min(sw / W, sh / H) * 100) / 100)) });
       }
       this.drawPage(cur);
@@ -1303,13 +2138,26 @@ var Editor = class {
     const pics = getLocal("vellum:pics") === "1";
     const hd = box.createDiv({ cls: "vl-railhead" });
     hd.createDiv({ cls: "vl-sech", text: `Screens \xB7 ${this.doc.pages.length}` });
-    this.btn(hd, "image", pics ? "Hide the pictures" : "Show a picture of each screen", () => {
+    const peeks = getLocal("vellum:peek") !== "0";
+    const hb = this.btn(hd, peeks ? "monitor" : "monitor-off", peeks ? "Preview on hover: on (turn off)" : "Preview on hover: off (turn on)", () => {
+      try {
+        setLocal("vellum:peek", peeks ? "0" : "1");
+      } catch {
+      }
+      this.unpeek();
+      this.drawRail();
+    });
+    hb.toggleClass("is-on", peeks);
+    hb.setAttr("data-tooltip-position", "bottom");
+    const pb = this.btn(hd, "image", pics ? "Hide the pictures" : "Show a picture of each screen", () => {
       try {
         setLocal("vellum:pics", pics ? "0" : "1");
       } catch {
       }
       this.drawRail();
-    }).toggleClass("is-on", pics);
+    });
+    pb.toggleClass("is-on", pics);
+    pb.setAttr("data-tooltip-position", "bottom");
     const list = box.createDiv({ cls: "vl-plist" });
     const pages = this.doc.pages, cur = this.current(), seen = /* @__PURE__ */ new Set(), fold = this.folds();
     const row = (p, depth) => {
@@ -1338,7 +2186,7 @@ var Editor = class {
         });
       } else w.createSpan({ cls: "vl-pchev is-leaf" });
       if (pics) w.appendChild(this.thumb(p));
-      this.peekOn(w, p);
+      if (peeks) this.peekOn(w, p);
       const t = w.createDiv({ cls: "vl-ptext" });
       t.createDiv({ cls: "vl-pn", text: p.name + (p.mock ? " \xB7 mock" : "") });
       if (p.link && !depth) t.createDiv({ cls: "vl-pl", text: p.link });
@@ -1605,7 +2453,13 @@ var Editor = class {
     const dev = deviceOf(p.device ?? this.doc.device), { W, H, safe } = this.screen(p), z = this.v.zoom, show = this.v.show;
     const fig = this.wall.createDiv({ cls: "vl-page" + (p.mock ? " is-mock" : "") + (this.sel?.page === p.id ? " is-sel" : "") });
     fig.createDiv({ cls: "vl-pname", text: p.name + (p.mock ? "  \xB7 mock" : "") });
-    const phone = fig.createDiv({ cls: "vl-phone" });
+    if (show) {
+      fig.addClass("is-showing");
+      this.showHead(fig, p);
+    }
+    const row = show ? fig.createDiv({ cls: "vl-showrow" }) : fig;
+    const phone = row.createDiv({ cls: "vl-phone" });
+    if (show) this.showAround(fig, row, phone, p);
     phone.style.width = `${W * z}px`;
     phone.style.height = `${H * z}px`;
     phone.style.borderRadius = `${dev.radius * z}px`;
@@ -1616,6 +2470,7 @@ var Editor = class {
       phone.style.background = scr.style.background;
     }
     Object.assign(scr.style, { width: `${W}px`, height: `${H}px`, transform: `scale(${z})`, borderRadius: `${dev.radius}px` });
+    scr.style.setProperty("--vl-iz", String(1 / z));
     if (!this.land) {
       const sb = scr.createDiv({ cls: "vl-status" });
       sb.style.height = `${dev.top}px`;
@@ -1640,7 +2495,12 @@ var Editor = class {
       }
     }
     const layers = this.layers(p);
+    const ov = this.ov, ovOn = ov.show && anyOn(ov) && (!show || ov.inShow);
+    ovlGrid = ovOn && ov.snap && ov.grid.on ? ov.grid.size : 0;
     for (const l of layers) this.drawBlock(scr, p, l.block, show, show ? void 0 : l);
+    if (ovOn) this.drawOv(scr, p, z);
+    if (!show && this.ov.notes) this.drawMarks(scr, p, z);
+    scr.toggleClass("is-marking", this.marking && !show);
     if (this.land && !p.land && !layers.length) {
       const mk = scr.createDiv({ cls: "vl-mkland" });
       mk.createDiv({ text: "No landscape layout yet" });
@@ -1655,6 +2515,156 @@ var Editor = class {
     if (!show) scr.addEventListener("pointerdown", (e) => this.down(e, p, scr));
     if (!show) scr.addEventListener("dblclick", (e) => this.typeInPlace(e, p));
   }
+  // the overlays over the screen; the vanishing points drag (the horizon goes with them)
+  drawOv(scr, p, z) {
+    scr.querySelectorAll(":scope > .vl-ovl, :scope > .vl-ovframe").forEach((e) => e.remove());
+    const { W, H } = this.screen(p), ov = this.ov, off = (x) => ({ ...x, on: false });
+    const svg = drawOverlay(scr, { ...ov, thirds: off(ov.thirds), phi: off(ov.phi), spiral: off(ov.spiral), diag: off(ov.diag), center: off(ov.center) }, W, H, this.room(p), z);
+    if (compOn(ov)) {
+      const A = ov.area ?? { x: 0, y: 0, w: W, h: H };
+      const f = scr.createDiv({ cls: "vl-ovframe vl-mark is-area" + (ov.area ? " is-moved" : "") });
+      Object.assign(f.style, { left: `${A.x}px`, top: `${A.y}px`, width: `${A.w}px`, height: `${A.h}px` });
+      f.style.setProperty("--mc", OVL_COLORS.phi);
+      drawOverlay(f, { ...ov, grid: off(ov.grid), cols: off(ov.cols), rows: off(ov.rows), persp: off(ov.persp) }, A.w, A.h, { l: 0, t: 0, r: A.w, b: A.h }, z, { foot: false }).addClass("is-inmark");
+      for (const side of ["t", "r", "b", "l"]) f.createDiv({ cls: `vl-medge is-${side}` });
+      f.createDiv({ cls: "vl-mtag", text: `Composition  \xB7  ${ratioText(A.w, A.h)}`, attr: { "aria-label": "Drag: move the composition guides; the corner: resize (Shift: keep the shape). Double-click: the whole screen again", "data-tooltip-position": "top" } });
+      f.createDiv({ cls: "vl-mgrip", attr: { "data-ovgrip": "1" } });
+      f.addEventListener("pointerdown", (e) => this.ovFrameDown(e, p, scr, z, A));
+      f.addEventListener("dblclick", (e) => {
+        e.stopPropagation();
+        ov.area = null;
+        this.keepOv();
+        this.drawPages();
+      });
+    }
+    svg.querySelectorAll(".vl-vp").forEach((h) => h.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      e.stopPropagation();
+      e.preventDefault();
+      const r = scr.getBoundingClientRect(), two = h.dataset.vp === "2";
+      scr.setPointerCapture(e.pointerId);
+      const mv = (m) => {
+        const fx = Math.round((m.clientX - r.left) / z / W * 1e3) / 1e3, fy = Math.round((m.clientY - r.top) / z / H * 1e3) / 1e3;
+        if (two) ov.persp.x2 = fx;
+        else ov.persp.x = fx;
+        ov.persp.y = Math.min(1, Math.max(0, fy));
+        this.drawOv(scr, p, z);
+      };
+      const up = () => {
+        scr.removeEventListener("pointermove", mv);
+        scr.removeEventListener("pointerup", up);
+        scr.removeEventListener("pointercancel", up);
+        this.keepOv();
+        this.drawPages();
+      };
+      scr.addEventListener("pointermove", mv);
+      scr.addEventListener("pointerup", up);
+      scr.addEventListener("pointercancel", up);
+    }));
+  }
+  // the composition frame: its tag or edge moves it, its corner resizes it; snaps to the screen's edges and middle,
+  // the blocks and the grid; kept on the device with the other overlay settings
+  ovFrameDown(e, p, scr, z, A) {
+    if (e.button !== 0 || e.detail > 1) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const grip = !!e.target.closest("[data-ovgrip]"), x0 = e.clientX, y0 = e.clientY, st = { ...A }, ov = this.ov;
+    const { W, H } = this.screen(p), bl = this.layers(p).map((l) => l.block);
+    const lx = [0, W / 2, W, ...bl.flatMap((o) => [o.x, o.x + o.w / 2, o.x + o.w])], ly = [0, H / 2, H, ...bl.flatMap((o) => [o.y, o.y + o.h / 2, o.y + o.h])];
+    let moved = false;
+    scr.setPointerCapture(e.pointerId);
+    const mv = (m) => {
+      const dx = (m.clientX - x0) / z, dy = (m.clientY - y0) / z;
+      if (!moved && Math.abs(dx) + Math.abs(dy) < 3) return;
+      moved = true;
+      const on = snap.on && !m.altKey, reach = snap.dist / z, sn = (v) => m.altKey ? Math.round(v) : Math.round(v / grid()) * grid();
+      const fit = (v, pts, ls) => {
+        const g = on ? near(pts.map((q) => q + v), ls, reach) : null;
+        return g ? Math.round(v + g.d) : sn(v);
+      };
+      const a = { ...st };
+      if (grip) {
+        a.w = Math.max(16, fit(st.w + dx, [st.x], lx));
+        a.h = m.shiftKey ? Math.max(16, Math.round(a.w * st.h / st.w)) : Math.max(16, fit(st.h + dy, [st.y], ly));
+      } else {
+        a.x = fit(st.x + dx, [0, st.w / 2, st.w], lx);
+        a.y = fit(st.y + dy, [0, st.h / 2, st.h], ly);
+      }
+      ov.area = a;
+      this.drawOv(scr, p, z);
+    };
+    const up = () => {
+      scr.removeEventListener("pointermove", mv);
+      scr.removeEventListener("pointerup", up);
+      scr.removeEventListener("pointercancel", up);
+      if (moved) {
+        this.keepOv();
+        this.drawPages();
+      }
+    };
+    scr.addEventListener("pointermove", mv);
+    scr.addEventListener("pointerup", up);
+    scr.addEventListener("pointercancel", up);
+  }
+  // the screens in the rail's order (each main screen, then the screens opened from it)
+  order() {
+    const out = [], seen = /* @__PURE__ */ new Set(), pages = this.doc.pages;
+    const walk = (p) => {
+      if (seen.has(p.id)) return;
+      seen.add(p.id);
+      out.push(p);
+      for (const c of childrenOf(pages, p.id)) walk(c);
+    };
+    for (const p of childrenOf(pages)) walk(p);
+    for (const p of pages) walk(p);
+    return out;
+  }
+  showGo(step) {
+    const o = this.order(), i = o.findIndex((x) => x.id === this.current()?.id), n = o[i + step];
+    if (n) this.openPage(n);
+  }
+  showHead(fig, p) {
+    const h = fig.createDiv({ cls: "vl-showhead" });
+    const par = p.parent ? this.page(p.parent) : void 0;
+    if (par) {
+      const c = h.createDiv({ cls: "vl-showfrom" });
+      const back = c.createEl("button", { cls: "vl-showlink", attr: { "aria-label": `Back to ${par.name}` } });
+      (0, import_obsidian3.setIcon)(back.createSpan(), "corner-left-up");
+      back.appendText(par.name);
+      back.addEventListener("click", () => this.openPage(par));
+      if (p.link) c.createSpan({ cls: "vl-showhow", text: p.link });
+    }
+    const t = h.createDiv({ cls: "vl-showtitle" });
+    t.createSpan({ text: p.name });
+    if (p.mock) t.createSpan({ cls: "vl-mocktag", text: "mock" });
+    if (p.note) h.createDiv({ cls: "vl-shownote", text: p.note.split("\n")[0] });
+  }
+  showAround(fig, row, phone, p) {
+    const o = this.order(), i = o.findIndex((x) => x.id === p.id);
+    const arrow = (step, icon) => {
+      const n = o[i + step], b = createEl("button", { cls: "vl-shownav" + (n ? "" : " is-off"), attr: { "aria-label": n ? `${step < 0 ? "Previous" : "Next"}: ${n.name} (${step < 0 ? "\u2190" : "\u2192"})` : "" } });
+      (0, import_obsidian3.setIcon)(b, icon);
+      if (n) b.addEventListener("click", () => this.openPage(n));
+      else b.disabled = true;
+      return b;
+    };
+    row.insertBefore(arrow(-1, "chevron-left"), phone);
+    row.appendChild(arrow(1, "chevron-right"));
+    const f = fig.createDiv({ cls: "vl-showfoot" });
+    const kids = childrenOf(this.doc.pages, p.id);
+    if (kids.length) {
+      const g = f.createDiv({ cls: "vl-showkids" });
+      g.createSpan({ cls: "vl-showlabel", text: "Opens" });
+      for (const k of kids) {
+        const c = g.createEl("button", { cls: "vl-showkid" });
+        c.createSpan({ cls: "vl-showkn", text: k.name });
+        if (k.link) c.createSpan({ cls: "vl-showhow", text: k.link });
+        (0, import_obsidian3.setIcon)(c.createSpan({ cls: "vl-showki" }), "arrow-right");
+        c.addEventListener("click", () => this.openPage(k));
+      }
+    }
+    f.createDiv({ cls: "vl-showcount", text: `${i + 1} / ${o.length}` });
+  }
   // one block again, in its place (a drag keeps its screen element, which holds the pointer)
   redrawBlock(scr, p, b) {
     const old = scr.querySelector(`[data-block="${b.id}"]`);
@@ -1666,7 +2676,8 @@ var Editor = class {
     const kind = this.kinds.find((k) => k.id === b.kind) ?? this.kinds[0];
     const sel = this.sel?.page === p.id && this.sel.block === b.id;
     const inh = !!l?.from && !l.over;
-    const el = scr.createDiv({ cls: "vl-block" + (sel ? " is-sel" : "") + (inh ? " is-inh" : "") + (l?.over ? " is-over" : ""), attr: { "data-block": b.id } });
+    const inGroup = !show && this.sel?.page === p.id && this.many.includes(b);
+    const el = scr.createDiv({ cls: "vl-block" + (sel || inGroup ? " is-sel" : "") + (inGroup ? " is-many" : "") + (inh ? " is-inh" : "") + (l?.over ? " is-over" : ""), attr: { "data-block": b.id } });
     Object.assign(el.style, { left: `${b.x}px`, top: `${b.y}px`, width: `${b.w}px`, height: `${b.h}px` });
     applyLook(this.theme, el.style, b);
     el.style.setProperty("--k", kind?.color ?? "var(--text-faint)");
@@ -1676,12 +2687,17 @@ var Editor = class {
       tag.appendText(b.name + (inh ? ` \xB7 ${this.page(l.from)?.name ?? "frame"}` : ""));
     }
     for (const it of b.items) drawItem(this.theme, el, it);
+    if (!show && this.sel?.page === p.id) {
+      for (const x of this.manyItems) if (x.b === b) el.querySelector(`[data-id="${x.it.id}"]`)?.addClass("is-sel");
+    }
     if (l?.over && !show) (0, import_obsidian3.setIcon)(el.createDiv({ cls: "vl-overmark", attr: { "aria-label": `Overrides ${this.page(l.over)?.name ?? "the frame"}'s ${b.name}` } }), "layers-2");
     if (sel && inh) {
     } else if (sel) {
       const id = this.sel?.item;
       if (id) {
-        el.querySelector(`[data-id="${id}"]`)?.addClass("is-sel");
+        const selEl = el.querySelector(`[data-id="${id}"]`);
+        selEl?.addClass("is-sel");
+        if (selEl) selInk(el, selEl);
         const it = findItem(b.items, id)?.item;
         if (it && b.items.includes(it)) {
           const [ax, ay] = axes(it.g);
@@ -1690,7 +2706,21 @@ var Editor = class {
           d.style.top = `${(ay + 1) * 50}%`;
         }
         if (it && b.items.includes(it) && RESIZE.includes(it.type)) this.itemGrips(el, b, it);
-      } else el.createDiv({ cls: "vl-grip", attr: { "data-grip": "1" } });
+        if (it && this.ov.ratio && this.ov.show) {
+          const bx = this.itemBox(el, b, it);
+          if (bx) {
+            const r = el.createDiv({ cls: "vl-ratio", text: ratioText(bx.W, bx.H) });
+            r.addClass("is-under");
+            r.setCssStyles({ left: `${Math.max(0, bx.L)}px` });
+          }
+        }
+      } else {
+        el.createDiv({ cls: "vl-grip", attr: { "data-grip": "1" } });
+        if (this.ov.ratio && this.ov.show) {
+          const r = el.createDiv({ cls: "vl-ratio", text: ratioText(b.w, b.h) });
+          r.addClass("is-under");
+        }
+      }
     }
     return el;
   }
@@ -1713,7 +2743,12 @@ var Editor = class {
   }
   // the lines a box snaps to: an item's in its block (block points), a block's on the screen
   itemLines(bEl, b, it) {
-    const x = [], y = [];
+    const x = [], y = [], p = this.page();
+    if (p) {
+      const { W, H } = this.screen(p), o = overlayLines(this.ov, W, H, this.room(p)), ml = this.markLines(p);
+      x.push(...[...o.x, ...ml.x].map((v) => v - b.x));
+      y.push(...[...o.y, ...ml.y].map((v) => v - b.y));
+    }
     if (snap.frame) {
       x.push(0, b.w / 2, b.w);
       y.push(0, b.h / 2, b.h);
@@ -1731,8 +2766,8 @@ var Editor = class {
     }
     return { x, y };
   }
-  blockLines(p, b) {
-    const { W, H, safe } = this.screen(p), x = [], y = [];
+  blockLines(p, b, skip) {
+    const { W, H, safe } = this.screen(p), o = overlayLines(this.ov, W, H, this.room(p)), ml = this.markLines(p), x = [...o.x, ...ml.x], y = [...o.y, ...ml.y];
     if (snap.frame) {
       const l = safe.left, r = W - safe.right, t = safe.top, bo = H - safe.bottom;
       x.push(0, W / 2, W, l, r);
@@ -1742,10 +2777,10 @@ var Editor = class {
         y.push(t + m, bo - m);
       }
     }
-    if (snap.others) for (const { block: o } of this.layers(p)) {
-      if (o.id === b.id) continue;
-      x.push(o.x, o.x + o.w / 2, o.x + o.w);
-      y.push(o.y, o.y + o.h / 2, o.y + o.h);
+    if (snap.others) for (const { block: o2 } of this.layers(p)) {
+      if (o2.id === b.id || skip?.has(o2.id)) continue;
+      x.push(o2.x, o2.x + o2.w / 2, o2.x + o2.w);
+      y.push(o2.y, o2.y + o2.h / 2, o2.y + o2.h);
     }
     return { x, y };
   }
@@ -1814,16 +2849,59 @@ var Editor = class {
   // ---- pointer: a tap chooses, a drag moves (snaps to 4 px, Alt for 1 px)
   down(e, p, scr) {
     if (e.button !== 0) return;
+    if (this.marking) {
+      this.markDraw(e, p, scr);
+      return;
+    }
     const t = e.target;
     const bEl = t.closest("[data-block]"), b = bEl ? this.blocks(p).find((x) => x.id === bEl.dataset.block) : void 0;
     const grip = !!t.closest("[data-grip]");
     const itEl = t.closest(".vl-it");
     const topEl = t.closest("[data-top]");
-    const pickId = itEl?.dataset.id, dragId = topEl?.dataset.id;
+    let pickId = itEl?.dataset.id, dragId = topEl?.dataset.id;
+    if (b && itEl) {
+      const r = this.pickLevel(b, itEl);
+      pickId = r.pick;
+      dragId = r.drag ?? dragId;
+    }
     const before = this.sel;
+    if (!bEl || (e.ctrlKey || e.metaKey) && !t.closest("[data-grip], [data-igrip]")) {
+      this.marquee(e, p, scr, false);
+      return;
+    }
+    const mi = this.manyItems;
+    if (b && dragId && mi.some((x) => x.it.id === dragId) && !e.shiftKey) {
+      this.dragItems(e, p, scr, b, dragId);
+      return;
+    }
+    if (b && dragId && e.shiftKey && b.items.some((i) => i.id === dragId) && (mi.length || this.sel?.item && this.sel.page === p.id)) {
+      const list = mi.map((x) => ({ block: x.b.id, item: x.it.id }));
+      if (!list.length) {
+        const cb = this.block(), top = cb?.items.find((i2) => i2.id === this.sel.item || !!findItem([i2], this.sel.item));
+        if (cb && top) list.push({ block: cb.id, item: top.id });
+      }
+      const i = list.findIndex((x) => x.item === dragId);
+      if (i >= 0) list.splice(i, 1);
+      else list.push({ block: b.id, item: dragId });
+      this.chooseItems(p, list);
+      return;
+    }
     if (!b) {
-      const l = bEl ? this.layers(p).find((x) => x.block.id === bEl.dataset.block) : void 0;
+      const l = this.layers(p).find((x) => x.block.id === bEl.dataset.block);
       this.choose(l ? { page: p.id, block: l.block.id } : { page: p.id });
+      return;
+    }
+    if (e.shiftKey && !this.sel?.item) {
+      const ids = this.many.map((x) => x.id);
+      if (!ids.length && this.sel?.page === p.id && this.sel.block && this.sel.block !== b.id && this.blocks(p).some((x) => x.id === this.sel.block)) ids.push(this.sel.block);
+      const i = ids.indexOf(b.id);
+      if (i >= 0) ids.splice(i, 1);
+      else ids.push(b.id);
+      this.chooseMany(p, ids);
+      return;
+    }
+    if (this.many.includes(b)) {
+      this.dragMany(e, p, scr, b);
       return;
     }
     const ig = t.closest("[data-igrip]");
@@ -1835,6 +2913,7 @@ var Editor = class {
     const wholeBlock = e.ctrlKey || e.metaKey || !!t.closest(".vl-tag");
     const target = pickId && blockChosen && !wholeBlock ? { page: p.id, block: b.id, item: pickId } : { page: p.id, block: b.id };
     const dragItem = target?.item ? findItem(b.items, dragId)?.item : void 0;
+    const holder = dragItem ? parentOf(b.items, dragItem.id) : null, inGroup = holder?.type === "group";
     const x0 = e.clientX, y0 = e.clientY, z = this.v.zoom, start = { ...b }, istart = dragItem ? { dx: dragItem.dx ?? 0, dy: dragItem.dy ?? 0 } : null;
     let moved = false;
     let ib = null, lines = { x: [], y: [] };
@@ -1847,10 +2926,10 @@ var Editor = class {
         moved = true;
         this.begin();
         const be = scr.querySelector(`[data-block="${b.id}"]`);
-        if (dragItem && be) {
+        if (dragItem && be && !inGroup) {
           ib = this.itemBox(be, b, dragItem);
           lines = this.itemLines(be, b, dragItem);
-        } else lines = this.blockLines(p, b);
+        } else if (!dragItem) lines = this.blockLines(p, b);
         if (!blockChosen || target?.item !== this.sel?.item) {
           this.sel = target;
           this.drawPanel();
@@ -1897,6 +2976,7 @@ var Editor = class {
       scr.removeEventListener("pointercancel", up);
       this.guides(scr);
       if (moved) {
+        if (inGroup && holder && b.items.includes(holder)) this.refit(scr, b, holder);
         this.end();
         return;
       }
@@ -1907,6 +2987,309 @@ var Editor = class {
     scr.addEventListener("pointermove", move);
     scr.addEventListener("pointerup", up);
     scr.addEventListener("pointercancel", up);
+  }
+  // a drag over empty space draws an area, as in Figma / Sketch: the blocks wholly inside it are chosen together; when
+  // none is, the items it touches in the blocks it crosses (a block it touches with no item under the area: the block).
+  // Shift: added to what is chosen. A tap: the page (on the screen) or nothing (beside it)
+  marquee(e, p, scr, outside) {
+    const z = this.v.zoom, r = scr.getBoundingClientRect();
+    const at = (x, y) => [(x - r.left) / z, (y - r.top) / z];
+    const deep = e.ctrlKey || e.metaKey;
+    if (deep) {
+      this.marqueeItems(e, p, scr, outside);
+      return;
+    }
+    const [x0, y0] = at(e.clientX, e.clientY), add = e.shiftKey ? this.many.map((b) => b.id) : [];
+    if (add.length === 0 && e.shiftKey && this.sel?.page === p.id && this.sel.block && !this.sel.item) add.push(this.sel.block);
+    const addItems = e.shiftKey ? this.manyItems.map((x) => ({ block: x.b.id, item: x.it.id })) : [];
+    let box = null, hits = [], itemHits = [];
+    scr.setPointerCapture(e.pointerId);
+    const move = (m) => {
+      const [x1, y1] = at(m.clientX, m.clientY);
+      if (!box && Math.abs(x1 - x0) * z + Math.abs(y1 - y0) * z < 4) return;
+      box ?? (box = scr.createDiv({ cls: "vl-marq" }));
+      const L = Math.min(x0, x1), T = Math.min(y0, y1), W = Math.abs(x1 - x0), H = Math.abs(y1 - y0);
+      Object.assign(box.style, { left: `${L}px`, top: `${T}px`, width: `${W}px`, height: `${H}px` });
+      const own = this.blocks(p);
+      const whole = own.filter((b) => b.x >= L && b.x + b.w <= L + W && b.y >= T && b.y + b.h <= T + H);
+      const touched = own.filter((b) => b.x < L + W && b.x + b.w > L && b.y < T + H && b.y + b.h > T);
+      hits = [];
+      itemHits = [];
+      scr.querySelectorAll(".vl-it.is-hit").forEach((el) => el.removeClass("is-hit"));
+      if (whole.length) hits = whole.map((b) => b.id);
+      else {
+        const cL = r.left + L * z, cT = r.top + T * z, cR = cL + W * z, cB = cT + H * z;
+        for (const b of touched) {
+          const bEl = scr.querySelector(`[data-block="${b.id}"]`);
+          if (!bEl) continue;
+          let any = false;
+          bEl.querySelectorAll(".vl-it[data-top]").forEach((iEl) => {
+            const q = iEl.getBoundingClientRect();
+            if (q.left < cR && q.right > cL && q.top < cB && q.bottom > cT) {
+              iEl.addClass("is-hit");
+              itemHits.push({ block: b.id, item: iEl.dataset.id });
+              any = true;
+            }
+          });
+          if (!any) hits.push(b.id);
+        }
+        if (itemHits.length) hits = [];
+      }
+      scr.querySelectorAll("[data-block]").forEach((el) => el.toggleClass("is-hit", hits.includes(el.dataset.block)));
+    };
+    const up = () => {
+      scr.removeEventListener("pointermove", move);
+      scr.removeEventListener("pointerup", up);
+      scr.removeEventListener("pointercancel", up);
+      if (!box) {
+        if (!outside) this.choose({ page: p.id });
+        else if (this.sel) this.choose(null);
+        return;
+      }
+      box.remove();
+      if (itemHits.length) {
+        const all = [...addItems];
+        for (const h of itemHits) if (!all.some((x) => x.item === h.item)) all.push(h);
+        this.chooseItems(p, all);
+      } else this.chooseMany(p, [.../* @__PURE__ */ new Set([...add, ...hits])]);
+    };
+    scr.addEventListener("pointermove", move);
+    scr.addEventListener("pointerup", up);
+    scr.addEventListener("pointercancel", up);
+  }
+  // Ctrl (Cmd) + drag: the area chooses the items it touches (each placed in its block; a row is one item), in the
+  // page's own blocks (not a frame's). Shift: added to the items chosen. A tap: as a plain tap
+  marqueeItems(e, p, scr, outside) {
+    const x0 = e.clientX, y0 = e.clientY, z = this.v.zoom, r = scr.getBoundingClientRect();
+    const add = e.shiftKey ? this.manyItems.map((x) => ({ block: x.b.id, item: x.it.id })) : [];
+    const own = new Set(this.blocks(p).map((b) => b.id));
+    let box = null, hits = [];
+    scr.setPointerCapture(e.pointerId);
+    const move = (m) => {
+      if (!box && Math.abs(m.clientX - x0) + Math.abs(m.clientY - y0) < 4) return;
+      box ?? (box = scr.createDiv({ cls: "vl-marq is-deep" }));
+      const L = Math.min(x0, m.clientX), T = Math.min(y0, m.clientY), R = Math.max(x0, m.clientX), B = Math.max(y0, m.clientY);
+      Object.assign(box.style, { left: `${(L - r.left) / z}px`, top: `${(T - r.top) / z}px`, width: `${(R - L) / z}px`, height: `${(B - T) / z}px` });
+      hits = [];
+      scr.querySelectorAll("[data-block]").forEach((bEl) => {
+        if (!own.has(bEl.dataset.block)) return;
+        bEl.querySelectorAll(".vl-it[data-top]").forEach((iEl) => {
+          const q = iEl.getBoundingClientRect(), hit = q.left < R && q.right > L && q.top < B && q.bottom > T;
+          iEl.toggleClass("is-hit", hit);
+          if (hit) hits.push({ block: bEl.dataset.block, item: iEl.dataset.id });
+        });
+      });
+    };
+    const up = () => {
+      scr.removeEventListener("pointermove", move);
+      scr.removeEventListener("pointerup", up);
+      scr.removeEventListener("pointercancel", up);
+      if (!box) {
+        const t = e.target, bEl = t.closest("[data-block]"), id = t.closest(".vl-it")?.dataset.id;
+        if (bEl && id && own.has(bEl.dataset.block)) this.choose({ page: p.id, block: bEl.dataset.block, item: id });
+        else if (!outside) this.choose({ page: p.id });
+        else if (this.sel) this.choose(null);
+        return;
+      }
+      box.remove();
+      const all = [...add];
+      for (const h of hits) if (!all.some((x) => x.item === h.item)) all.push(h);
+      this.chooseItems(p, all);
+    };
+    scr.addEventListener("pointermove", move);
+    scr.addEventListener("pointerup", up);
+    scr.addEventListener("pointercancel", up);
+  }
+  // the chosen items move together, each from its own gravity point (snapped to the grid; Alt 1 px); a tap chooses
+  // the one under the pointer alone
+  dragItems(e, p, scr, hitB, hitId) {
+    const list = this.manyItems, z = this.v.zoom, x0 = e.clientX, y0 = e.clientY;
+    const start = list.map((x) => ({ ...x, dx: x.it.dx ?? 0, dy: x.it.dy ?? 0 }));
+    let moved = false;
+    scr.setPointerCapture(e.pointerId);
+    const move = (m) => {
+      const dx = (m.clientX - x0) / z, dy = (m.clientY - y0) / z;
+      if (!moved && Math.abs(dx) + Math.abs(dy) < 3) return;
+      if (!moved) {
+        moved = true;
+        this.begin();
+      }
+      const sn = (v) => m.altKey ? Math.round(v) : Math.round(v / grid()) * grid();
+      const mx = sn(dx), my = sn(dy), blocks = /* @__PURE__ */ new Set();
+      for (const s of start) {
+        const [ax, ay] = axes(s.it.g);
+        if (s.it.w !== "fill") s.it.dx = s.dx + (ax > 0 ? -mx : mx);
+        if (s.it.h !== "fill") s.it.dy = s.dy + (ay > 0 ? -my : my);
+        blocks.add(s.b);
+      }
+      for (const b of blocks) this.redrawBlock(scr, p, b);
+    };
+    const up = () => {
+      scr.removeEventListener("pointermove", move);
+      scr.removeEventListener("pointerup", up);
+      scr.removeEventListener("pointercancel", up);
+      if (moved) this.end();
+      else this.choose({ page: p.id, block: hitB.id, item: hitId });
+    };
+    scr.addEventListener("pointermove", move);
+    scr.addEventListener("pointerup", up);
+    scr.addEventListener("pointercancel", up);
+  }
+  // the chosen blocks move together: their outline snaps (to the frame and the blocks not moving), those inside their
+  // room stay in it; a tap (no drag) chooses the one under the pointer alone
+  dragMany(e, p, scr, hit) {
+    const group = this.many, z = this.v.zoom, x0 = e.clientX, y0 = e.clientY;
+    const start = group.map((b) => ({ b, x: b.x, y: b.y, R: this.room(p, b), keep: !b.bleed && inRoom(b, this.room(p, b)) }));
+    const L0 = Math.min(...group.map((b) => b.x)), T0 = Math.min(...group.map((b) => b.y));
+    const W = Math.max(...group.map((b) => b.x + b.w)) - L0, H = Math.max(...group.map((b) => b.y + b.h)) - T0;
+    let minX = -Infinity, maxX = Infinity, minY = -Infinity, maxY = Infinity;
+    for (const s of start) if (s.keep) {
+      minX = Math.max(minX, s.R.l - s.x);
+      maxX = Math.min(maxX, s.R.r - s.x - s.b.w);
+      minY = Math.max(minY, s.R.t - s.y);
+      maxY = Math.min(maxY, s.R.b - s.y - s.b.h);
+    }
+    const lines = this.blockLines(p, hit, new Set(group.map((b) => b.id)));
+    let moved = false;
+    scr.setPointerCapture(e.pointerId);
+    const move = (m) => {
+      const dx = (m.clientX - x0) / z, dy = (m.clientY - y0) / z;
+      if (!moved && Math.abs(dx) + Math.abs(dy) < 3) return;
+      if (!moved) {
+        moved = true;
+        this.begin();
+      }
+      const sn = (v) => m.altKey ? Math.round(v) : Math.round(v / grid()) * grid();
+      const on = snap.on && !m.altKey, reach = snap.dist / z, gx = [], gy = [];
+      const L = L0 + dx, T = T0 + dy;
+      const g1 = on ? near([L, L + W / 2, L + W], lines.x, reach) : null, g2 = on ? near([T, T + H / 2, T + H], lines.y, reach) : null;
+      if (g1) gx.push(g1.at);
+      if (g2) gy.push(g2.at);
+      const mx = Math.min(maxX, Math.max(minX, (g1 ? Math.round(L + g1.d) : sn(L)) - L0));
+      const my = Math.min(maxY, Math.max(minY, (g2 ? Math.round(T + g2.d) : sn(T)) - T0));
+      for (const s of start) {
+        s.b.x = s.x + mx;
+        s.b.y = s.y + my;
+        this.redrawBlock(scr, p, s.b);
+      }
+      this.guides(scr, gx, gy);
+    };
+    const up = () => {
+      scr.removeEventListener("pointermove", move);
+      scr.removeEventListener("pointerup", up);
+      scr.removeEventListener("pointercancel", up);
+      this.guides(scr);
+      if (moved) this.end();
+      else this.choose({ page: p.id, block: hit.id });
+    };
+    scr.addEventListener("pointermove", move);
+    scr.addEventListener("pointerup", up);
+    scr.addEventListener("pointercancel", up);
+  }
+  // what a tap picks and a drag takes, in the chain of items under the pointer (top first): a group not open stops it
+  // (open: it, or something in it, is chosen); a drag takes the item right inside the deepest open group, else the top one
+  pickLevel(b, itEl) {
+    const chain = [];
+    for (let e = itEl; e && !e.dataset.block; e = e.parentElement) if (e.hasClass("vl-it")) chain.unshift(e);
+    const selId = this.sel?.block === b.id ? this.sel.item : void 0;
+    let pick = chain[chain.length - 1], drag, open = -1;
+    for (let i = 0; i < chain.length; i++) {
+      const it = findItem(b.items, chain[i].dataset.id)?.item;
+      if (it?.type !== "group") continue;
+      if (selId && (selId === it.id || findItem(it.items ?? [], selId))) {
+        open = i;
+        continue;
+      }
+      pick = chain[i];
+      break;
+    }
+    if (open >= 0 && chain[open + 1]) drag = chain[open + 1];
+    return { pick: pick?.dataset.id, drag: drag?.dataset.id };
+  }
+  // a group's box fitted to its items again (after one moved in it): the items keep their place on the screen, each
+  // placed from the group's top left; the group keeps its gravity
+  refit(scr, b, g) {
+    const bEl = scr.querySelector(`[data-block="${b.id}"]`), gEl = bEl?.querySelector(`.vl-it[data-id="${g.id}"]`);
+    const box = bEl ? this.itemBox(bEl, b, g) : null;
+    if (!bEl || !gEl || !box || !g.items?.length) return;
+    const k = bEl.getBoundingClientRect().width / b.w, gr = gEl.getBoundingClientRect();
+    const kids = g.items.map((c) => {
+      const q = gEl.querySelector(`:scope > [data-id="${c.id}"]`)?.getBoundingClientRect();
+      return q ? { c, L: (q.left - gr.left) / k, T: (q.top - gr.top) / k, W: q.width / k, H: q.height / k } : null;
+    }).filter((x) => !!x);
+    if (!kids.length) return;
+    const L = Math.min(...kids.map((x) => x.L)), T = Math.min(...kids.map((x) => x.T));
+    const W = Math.max(...kids.map((x) => x.L + x.W)) - L, H = Math.max(...kids.map((x) => x.T + x.H)) - T;
+    for (const x of kids) {
+      x.c.g = "tl";
+      x.c.dx = Math.round(x.L - L);
+      x.c.dy = Math.round(x.T - T);
+      if (x.c.w === "fill") x.c.w = Math.round(x.W);
+      if (x.c.h === "fill") x.c.h = Math.round(x.H);
+    }
+    const [ax, ay] = axes(g.g), nW = Math.max(1, Math.round(W)), nH = Math.max(1, Math.round(H));
+    g.w = nW;
+    g.h = nH;
+    g.dx = toD(ax, box.L + L, nW, b.w);
+    g.dy = toD(ay, box.T + T, nH, b.h);
+  }
+  // Ctrl+G: the chosen items (of one block) become one group, where they are; Ctrl+Shift+G: a group's items back in the block
+  groupSel() {
+    const p = this.page();
+    if (!p) return;
+    let list = this.manyItems;
+    if (!list.length) {
+      const f = this.item(), b2 = this.block();
+      if (f && b2 && b2.items.includes(f.item)) list = [{ b: b2, it: f.item }];
+    }
+    if (!list.length) return;
+    const b = list[0].b;
+    if (list.some((x) => x.b !== b)) {
+      new import_obsidian3.Notice("Vellum: a group holds items of one block; choose items in one block");
+      return;
+    }
+    const bEl = this.wall.querySelector(`.vl-screen [data-block="${b.id}"]`);
+    if (!bEl) return;
+    const boxes = list.map((x) => ({ it: x.it, r: this.itemBox(bEl, b, x.it) })).filter((x) => !!x.r).sort((a, c) => b.items.indexOf(a.it) - b.items.indexOf(c.it));
+    if (!boxes.length) return;
+    const L = Math.min(...boxes.map((x) => x.r.L)), T = Math.min(...boxes.map((x) => x.r.T));
+    const W = Math.max(...boxes.map((x) => x.r.L + x.r.W)) - L, H = Math.max(...boxes.map((x) => x.r.T + x.r.H)) - T;
+    const g = { id: uid(), type: "group", g: "tl", dx: Math.round(L), dy: Math.round(T), w: Math.max(1, Math.round(W)), h: Math.max(1, Math.round(H)), items: [] };
+    this.edit(() => {
+      b.items.splice(b.items.indexOf(boxes[boxes.length - 1].it) + 1, 0, g);
+      for (const x of boxes) {
+        const c = x.it;
+        c.g = "tl";
+        c.dx = Math.round(x.r.L - L);
+        c.dy = Math.round(x.r.T - T);
+        if (c.w === "fill") c.w = Math.round(x.r.W);
+        if (c.h === "fill") c.h = Math.round(x.r.H);
+        b.items.splice(b.items.indexOf(c), 1);
+        g.items.push(c);
+      }
+      this.sel = { page: p.id, block: b.id, item: g.id };
+    });
+  }
+  ungroup() {
+    const f = this.item(), b = this.block(), p = this.page(), g = f?.item;
+    if (!g || !b || !p || g.type !== "group" || !b.items.includes(g)) return;
+    const bEl = this.wall.querySelector(`.vl-screen [data-block="${b.id}"]`);
+    if (!bEl) return;
+    const kids = (g.items ?? []).map((c) => ({ c, r: this.itemBox(bEl, b, c) }));
+    this.edit(() => {
+      for (const { c, r } of kids) {
+        if (r) {
+          c.g = "tl";
+          c.dx = Math.round(r.L);
+          c.dy = Math.round(r.T);
+          if (c.w === "fill") c.w = Math.round(r.W);
+          if (c.h === "fill") c.h = Math.round(r.H);
+        }
+        if (g.op !== void 0) c.op = Math.round((c.op ?? 100) * g.op / 100);
+      }
+      b.items.splice(b.items.indexOf(g), 1, ...kids.map((x) => x.c));
+    }, false);
+    this.chooseItems(p, kids.map((x) => ({ block: b.id, item: x.c.id })));
   }
   typeInPlace(e, p) {
     const at = (this.root?.doc ?? activeDocument).elementFromPoint(e.clientX, e.clientY);
@@ -1924,7 +3307,7 @@ var Editor = class {
     if (!el) return;
     el.contentEditable = "true";
     el.addClass("is-typing");
-    el.focus();
+    el.focus({ preventScroll: true });
     el.doc.getSelection()?.selectAllChildren(el);
     el.addEventListener("keydown", (k) => {
       if (k.key === "Escape" || k.key === "Enter" && !k.shiftKey) {
@@ -1974,10 +3357,48 @@ var Editor = class {
       this.duplicate();
       return true;
     }
+    if (!mod && !e.altKey && k === "n" && !this.v.show && !this.v.map) {
+      this.marking = !this.marking;
+      this.drawPages();
+      return true;
+    }
+    if (e.key === "Escape" && this.marking) {
+      this.marking = false;
+      this.drawPages();
+      return true;
+    }
+    if (e.key === "Escape" && this.sel?.mark) {
+      this.choose({ page: this.sel.page });
+      return true;
+    }
+    if (mod && k === "g" && !this.v.show && !this.v.map) {
+      if (e.shiftKey) this.ungroup();
+      else this.groupSel();
+      return true;
+    }
+    if (this.v.show && !this.v.map && !mod && (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "PageUp" || e.key === "PageDown")) {
+      this.showGo(e.key === "ArrowLeft" || e.key === "PageUp" ? -1 : 1);
+      return true;
+    }
+    if (mod && e.key === "'") {
+      this.ov.show = !this.ov.show;
+      this.keepOv();
+      this.drawPages();
+      return true;
+    }
+    if (mod && k === "a" && !this.v.show && !this.v.map) {
+      const p = this.current();
+      if (p) this.chooseMany(p, this.blocks(p).map((b) => b.id));
+      return true;
+    }
     if (e.key === "Escape" && !this.sel) return true;
+    if (e.key === "Escape" && (this.many.length || this.manyItems.length)) {
+      this.choose({ page: this.sel.page });
+      return true;
+    }
     if (e.key === "Escape") {
-      const s = this.sel;
-      this.choose(s?.item ? { page: s.page, block: s.block } : s?.block ? { page: s.page } : null);
+      const s = this.sel, b = this.block(), up = s?.item && b ? parentOf(b.items, s.item) : null;
+      this.choose(up ? { page: s.page, block: s.block, item: up.id } : s?.item ? { page: s.page, block: s.block } : s?.block ? { page: s.page } : null);
       return true;
     }
     if (e.key === "Delete" || e.key === "Backspace") {
@@ -1985,6 +3406,18 @@ var Editor = class {
       return true;
     }
     const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+    if (d && this.mark()) {
+      const m = this.mark(), st = e.shiftKey ? grid() : 1;
+      this.edit(() => {
+        m.x += d[0] * st;
+        m.y += d[1] * st;
+      }, false);
+      return true;
+    }
+    if (d && (this.many.length || this.manyItems.length)) {
+      this.nudge(d[0] * (e.shiftKey ? grid() : 1), d[1] * (e.shiftKey ? grid() : 1));
+      return true;
+    }
     if (d && this.sel?.block) {
       this.nudge(d[0] * (e.shiftKey ? grid() : 1), d[1] * (e.shiftKey ? grid() : 1));
       return true;
@@ -1992,7 +3425,29 @@ var Editor = class {
     return false;
   }
   nudge(dx, dy) {
-    const f = this.item(), b = this.block();
+    const f = this.item(), b = this.block(), many = this.many, mi = this.manyItems;
+    if (mi.length) {
+      this.edit(() => {
+        for (const { it } of mi) {
+          const [ax, ay] = axes(it.g);
+          if (it.w !== "fill") it.dx = (it.dx ?? 0) + (ax > 0 ? -dx : dx);
+          if (it.h !== "fill") it.dy = (it.dy ?? 0) + (ay > 0 ? -dy : dy);
+        }
+      }, false);
+      return;
+    }
+    if (many.length) {
+      const p = this.page();
+      this.edit(() => {
+        for (const g of many) {
+          const R = this.room(p, g), keep = !g.bleed && inRoom(g, R);
+          g.x += dx;
+          g.y += dy;
+          if (keep) clampTo(g, R, false);
+        }
+      }, false);
+      return;
+    }
     this.edit(() => {
       if (f) {
         const [ax, ay] = axes(f.item.g);
@@ -2007,7 +3462,41 @@ var Editor = class {
     });
   }
   duplicate() {
-    const f = this.item(), b = this.block(), p = this.page();
+    const f = this.item(), b = this.block(), p = this.page(), many = this.many, mi = this.manyItems, mk = this.mark();
+    if (mk && p) {
+      const c = { ...JSON.parse(JSON.stringify(mk)), id: uid(), x: mk.x + 16, y: mk.y + 16 };
+      delete c.by;
+      this.edit(() => {
+        p.marks.push(c);
+        this.sel = { page: p.id, mark: c.id };
+      });
+      return;
+    }
+    if (mi.length && p) {
+      const out = [];
+      this.edit(() => {
+        for (const { b: ib, it } of mi) {
+          const c = cloneItem(it);
+          ib.items.splice(ib.items.indexOf(it) + 1, 0, c);
+          out.push({ block: ib.id, item: c.id });
+        }
+      }, false);
+      this.chooseItems(p, out);
+      return;
+    }
+    if (many.length && p) {
+      const down = Math.max(...many.map((g) => g.y + g.h)) - Math.min(...many.map((g) => g.y)) + 8, ids = [];
+      this.edit(() => {
+        for (const g of many) {
+          const c = { ...JSON.parse(JSON.stringify(g)), id: uid(), y: g.y + down };
+          c.items = g.items.map(cloneItem);
+          this.blocks(p).push(c);
+          ids.push(c.id);
+        }
+      }, false);
+      this.chooseMany(p, ids);
+      return;
+    }
     if (this.sel?.block && !b) return;
     if (f) this.edit(() => {
       const c = cloneItem(f.item);
@@ -2027,7 +3516,30 @@ var Editor = class {
     });
   }
   remove() {
-    const f = this.item(), b = this.block(), p = this.page();
+    const f = this.item(), b = this.block(), p = this.page(), many = this.many, mi = this.manyItems, mk = this.mark();
+    if (mk && p) {
+      this.edit(() => {
+        p.marks = p.marks.filter((m) => m !== mk);
+        if (!p.marks.length) delete p.marks;
+        this.sel = { page: p.id };
+      });
+      return;
+    }
+    if (mi.length && p) {
+      this.edit(() => {
+        for (const { b: ib, it } of mi) ib.items.splice(ib.items.indexOf(it), 1);
+        this.sel = { page: p.id };
+      });
+      return;
+    }
+    if (many.length && p) {
+      this.edit(() => {
+        const l = this.blocks(p);
+        for (const g of many) l.splice(l.indexOf(g), 1);
+        this.sel = { page: p.id };
+      });
+      return;
+    }
     if (f) this.edit(() => {
       f.list.splice(f.list.indexOf(f.item), 1);
       this.sel = { page: p.id, block: b.id };
@@ -2087,7 +3599,21 @@ var Editor = class {
       const c = head.createEl("button", { text, cls: on ? "is-on" : "" });
       c.addEventListener("click", () => this.choose(s));
     };
-    crumb(p.name, { page: p.id }, !b);
+    const many = this.many, mi = this.manyItems;
+    crumb(p.name, { page: p.id }, !b && !many.length && !mi.length && !this.sel?.mark);
+    if (many.length) {
+      head.createSpan({ text: "\u203A" });
+      crumb(`${many.length} blocks`, this.sel, true);
+    }
+    if (mi.length) {
+      head.createSpan({ text: "\u203A" });
+      crumb(`${mi.length} items`, this.sel, true);
+    }
+    const mk0 = this.mark();
+    if (mk0) {
+      head.createSpan({ text: "\u203A" });
+      crumb(mk0.text?.split("\n")[0].slice(0, 20) || { note: "Note", area: "Area", line: "Guide line" }[mk0.kind], this.sel, true);
+    }
     if (b) {
       head.createSpan({ text: "\u203A" });
       crumb(b.name, { page: p.id, block: b.id }, !f);
@@ -2102,7 +3628,7 @@ var Editor = class {
     const acts = head.createDiv({ cls: "vl-hacts" });
     const refB = this.btn(acts, "link", "Copy reference: one line that points at it (Ctrl+Shift+C)", () => this.copyReference(refB));
     const agB = this.btn(acts, "clipboard-copy", "Copy for the agent: the reference, its JSON now, and a line for what to change", () => this.copyForAgent(agB));
-    if (f || b) {
+    if (f || b || many.length || mi.length || this.sel?.mark) {
       this.btn(acts, "copy", "Duplicate (Ctrl+D)", () => this.duplicate());
       this.btn(acts, "trash-2", "Delete (Delete)", () => this.remove());
     } else if (!inh) {
@@ -2114,7 +3640,11 @@ var Editor = class {
     }
     if (this.sel) this.btn(acts, "x", "Let go (Esc)", () => this.choose(null)).addClass("vl-close");
     const body = P.createDiv({ cls: "vl-pbody" });
-    if (f && b) this.itemPanel(body, b, f.item, b.items.includes(f.item));
+    const mk = this.mark();
+    if (mk) this.markPanel(body, p, mk);
+    else if (many.length) this.groupPanel(body, many);
+    else if (mi.length) this.itemsPanel(body, mi);
+    else if (f && b) this.itemPanel(body, b, f.item, b.items.includes(f.item));
     else if (b) this.blockPanel(body, p, b);
     else if (inh) this.framePanel(body, p, inh);
     else this.pagePanel(body, p);
@@ -3090,6 +4620,20 @@ What I want changed:
     if (!import_obsidian3.Platform.isMobile) input.focus();
   }
   pagePanel(body, p) {
+    const ms = this.section(body, "Marks", true), list = this.marksOf(p);
+    for (const m of list) {
+      const row = ms.createEl("button", { cls: "vl-markrow" });
+      row.createSpan({ cls: "vl-ovsw" }).style.background = markColor(m.color);
+      row.createSpan({ text: (m.by ? `${m.by}: ` : "") + (m.text?.split("\n")[0] || { note: "Note", area: "Area", line: "Guide line" }[m.kind]) });
+      row.addEventListener("click", () => this.choose({ page: p.id, mark: m.id }));
+    }
+    const { W, H } = this.screen(p);
+    this.actions(ms, [
+      ["message-square-plus", "Note", () => this.addMark(p, { kind: "note", x: Math.round(W / 2), y: Math.round(H / 3), text: "" })],
+      ["square-dashed", "Area", () => this.addMark(p, { kind: "area", x: Math.round(W / 4), y: Math.round(H / 4), w: Math.round(W / 2), h: Math.round(W / 2), text: "" })],
+      ["move-horizontal", "Line across", () => this.addMark(p, { kind: "line", axis: "y", x: 0, y: Math.round(H / 2), text: "" })],
+      ["move-vertical", "Line down", () => this.addMark(p, { kind: "line", axis: "x", x: Math.round(W / 2), y: 0, text: "" })]
+    ]);
     const s = this.section(body, "Screen");
     this.text(this.frow(s, "Name"), () => p.name, (v) => {
       p.name = v;
@@ -3121,9 +4665,9 @@ What I want changed:
       (0, import_obsidian3.setIcon)(c.createSpan({ cls: "vl-addi" }), k.icon ?? "square");
       c.createSpan({ text: k.name.split(" / ")[0] });
       c.addEventListener("click", () => this.edit(() => {
-        const { W, safe } = this.screen(p);
+        const { W: W2, safe } = this.screen(p);
         const low = drawnBlocks(this.doc.pages, p, this.land).reduce((m, x) => Math.max(m, x.y + x.h), safe.top);
-        const nb = { id: uid(), name: k.name.split(" / ")[0], kind: k.id, x: 16 + safe.left, y: low + 8, w: W - 32 - safe.left - safe.right, h: 80, items: [] };
+        const nb = { id: uid(), name: k.name.split(" / ")[0], kind: k.id, x: 16 + safe.left, y: low + 8, w: W2 - 32 - safe.left - safe.right, h: 80, items: [] };
         this.blocks(p, true).push(nb);
         this.sel = { page: p.id, block: nb.id };
       }));
@@ -3208,6 +4752,144 @@ What I want changed:
       if (v.trim()) b.note = v;
       else delete b.note;
     }, { area: true, placeholder: "What goes here, what is wrong (for the agent)" });
+  }
+  // several blocks: lined up with each other (to the outline around them all), spaced out evenly, copied, deleted
+  groupPanel(body, many) {
+    const s = this.section(body, "Blocks");
+    s.createDiv({ cls: "vl-frameinfo", text: `${many.length} blocks chosen. Drag one to move them all; Shift+click adds or takes one out.` });
+    const L = () => Math.min(...many.map((b) => b.x)), T = () => Math.min(...many.map((b) => b.y));
+    const Rr = () => Math.max(...many.map((b) => b.x + b.w)), B = () => Math.max(...many.map((b) => b.y + b.h));
+    const spread = (axis) => {
+      const len = axis === "x" ? "w" : "h", list = [...many].sort((a2, b) => a2[axis] - b[axis]);
+      const a = list[0][axis], z = Math.max(...list.map((b) => b[axis] + b[len])), used = list.reduce((n, b) => n + b[len], 0);
+      const gap = (z - a - used) / Math.max(1, list.length - 1);
+      let at = a;
+      for (const b of list) {
+        b[axis] = Math.round(at);
+        at += b[len] + gap;
+      }
+    };
+    const al = s.createDiv({ cls: "vl-align" });
+    const A = [
+      ["align-start-vertical", "Line up the left edges", () => {
+        const v = L();
+        for (const b of many) b.x = v;
+      }],
+      ["align-center-vertical", "Line up the middles across", () => {
+        const v = (L() + Rr()) / 2;
+        for (const b of many) b.x = Math.round(v - b.w / 2);
+      }],
+      ["align-end-vertical", "Line up the right edges", () => {
+        const v = Rr();
+        for (const b of many) b.x = v - b.w;
+      }],
+      ["|", "", () => {
+      }],
+      ["align-start-horizontal", "Line up the tops", () => {
+        const v = T();
+        for (const b of many) b.y = v;
+      }],
+      ["align-center-horizontal", "Line up the middles down", () => {
+        const v = (T() + B()) / 2;
+        for (const b of many) b.y = Math.round(v - b.h / 2);
+      }],
+      ["align-end-horizontal", "Line up the bottoms", () => {
+        const v = B();
+        for (const b of many) b.y = v - b.h;
+      }],
+      ["|", "", () => {
+      }],
+      ["align-horizontal-distribute-center", "Space out evenly across", () => spread("x")],
+      ["align-vertical-distribute-center", "Space out evenly down", () => spread("y")]
+    ];
+    for (const [icon, label2, act] of A) {
+      if (icon === "|") {
+        al.createSpan({ cls: "vl-alsep" });
+        continue;
+      }
+      this.icon(this.btn(al, icon, label2, () => this.edit(act)), icon, label2);
+    }
+    this.actions(body, [["copy", "Duplicate", () => this.duplicate()], ["trash-2", "Delete", () => this.remove()]]);
+  }
+  // several items: lined up (to the outline around them all, as drawn), spaced out, copied, deleted
+  itemsPanel(body, mi) {
+    const s = this.section(body, "Items");
+    const nb = new Set(mi.map((x) => x.b)).size;
+    s.createDiv({ cls: "vl-frameinfo", text: `${mi.length} items chosen${nb > 1 ? ` in ${nb} blocks` : ""}. Drag one to move them all; Shift+click adds or takes one out.` });
+    const scr = () => this.wall.querySelector(".vl-screen");
+    const boxes = () => mi.map((x) => {
+      const bEl = scr()?.querySelector(`[data-block="${x.b.id}"]`), r = bEl ? this.itemBox(bEl, x.b, x.it) : null;
+      return r ? { ...x, L: r.L + x.b.x, T: r.T + x.b.y, W: r.W, H: r.H } : null;
+    }).filter((x) => !!x);
+    const shift = (it, mx, my) => {
+      const [ax, ay] = axes(it.g);
+      if (it.w !== "fill") it.dx = Math.round((it.dx ?? 0) + (ax > 0 ? -mx : mx));
+      if (it.h !== "fill") it.dy = Math.round((it.dy ?? 0) + (ay > 0 ? -my : my));
+    };
+    const line = (f) => () => {
+      const all = boxes();
+      if (!all.length) return;
+      const g = f(all);
+      for (const x of all) {
+        const [mx, my] = g(x);
+        shift(x.it, mx, my);
+      }
+    };
+    const spread = (axis) => () => {
+      const all = boxes().sort((a2, b) => axis === "x" ? a2.L - b.L : a2.T - b.T);
+      if (all.length < 3) return;
+      const p0 = (x) => axis === "x" ? x.L : x.T, len = (x) => axis === "x" ? x.W : x.H;
+      const a = p0(all[0]), z = Math.max(...all.map((x) => p0(x) + len(x))), gap = (z - a - all.reduce((n, x) => n + len(x), 0)) / (all.length - 1);
+      let at = a;
+      for (const x of all) {
+        const d = at - p0(x);
+        shift(x.it, axis === "x" ? d : 0, axis === "y" ? d : 0);
+        at += len(x) + gap;
+      }
+    };
+    const L = (a) => Math.min(...a.map((x) => x.L)), T = (a) => Math.min(...a.map((x) => x.T));
+    const Rr = (a) => Math.max(...a.map((x) => x.L + x.W)), B = (a) => Math.max(...a.map((x) => x.T + x.H));
+    const al = s.createDiv({ cls: "vl-align" });
+    const A = [
+      ["align-start-vertical", "Line up the left edges", line((a) => {
+        const v = L(a);
+        return (x) => [v - x.L, 0];
+      })],
+      ["align-center-vertical", "Line up the middles across", line((a) => {
+        const v = (L(a) + Rr(a)) / 2;
+        return (x) => [v - x.L - x.W / 2, 0];
+      })],
+      ["align-end-vertical", "Line up the right edges", line((a) => {
+        const v = Rr(a);
+        return (x) => [v - x.L - x.W, 0];
+      })],
+      ["|", "", () => {
+      }],
+      ["align-start-horizontal", "Line up the tops", line((a) => {
+        const v = T(a);
+        return (x) => [0, v - x.T];
+      })],
+      ["align-center-horizontal", "Line up the middles down", line((a) => {
+        const v = (T(a) + B(a)) / 2;
+        return (x) => [0, v - x.T - x.H / 2];
+      })],
+      ["align-end-horizontal", "Line up the bottoms", line((a) => {
+        const v = B(a);
+        return (x) => [0, v - x.T - x.H];
+      })],
+      ["|", "", () => {
+      }],
+      ["align-horizontal-distribute-center", "Space out evenly across", spread("x")],
+      ["align-vertical-distribute-center", "Space out evenly down", spread("y")]
+    ];
+    for (const [icon, label2, act] of A) {
+      if (icon === "|") {
+        al.createSpan({ cls: "vl-alsep" });
+        continue;
+      }
+      this.icon(this.btn(al, icon, label2, () => this.edit(act)), icon, label2);
+    }
+    this.actions(body, [["group", "Group (Ctrl+G)", () => this.groupSel()], ["copy", "Duplicate", () => this.duplicate()], ["trash-2", "Delete", () => this.remove()]]);
   }
   // a frame's block on a page that inherits it: locked here; copy it in to change it here, or edit it where it belongs
   framePanel(body, p, l) {
@@ -3459,7 +5141,7 @@ What I want changed:
     });
   }
   addButtons(parent, b, list, types) {
-    const names = { text: "Text", rect: "Shape", ellipse: "Circle", line: "Line", img: "Picture", icon: "Icon", row: "Row", col: "Column" };
+    const names = { text: "Text", rect: "Shape", ellipse: "Circle", line: "Line", img: "Picture", icon: "Icon", group: "Group", row: "Row", col: "Column" };
     const g = parent.createDiv({ cls: "vl-addgrid is-items" });
     for (const t of types) {
       const c = g.createEl("button", { cls: "vl-addt", attr: { "aria-label": `Add a ${names[t].toLowerCase()}` } });
@@ -3467,7 +5149,14 @@ What I want changed:
       c.createSpan({ text: names[t] });
       c.addEventListener("click", () => this.edit(() => {
         const it = newItem(t);
-        if (list !== b.items) {
+        const holder = list === b.items ? null : (function find(xs) {
+          for (const x of xs) {
+            if (x.items === list) return x;
+            const f = x.items && find(x.items);
+            if (f) return f;
+          }
+        })(b.items);
+        if (holder && holder.type !== "group") {
           delete it.g;
           delete it.dx;
           delete it.dy;
@@ -3564,6 +5253,21 @@ What I want changed:
       this.colors(this.section(body, "Colour"), it.color ?? "text", (v) => {
         it.color = v === "text" ? void 0 : v;
       });
+    } else if (it.type === "group") {
+      const s = this.section(body, "Group");
+      s.createDiv({ cls: "vl-frameinfo", text: `${it.items?.length ?? 0} items, moved as one. Click in it again (or double-click) to choose one of them; Esc goes back up.` });
+      const acts = [["scan", "Fit to its items", () => {
+        const scr = this.wall.querySelector(".vl-screen");
+        if (scr) this.edit(() => this.refit(scr, b, it));
+      }]];
+      if (b.items.includes(it)) acts.unshift(["ungroup", "Ungroup (Ctrl+Shift+G)", () => this.ungroup()]);
+      this.actions(s, acts);
+      this.num(s.createDiv({ cls: "vl-nums" }), "Opacity", () => it.op ?? 100, (v) => {
+        it.op = v >= 100 ? void 0 : v;
+      }, { min: 0, max: 100 });
+      const c = this.section(body, "Items in it");
+      this.itemList(c, b, it.items ?? (it.items = []));
+      this.addButtons(c, b, it.items, ["text", "rect", "ellipse", "img", "icon", "row", "col"]);
     } else if (it.type === "row" || it.type === "col") {
       const s = this.section(body, "Layout"), across = it.type === "row";
       this.seg(this.frow(s, "Direction"), [["row", "Across", "arrow-right"], ["col", "Down", "arrow-down"]], it.type, (v) => {
@@ -3996,7 +5700,7 @@ var hsvToRgb = (h, s, v) => {
   };
   return { r: Math.round(f(5) * 255), g: Math.round(f(3) * 255), b: Math.round(f(1) * 255) };
 };
-var TYPE_ICON = { text: "type", rect: "square", ellipse: "circle", line: "minus", img: "image", icon: "smile", row: "columns-3", col: "rows-3" };
+var TYPE_ICON = { text: "type", rect: "square", ellipse: "circle", line: "minus", img: "image", icon: "smile", group: "group", row: "columns-3", col: "rows-3" };
 var detail = (it) => it.type === "text" ? `${it.font ?? "ui"} ${it.size ?? 15}` : it.type === "icon" ? `${it.size ?? 20}` : it.type === "img" ? it.fit ?? "cover" : it.type === "row" || it.type === "col" ? `${it.items?.length ?? 0} in it` : it.fill && typeof it.fill === "string" && !it.fill.includes("(") ? it.fill : "";
 var lookOn = (o) => !!(o.fill && o.fill !== "none") || !!o.sw;
 var lookHint = (o) => {
@@ -4004,7 +5708,9 @@ var lookHint = (o) => {
   return [f, line].filter(Boolean).join(" \xB7 ") || "none";
 };
 var RESIZE = ["img", "rect", "ellipse"];
-var label = (it) => it.type === "text" ? (it.v ?? "").split("\n")[0].slice(0, 24) || "(empty text)" : it.type === "row" || it.type === "col" ? `${it.items?.length ?? 0} items` : it.type === "img" ? (it.src ?? "").split(/[/?#]/).filter(Boolean).pop()?.slice(0, 24) || "picture" : it.type === "icon" ? it.name || "icon" : it.type === "ellipse" ? "circle" : it.type;
+var ZOOMMAX = 16;
+var MAPMAX = 6;
+var label = (it) => it.type === "text" ? (it.v ?? "").split("\n")[0].slice(0, 24) || "(empty text)" : it.type === "row" || it.type === "col" || it.type === "group" ? `${it.items?.length ?? 0} items` : it.type === "img" ? (it.src ?? "").split(/[/?#]/).filter(Boolean).pop()?.slice(0, 24) || "picture" : it.type === "icon" ? it.name || "icon" : it.type === "ellipse" ? "circle" : it.type;
 var icons = null;
 var iconNames = () => icons ?? (icons = [...new Set((0, import_obsidian3.getIconIds)().map((n) => n.replace(/^lucide-/, "")))].sort());
 var ref = null;
@@ -4689,5 +6395,3 @@ var FolderPick = class extends import_obsidian4.FuzzySuggestModal {
     this.pick(f);
   }
 };
-
-/* nosourcemap */
