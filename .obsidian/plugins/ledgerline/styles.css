@@ -1247,7 +1247,12 @@ body.zl-calm .zl-fl-svg.is-light .zl-fl-bar { animation: none; }
 /* one-screen chart pages (2026-11-04): the chart takes the room left, a strip of what you hold, tiles to the rest */
 .zl-page.zl-c-stack > .zl-c-fill.zl-chartg { max-height: none; min-height: auto; position: relative; }   /* relative: the thesis card floats over it */
 .zl-page.zl-c-stack > .zl-lastp { flex-shrink: 0; }   /* the price block never gives up its lines (the chart takes what is left) */
-.zl-app .zl-thline button.zl-th-strip { height: 32px; }   /* the thesis strip under the chart (chart page, mock B 2026-11-18) */
+/* the chart page's THESIS › at the end of the readout line (owner picked Vellum C1, 2026-11-18): small, outlined; a loud dot when
+   the check is due or near; WRITE › loud with no thesis yet */
+.zl-app button.zl-th-btn { all: unset; position: relative; flex: none; box-sizing: border-box; height: 22px; padding: 0 9px; border: 2px solid var(--zl-text); font: 400 10px var(--zl-pixel); letter-spacing: .06em; color: var(--zl-text); line-height: 18px; cursor: pointer; }
+.zl-app button.zl-th-btn.is-loud { border-color: var(--zl-loud); color: var(--zl-loud); }
+.zl-th-dot { position: absolute; top: 2px; right: 2px; width: 4px; height: 4px; background: var(--zl-loud); }
+.zl-app button.zl-th-btn::after { content: ""; position: absolute; inset: -11px -4px; }   /* a 44 px tap target */
 .zl-c-group.zl-hold.is-4 .zl-sum-items { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .zl-hold.is-4 .zl-sum-k { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .zl-hold-go { cursor: pointer; }

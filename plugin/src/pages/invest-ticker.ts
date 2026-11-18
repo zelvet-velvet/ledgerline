@@ -12,7 +12,7 @@ import { flowModes, sectorLine } from "./invest-flow";
 import { flowCodes, flowsTile } from "./flows";
 import type { PageOut } from "./index";
 import { signed, pctS, qty, X, todayOf, atNow, flowTickers, guessCur, tickerBadge } from "./invest-shared";
-import { thesisLine } from "./invest-thesis";
+import { thesisButton, thesisLine } from "./invest-thesis";
 import { revenueTile } from "./invest-revenue";
 
 // TRADE on a chart page: the rules check first (a buy), then the trade sheet (x.buy, the same from every page)
@@ -35,8 +35,7 @@ export const assetPage = (x: X, p: Position): PageOut => {
     const el = page(p.ticker);
     el.addClass("zl-c-stack");
     const costP = p.q > 0 ? p.avgP : null;   // cost per share in the asset's own currency, from its trades (calc/invest.ts: today's FX never moves it)
-    chartBlock(x, el, p.ticker, p.currency, costP);
-    thesisStrip(x, el, p.ticker);
+    chartBlock(x, el, p.ticker, p.currency, costP);   // the thesis: THESIS › on the chart's readout line (C1, 2026-11-18)
     // the hold strip, four across (owner picked mock B, 2026-11-18): PLAN joined it from the tiles; a tap on it opens the plan sheet
     const next = nextDca(p.dca, today()), thoughts = x.journal(p.ticker);
     const hold = h(el, "div", "zl-c-group zl-hold is-4");
@@ -157,12 +156,11 @@ export const chartBlock = (x: X, el: HTMLElement, tk: string, currency: string, 
     const srcEl = h(srcRow, "div", "zl-ch-src", srcText());
     const memo = DRAWN.get(ctx.frame) ?? [];
     DRAWN.set(ctx.frame, memo);
-    const cv = holdingChart(cg, { ticker: tk, currency, prices, prefs: readPrefs(ctx.plugin.store.fm(journalPath(tk))), cost, memo, height: 0, onLeave: () => ctx.pop(), fullLine: thesisLine(x, tk) });
+    const cv = holdingChart(cg, { ticker: tk, currency, prices, prefs: readPrefs(ctx.plugin.store.fm(journalPath(tk))), cost, memo, height: 0, onLeave: () => ctx.pop(), fullLine: thesisLine(x, tk), noteEnd: thesisButton(x, tk) });
     flowModes(x, srcRow, cg, tk, cv.el);   // Taiwan stocks: CANDLE · FOOTPRINT · VOLUME HEAT
 };
 // the thesis on a chart page (owner picked mock B, 2026-11-18: the chart takes the room): the full chart's one line (next check,
 // what must hold, vs 0050); a tap floats the whole card over the chart
-const thesisStrip = (x: X, el: HTMLElement, tk: string): void => thesisLine(x, tk)(h(el, "div", "zl-c-group zl-thline"));
 // CHART (masthead): the settings sheet (Fib levels, snap, cost line, MA), kept in the ticker's note
 export const drawAct = (x: X, tk: string) => ({ text: t("iChartSet"), label: t("dTitle", { tk }), onTap: () => new DrawingsSheet(x.ctx.app, x.ctx.plugin.store, tk, () => x.addThought(tk)).open() });
 
@@ -175,7 +173,6 @@ export const tickerPage = (x: X, tk: string): PageOut => {
     el.addClass("zl-c-stack");
     const watched = P.watch.includes(tk);
     chartBlock(x, el, tk, guessCur(prices.symbol(tk)), null);
-    thesisStrip(x, el, tk);
     const tiles = [
         watched
             ? { k: "", icon: "eye", v: t("iWatching").toUpperCase(), onTap: () => { void x.dropWatch(tk); } }

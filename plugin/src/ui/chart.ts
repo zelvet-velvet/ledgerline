@@ -37,6 +37,9 @@ export interface ChartOpts {
     ladder?: Range[]; chips?: true; swipe?: (dir: 1 | -1) => void;
     // the full chart: a line beside the MA chips (the thesis, Vellum screen "Invest · chart page with thesis", landscape)
     fullLine?: (parent: HTMLElement) => void;
+    // a small button at the right end of the bar's readout line (the chart page's THESIS ›: Vellum "2330 · C1 thesis on the readout
+    // line", owner picked 2026-11-18)
+    noteEnd?: (parent: HTMLElement) => void;
 }
 type Tool = DrawType | "measure";
 // the armed tool and a first point waiting, per ticker (a page redraw from a price refresh keeps them); a measure is not saved
@@ -91,6 +94,7 @@ export const holdingChart = (parent: HTMLElement, o: ChartOpts): ChartView => {
         ranges = o.ladder ? document.createElement("div") : h(box, "div", "zl-ch-ranges is-seg");
         tools = o.tools === false ? document.createElement("div") : h(box, "div", "zl-ch-tools");
         if (o.chips) { const r = h(box, "div", "zl-ch-nrow"); note = h(r, "div", "zl-ch-note"); ind = h(r, "div", "zl-ch-ind is-chips"); }
+        else if (o.noteEnd) { ind = h(box, "div", "zl-ch-ind"); const r = h(box, "div", "zl-ch-nrow"); note = h(r, "div", "zl-ch-note"); o.noteEnd(r); }
         else { ind = h(box, "div", "zl-ch-ind"); note = h(box, "div", "zl-ch-note"); }   // note: the bar's O H L C Vol, or what to tap next
         plot = h(box, "div", "zl-ch-plot");
         if (o.height === 0) box.addClass("is-fill");   // 0: the chart takes the room the page leaves (one-screen chart pages)

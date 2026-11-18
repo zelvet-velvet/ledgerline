@@ -3207,6 +3207,7 @@ var en = {
   thEdit: "Edit",
   thTitle: "Thesis",
   thWrite: "Write the thesis",
+  thWriteShort: "Write",
   thWhy: "Why",
   thWhyPh: "Why you watch or hold it",
   thCheck: "Next check",
@@ -4547,6 +4548,11 @@ var holdingChart = (parent, o) => {
       const r = h(box, "div", "zl-ch-nrow");
       note = h(r, "div", "zl-ch-note");
       ind = h(r, "div", "zl-ch-ind is-chips");
+    } else if (o.noteEnd) {
+      ind = h(box, "div", "zl-ch-ind");
+      const r = h(box, "div", "zl-ch-nrow");
+      note = h(r, "div", "zl-ch-note");
+      o.noteEnd(r);
     } else {
       ind = h(box, "div", "zl-ch-ind");
       note = h(box, "div", "zl-ch-note");
@@ -9779,16 +9785,39 @@ var thesisLine = (x, tk) => (parent) => {
   if (d) h(b, "span", "zl-th-strip-n" + (d.diff > 0 ? " is-up" : d.diff < 0 ? " is-hot" : ""), `${t("thVsShort", { b: BENCH })} ${pctS(d.diff)}`);
   b.addEventListener("click", (e) => {
     e.preventDefault();
-    const layer = b.closest(".zl-fchart") ?? b.closest(".zl-page")?.querySelector(".zl-chartg") ?? document.body;
-    const pane = h(layer, "div", "zl-th-float");
-    thesisCard(x, pane, tk);
-    const off = (ev) => {
-      if (!pane.contains(ev.target) || ev.target.closest("button")) {
-        pane.remove();
-        document.removeEventListener("pointerdown", off, true);
-      }
-    };
-    window.setTimeout(() => document.addEventListener("pointerdown", off, true), 0);
+    floatCard(x, tk, b);
+  });
+};
+var floatCard = (x, tk, from) => {
+  const layer = from.closest(".zl-fchart") ?? from.closest(".zl-page")?.querySelector(".zl-chartg") ?? document.body;
+  const pane = h(layer, "div", "zl-th-float");
+  thesisCard(x, pane, tk);
+  const off = (ev) => {
+    if (!pane.contains(ev.target) || ev.target.closest("button")) {
+      pane.remove();
+      document.removeEventListener("pointerdown", off, true);
+    }
+  };
+  window.setTimeout(() => document.addEventListener("pointerdown", off, true), 0);
+};
+var thesisButton = (x, tk) => (parent) => {
+  const th = thesisOf(x, tk);
+  const b = h(parent, "button", "zl-th-btn");
+  if (!th) {
+    b.addClass("is-loud");
+    b.setText(t("thWriteShort").toUpperCase() + " \u203A");
+    b.addEventListener("click", (e) => {
+      e.preventDefault();
+      editThesis(x, tk);
+    });
+    return;
+  }
+  b.setText(t("thHead").toUpperCase() + " \u203A");
+  const st = checkState(th.check, today());
+  if (st === "due" || st === "soon") h(b, "i", "zl-th-dot");
+  b.addEventListener("click", (e) => {
+    e.preventDefault();
+    floatCard(x, tk, b);
   });
 };
 var RULE_K = { thesis: "rkThesis", sell: "rkSell", cap: "rkCap", batch: "rkBatch", emergency: "rkEmergency", limit: "rkLimit", sat: "rkSat" };
@@ -9982,7 +10011,6 @@ var assetPage = (x, p) => {
   el2.addClass("zl-c-stack");
   const costP = p.q > 0 ? p.avgP : null;
   chartBlock(x, el2, p.ticker, p.currency, costP);
-  thesisStrip(x, el2, p.ticker);
   const next = nextDca(p.dca, today()), thoughts = x.journal(p.ticker);
   const hold = h(el2, "div", "zl-c-group zl-hold is-4");
   const valueK = (pl, cost) => {
@@ -10129,10 +10157,9 @@ var chartBlock = (x, el2, tk, currency, cost) => {
   const srcEl = h(srcRow, "div", "zl-ch-src", srcText());
   const memo = DRAWN.get(ctx.frame) ?? [];
   DRAWN.set(ctx.frame, memo);
-  const cv = holdingChart(cg, { ticker: tk, currency, prices, prefs: readPrefs(ctx.plugin.store.fm(journalPath(tk))), cost, memo, height: 0, onLeave: () => ctx.pop(), fullLine: thesisLine(x, tk) });
+  const cv = holdingChart(cg, { ticker: tk, currency, prices, prefs: readPrefs(ctx.plugin.store.fm(journalPath(tk))), cost, memo, height: 0, onLeave: () => ctx.pop(), fullLine: thesisLine(x, tk), noteEnd: thesisButton(x, tk) });
   flowModes(x, srcRow, cg, tk, cv.el);
 };
-var thesisStrip = (x, el2, tk) => thesisLine(x, tk)(h(el2, "div", "zl-c-group zl-thline"));
 var drawAct = (x, tk) => ({ text: t("iChartSet"), label: t("dTitle", { tk }), onTap: () => new DrawingsSheet(x.ctx.app, x.ctx.plugin.store, tk, () => x.addThought(tk)).open() });
 var tickerPage = (x, tk) => {
   const { ctx, P } = x;
@@ -10142,7 +10169,6 @@ var tickerPage = (x, tk) => {
   el2.addClass("zl-c-stack");
   const watched = P.watch.includes(tk);
   chartBlock(x, el2, tk, guessCur(prices.symbol(tk)), null);
-  thesisStrip(x, el2, tk);
   const tiles = [
     watched ? { k: "", icon: "eye", v: t("iWatching").toUpperCase(), onTap: () => {
       void x.dropWatch(tk);

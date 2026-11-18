@@ -807,6 +807,7 @@ const en = {
     thEdit: "Edit",
     thTitle: "Thesis",
     thWrite: "Write the thesis",
+    thWriteShort: "Write",
     thWhy: "Why",
     thWhyPh: "Why you watch or hold it",
     thCheck: "Next check",
