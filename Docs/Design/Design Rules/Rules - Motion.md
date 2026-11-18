@@ -7,6 +7,8 @@ sticker: lucide//move
 ---
 > [!abstract]+ One set of moves, reused everywhere
 > Part of [[Design Rules]] (read the core first: one show at a time, ≤ 0.35 s, Calm motion turns all of it off). A new page or tool picks its moves from this note and never adds its own kind. Each move names its code so it is reused, not copied.
+>
+> The mock screens these rules name ("2330 · …", "Chart · view and draw row", "Split-flaps …") were removed once built (2026-11-18); they stay in git history. Vellum keeps the captured real pages: Holding chart (2330) and Holding chart · ETF (0050).
 
 ## 🚪 Pages coming in
 - **Deeper / Back**: a cross-fade by default (owner, 2026-11-18: Settings › Page move "fade"): the old page's still copy fades out while the new page fades in, opacity only (no scale: it read as the parts resizing, owner 2026-11-18), 0.2 s, ease-out (`zl-fade-up` / `zl-fade-down`). The slide below stays a choice in Settings. Slide (owner, 2026-11-05): the new page slides in from the right over the old one (2 px rule on its left edge) while the old one eases a quarter to the left and dims (to 40 %); Back: the page slides off to the right and uncovers the page below easing back in; about 0.3 s, `cubic-bezier(.2, .8, .2, 1)`. The old page is a still copy (`view.ts` `ghostOf`), so nothing redraws under it. Masthead, bottom bar and tabs never move; the bottom bar swaps its buttons in one frame. Back returns to where the page was scrolled. `view.ts` `move`, CSS `zl-ghost`, `zl-scroll.is-push / is-pop`. No wipe.

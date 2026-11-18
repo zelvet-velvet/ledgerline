@@ -7,6 +7,8 @@ sticker: lucide//line-chart
 ---
 > [!abstract]+ The Invest tab: market mode, chart page, rows, live data
 > Part of [[Design Rules]] (read the core first). Charts: [[Rules - Charts]]. The investing rules it checks (cap, batches, emergency fund) are set in Investment Config. Every Invest page carries `.zl-invest` (`view.ts`), so up / down colours apply to all of them and to the full chart.
+>
+> The mock screens these rules name ("2330 · …", "Chart · view and draw row", "Split-flaps …") were removed once built (2026-11-18); they stay in git history. Vellum keeps the captured real pages: Holding chart (2330) and Holding chart · ETF (0050).
 
 ## 🏠 Invest home = market mode (owner's artifact rounds 1–10, Vellum screen "Invest home · market mode"; built 2026-11-10)
 - The board (what you hold is worth; today's move on the right in up / down; Gain / loss as a split-flap with "+10.2% since bought" under its label, net after the Taiwan sell fee and tax) → the **market card** → the **watchlist marquee** (always there: the market card's chart, at least 220 px, gives up the room; owner, 2026-11-13) → the links on one line, titles only, each centred in its button: **HOLDINGS | MAP | ALERTS | MIX** (no counts, no warnings text: Mix shows them; owner, 2026-11-13, replacing the two-across links of 2026-11-11). Sideways: the marquee's cells (no head) under the board on the left, the links under the market card on the right.
