@@ -1649,6 +1649,7 @@ body.zl-calm .zl-lastp.is-loading .zl-flap .t, body.zl-calm .zl-lastp.is-loading
 .zl-ch-line { flex: 1; min-width: 0; }
 :is(.zl-app, .zl-fchart) button.zl-th-strip { width: 100%; display: flex; align-items: center; gap: 10px; height: 24px; margin: 0; padding: 0 8px; border: 2px solid var(--zl-text); background: none; font: 400 11px var(--zl-ui); color: var(--zl-text); white-space: nowrap; overflow: hidden; }
 :is(.zl-app, .zl-fchart) button.zl-th-strip.is-loud { border-color: var(--zl-loud); color: var(--zl-loud); }
+.zl-fchart button.zl-th-strip.is-loud { display: none; }   /* sideways: no WRITE THE THESIS, only a written thesis shows (owner, 2026-11-18) */
 .zl-fchart button.zl-sec { background: none; box-shadow: none; height: auto; border-radius: 0; color: var(--zl-text); }   /* the thesis card's head in the full chart (Obsidian's button look off) */
 .zl-th-strip-k { flex: none; font: 400 10px var(--zl-pixel); letter-spacing: .06em; }
 .zl-th-strip-c { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: left; }
