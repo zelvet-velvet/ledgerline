@@ -110,7 +110,8 @@ export const thesisCard = (x: X, parent: HTMLElement, tk: string): void => {
     }
 };
 
-// the full chart (sideways): the thesis as one line beside the MA chips; a tap = the card as a floating panel
+// the thesis as one line: beside the MA chips on the full chart (sideways), under the chart on a chart page; a tap = the card
+// as a floating panel over the chart
 export const thesisLine = (x: X, tk: string) => (parent: HTMLElement): void => {
     const th = thesisOf(x, tk);
     const b = h(parent, "button", "zl-th-strip");
@@ -123,7 +124,7 @@ export const thesisLine = (x: X, tk: string) => (parent: HTMLElement): void => {
     if (d) h(b, "span", "zl-th-strip-n" + (d.diff > 0 ? " is-up" : d.diff < 0 ? " is-hot" : ""), `${t("thVsShort", { b: BENCH })} ${pctS(d.diff)}`);
     b.addEventListener("click", (e) => {
         e.preventDefault();
-        const layer = b.closest(".zl-fchart") ?? document.body;
+        const layer = b.closest(".zl-fchart") ?? b.closest(".zl-page")?.querySelector(".zl-chartg") ?? document.body;
         const pane = h(layer as HTMLElement, "div", "zl-th-float");
         thesisCard(x, pane, tk);
         const off = (ev: Event) => { if (!pane.contains(ev.target as Node) || (ev.target as HTMLElement).closest("button")) { pane.remove(); document.removeEventListener("pointerdown", off, true); } };

@@ -266,7 +266,7 @@ const beamStrip = (parent: HTMLElement, r: number, li: number, half = 18): void 
 
 // a grid of small tiles (3 per row): pixel name, display amount; an empty one is dim. Many items stay on one screen.
 // cols: force the columns (2 = an even two-across grid, an odd last tile spans the row); s = a small line under the amount
-export const tileGrid = (parent: HTMLElement, list: { k: string; v: string; s?: string; icon?: string; dim?: boolean; hot?: boolean; onTap: () => void; scrub?: () => ScrubOpts; ref?: (b: HTMLElement) => void }[], cols?: 2): HTMLElement => {
+export const tileGrid = (parent: HTMLElement, list: { k: string; v: string; u?: string; s?: string; icon?: string; dim?: boolean; hot?: boolean; onTap: () => void; scrub?: () => ScrubOpts; ref?: (b: HTMLElement) => void }[], cols?: 2): HTMLElement => {
     const g = h(parent, "div", "zl-tgrid" + (cols === 2 ? " is-2 is-span" : list.length === 4 ? " is-4" : list.length <= 2 ? " is-2" : ""));
     for (const x of list) {
         const b = h(g, "button", "zl-tg" + (x.dim ? " is-dim" : "") + (x.hot ? " is-hot" : ""));
@@ -274,6 +274,7 @@ export const tileGrid = (parent: HTMLElement, list: { k: string; v: string; s?: 
         sprite(top, x.icon ?? rowSprite(x.k), "zl-px zl-tg-ic");
         h(top, "span", "zl-tg-k", x.k);
         const v = h(b, "span", "zl-tg-v", x.v);
+        if (x.u) h(v, "span", "zl-tg-u", x.u);   // a unit beside the value, small (法人 in 張): its text node stays the value
         if (x.s) h(b, "span", "zl-tg-s", x.s);
         b.addEventListener("click", (e) => { e.preventDefault(); x.onTap(); });
         x.ref?.(b);

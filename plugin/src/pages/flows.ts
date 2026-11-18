@@ -32,22 +32,24 @@ export const flowCodes = (ctx: PageCtx, tickers: string[]): string[] =>
     tickers.map((tk) => Flows.code(ctx.plugin.prices.symbol(tk))).filter((c): c is string => !!c);
 
 // the tile on a chart page (one-screen chart pages, 2026-11-04): 三大法人 on the last report, short; fills itself in
-export const flowsTile = (ctx: PageCtx, tk: string, codes: string[]): { k: string; v: string; s: string; icon: string; hot?: boolean; dim?: boolean; onTap: () => void; ref: (b: HTMLElement) => void } | null => {
+export const flowsTile = (ctx: PageCtx, tk: string, codes: string[]): { k: string; v: string; u: string; s: string; icon: string; hot?: boolean; dim?: boolean; onTap: () => void; ref: (b: HTMLElement) => void } | null => {
     const code = Flows.code(ctx.plugin.prices.symbol(tk));
     if (!code || !codes.includes(code)) return null;
     const flows = ctx.plugin.flows;
-    // the number in lots with its report day under it (owner, 2026-11-10: "-195" alone had no unit or date); up / down colours
-    const val = () => { const s = flows.series(code), last = s?.[s.length - 1]; return last ? { v: short(lots(last.total)), s: `${shortDate(last.date).toUpperCase()} \u00b7 ${t("fLots")}`, n: last.total } : { v: "-", s: "", n: 0 }; };
+    // the number in lots with its report day under it (owner, 2026-11-10: "-195" alone had no unit or date); up / down colours.
+    // The unit sits small beside the number and the day is a plain short date (2026-11-18: "NOV 17 · 張" read badly)
+    const val = () => { const s = flows.series(code), last = s?.[s.length - 1]; return last ? { v: short(lots(last.total)), s: shortDate(last.date), n: last.total } : { v: "-", s: "", n: 0 }; };
     const v0 = val();
     flows.ensure(codes);
     const paint = (b: HTMLElement) => {
         const x = val();
-        b.querySelector(".zl-tg-v")?.setText(x.v);
+        const ve = b.querySelector(".zl-tg-v");
+        if (ve?.firstChild) ve.firstChild.textContent = x.v;   // the value's text only: the unit beside it stays
         (b.querySelector(".zl-tg-s") ?? b.createSpan({ cls: "zl-tg-s" })).setText(x.s);
         b.toggleClass("is-hot", x.n < 0); b.toggleClass("is-up", x.n > 0); b.toggleClass("is-dim", x.v === "-");
     };
     return {
-        k: t("fRowK"), icon: "flows", v: v0.v, s: v0.s, dim: v0.v === "-", onTap: () => ctx.push({ key: "flows:" + tk, title: t("fTitle", { tk }) }),
+        k: t("fRowK"), icon: "flows", v: v0.v, u: t("fLots"), s: v0.s, dim: v0.v === "-", onTap: () => ctx.push({ key: "flows:" + tk, title: t("fTitle", { tk }) }),
         ref: (b) => { b.addClass("is-mkt"); paint(b); flows.onChange(() => { if (!b.isConnected) return false; paint(b); return true; }); },
     };
 };

@@ -98,7 +98,7 @@ body :is(.zl-app, .zl-sheet-host) button:not(.clickable-icon):not(.zl-pill) { bo
 .zl-flap.is-lg { --cw: 42px; }    /* summaries */
 .zl-flap.is-xl { --cw: 48px; }    /* a chart page's price */
 .zl-flap.is-amt { --cw: 54px; }   /* the pad */
-.zl-flap .t { position: relative; display: block; width: var(--cw); height: round(calc(var(--cw) * 1.74), 1px);
+.zl-flap .t { position: relative; display: block; width: var(--cw); height: round(calc(var(--cw) * 1.74), 2px);   /* even: the split on a whole pixel */
     perspective: calc(var(--cw) * 4.5); --r: round(calc(var(--cw) * .12), 1px);
     --pin: max(1px, round(calc(var(--cw) * .08), 1px)); --gapw: max(1px, round(calc(var(--cw) * .04), 1px)); }
 .zl-flap .t i { font: 400 round(calc(var(--cw) * 1.3), 1px) var(--zl-disp); }
@@ -121,13 +121,17 @@ body :is(.zl-app, .zl-sheet-host) button:not(.clickable-icon):not(.zl-pill) { bo
     background: linear-gradient(to bottom, rgba(0,0,0,.55), rgba(0,0,0,0) 75%); }
 @supports not (text-box: trim-both cap alphabetic) { .zl-flap u { margin-top: -.17em; } }
 /* the split: a dark gap, a faint lip on the bottom card under it */
-.zl-flap .t::after { content: ""; position: absolute; left: 0; right: 0; top: calc(50% - var(--gapw) / 2); height: calc(var(--gapw) + 1px); z-index: 3;
+.zl-flap .t::after { content: ""; position: absolute; left: 0; right: 0; top: calc(50% - round(down, calc(var(--gapw) / 2), 1px)); height: calc(var(--gapw) + 1px); z-index: 3;
     background: linear-gradient(to bottom, var(--zl-tile-gap) calc(100% - 1px), var(--zl-tile-lip) 0); }
 /* the hinge pins: a short steel tab at each edge of the split, 1 px proud of the card */
 .zl-flap .t::before { content: ""; position: absolute; left: -1px; right: -1px; top: 37%; height: 26%; z-index: 4; pointer-events: none;
     background: var(--zl-tile-pin) left / var(--pin) 100% no-repeat, var(--zl-tile-pin) right / var(--pin) 100% no-repeat; }
 .zl-flap .t.sp { width: round(calc(var(--cw) * .45), 1px) !important; }
-.zl-flap .t.sp i, .zl-flap .t.sp::after, .zl-flap .t.sp::before, .zl-flap .t.sp .dr { display: none; }
+.zl-flap .t.sp i, .zl-flap .t.sp::after, .zl-flap .t.sp::before, .zl-flap .t.sp .dr, .zl-flap .t.sp .tx { display: none; }
+/* the card's surface (owner picked "matte grain" in Vellum › Split-flaps · surface, 2026-11-18): fine grey noise over the whole face,
+   the digits too, as if printed on a matte card; under the split and the pins, in soft-light so it only shades what is there */
+.zl-flap .t .tx { position: absolute; inset: 0; z-index: 2; display: block; pointer-events: none; border-radius: var(--r);
+    background: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20width%3D%2796%27%20height%3D%2796%27%3E%3Cfilter%20id%3D%27n%27%3E%3CfeTurbulence%20type%3D%27fractalNoise%27%20baseFrequency%3D%27.9%27%20numOctaves%3D%273%27%20stitchTiles%3D%27stitch%27/%3E%3CfeColorMatrix%20type%3D%27saturate%27%20values%3D%270%27/%3E%3C/filter%3E%3Crect%20width%3D%27100%25%27%20height%3D%27100%25%27%20filter%3D%27url%28%23n%29%27/%3E%3C/svg%3E") 0 0 / 64px 64px; mix-blend-mode: soft-light; opacity: .55; }
 .zl-flap .t.c i { background: none; color: var(--zl-text); }
 .zl-flap .t.c::after, .zl-flap .t.c::before { display: none; }
 
@@ -652,29 +656,29 @@ body.zl-calm .zl-bubble, body.zl-calm .zl-bubble-v.is-tick { animation: none; }
 .zl-fig-k { font: 400 14px var(--zl-ui); letter-spacing: 0; }
 .zl-fig-main .zl-fig-k { font-size: 15px; }
 .zl-flap .t.bl em { visibility: hidden; }
-/* a leading + / − sits on a tile of its own (owner, 2026-11-09), painted on the card's halves, drawn from the owner's board
-   reference (2026-11-17). Sized from the card's width (--cw), so it keeps its look at every size, the small tiles too:
-   - the bar (the − and the +'s crossbar) about .72 of the card wide, the stroke about .13 of it (a digit stem's weight),
-     whole pixels so the bars stay sharp;
-   - the bar right under the split, in the same place for + and −, so the gap never cuts a horizontal stroke and nothing moves
-     but the upright when a number turns from up to down;
-   - the + upright through the split like a digit's stem, its arms above and below the bar alike.
-   Painted in the text colour (loud on the big fields) over the card's own shading. !important: background shorthands elsewhere would wipe it */
+/* a leading + / − sits on a tile of its own (owner, 2026-11-09), painted on the card's halves, placed by the owner per size in
+   Vellum (screen Split-flaps, 2026-11-18). Each size sets, in whole pixels around the split (the top of the bottom half):
+   --bt / --bb the bar above / below the split, --ss the + upright's stroke, --ut / --ub the upright above / below the split.
+   - xl, lg and the pad: the bar across the split, the gap cutting it (4 px of ink above the gap, 2 under it);
+   - md: 2 px of ink above the gap and 2 under it, the upright 4 wide;
+   - xs: one 2 px bar sitting on the gap (cut in two it would be 1 px lines), the upright through the split.
+   The bar is .705 of the card wide at every size. Painted in the text colour (loud on the big fields) over the card's own
+   shading. !important: background shorthands elsewhere would wipe it */
 .zl-flap .t.sg em { visibility: hidden; }
-.zl-flap .t.sg i {
-    --ws: round(calc(var(--cw) * .72), 2px); --ss: max(2px, round(calc(var(--cw) * .13), 1px));
-    --top: calc(var(--gapw) / 2 + 1px);                            /* the bar's top edge in the bottom half: just past the gap's lip */
-    /* the + upright above the split: the arm above the bar about .36 of the bar's width, as on the reference; below the bar it
-       reaches as far as above */
-    --up: round(calc(var(--ws) * .36 - var(--top) + 1px), 1px);
-}
+.zl-flap .t.sg i { --ws: round(calc(var(--cw) * .705), 2px); --ss: 6px; --bt: 5px; --bb: 3px; --ut: 17px; --ub: 15px; }
+.zl-flap.is-xs .t.sg i { --ss: 2px; --bt: 2px; --bb: 0px; --ut: 6px; --ub: 4px; }
+.zl-flap.is-md .t.sg i { --ss: 4px; --bt: 2px; --bb: 3px; --ut: 7px; --ub: 8px; }
+.zl-flap.is-lg .t.sg i { --ss: 5px; --bt: 5px; --bb: 3px; --ut: 16px; --ub: 14px; }
+.zl-flap.is-xl .t.sg i { --ss: 6px; --bt: 5px; --bb: 3px; --ut: 17px; --ub: 15px; }
+.zl-flap.is-amt .t.sg i { --ss: 7px; --bt: 5px; --bb: 3px; --ut: 18px; --ub: 16px; }
+.zl-flap .t.sg .st { background-image: linear-gradient(currentColor, currentColor), var(--zl-tile-top) !important; background-repeat: no-repeat !important;
+    background-size: var(--ws) var(--bt), 100% 100% !important; background-position: 50% 100%, 0 0 !important; }
 .zl-flap .t.sg .sb { background-image: linear-gradient(currentColor, currentColor), var(--zl-tile-bot) !important; background-repeat: no-repeat !important;
-    background-size: var(--ws) var(--ss), 100% 100% !important; background-position: 50% var(--top), 0 0 !important; }
+    background-size: var(--ws) var(--bb), 100% 100% !important; background-position: 50% 0, 0 0 !important; }
+.zl-flap .t.sg.is-plus .st { background-image: linear-gradient(currentColor, currentColor), linear-gradient(currentColor, currentColor), var(--zl-tile-top) !important;
+    background-size: var(--ws) var(--bt), var(--ss) var(--ut), 100% 100% !important; background-position: 50% 100%, 50% 100%, 0 0 !important; }
 .zl-flap .t.sg.is-plus .sb { background-image: linear-gradient(currentColor, currentColor), linear-gradient(currentColor, currentColor), var(--zl-tile-bot) !important;
-    background-size: var(--ws) var(--ss), var(--ss) calc(2 * var(--top) + var(--ss) + var(--up)), 100% 100% !important;
-    background-position: 50% var(--top), 50% 0, 0 0 !important; }
-.zl-flap .t.sg.is-plus .st { background-image: linear-gradient(currentColor, currentColor), var(--zl-tile-top) !important; background-repeat: no-repeat !important;
-    background-size: var(--ss) var(--up), 100% 100% !important; background-position: 50% 100%, 0 0 !important; }
+    background-size: var(--ws) var(--bb), var(--ss) var(--ub), 100% 100% !important; background-position: 50% 0, 50% 0, 0 0 !important; }
 .zl-flap .t.sg i { color: var(--zl-loud); }
 .zl-page.zl-c-stack:not(.zl-has-bar) { justify-content: space-between; }
 .zl-app .zl-bline { width: 100%; height: auto; display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 6px 0; border: 0; background: none; color: var(--zl-text); text-align: left; }
@@ -932,7 +936,13 @@ body.zl-calm .zl-fl-svg.is-light .zl-fl-bar { animation: none; }
 .zl-fl-src { white-space: normal; padding: 0 0 8px; }
 
 /* one-screen chart pages (2026-11-04): the chart takes the room left, a strip of what you hold, tiles to the rest */
-.zl-page.zl-c-stack > .zl-c-fill.zl-chartg { max-height: none; min-height: 300px; }
+.zl-page.zl-c-stack > .zl-c-fill.zl-chartg { max-height: none; min-height: 300px; position: relative; }   /* relative: the thesis card floats over it */
+.zl-page.zl-c-stack > .zl-lastp { flex-shrink: 0; }   /* the price block never gives up its lines (the chart takes what is left) */
+.zl-app .zl-thline button.zl-th-strip { height: 32px; }   /* the thesis strip under the chart (chart page, mock B 2026-11-18) */
+.zl-c-group.zl-hold.is-4 .zl-sum-items { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.zl-hold.is-4 .zl-sum-k { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zl-hold-go { cursor: pointer; }
+.zl-hold-go.is-dim .zl-sum-v { color: var(--zl-muted); }
 .zl-chartg > .zl-ch.is-fill { flex: 1 1 0; min-height: 0; }
 .zl-ch.is-fill .zl-ch-plot { flex: 1 1 0; min-height: 160px; }
 .zl-c-group.zl-hold .zl-sum-items { margin-top: 0; padding-top: 0; border-top: 0; }
@@ -942,6 +952,7 @@ body.zl-calm .zl-fl-svg.is-light .zl-fl-bar { animation: none; }
 .zl-app .zl-tgrid.is-4 .zl-tg-k { white-space: normal; overflow: visible; line-height: 1.3; font-size: 9px; letter-spacing: 0; }   /* four across: a long name wraps at its spaces, never cut */
 .zl-tgrid.is-span > .zl-tg:last-child:nth-child(odd) { grid-column: 1 / -1; }   /* two across: an odd last tile takes the row */
 .zl-app .zl-tgrid.is-span > .zl-tg { justify-content: flex-start; }   /* amounts line up under the names, whatever the row height */
+.zl-tg-u { margin-left: 3px; font: 600 12px/1 "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", var(--zl-ui); color: var(--zl-muted); }   /* a unit beside a tile value (張) */
 .zl-tg-s { font: 400 11px/1.2 var(--zl-ui); color: var(--zl-muted); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .zl-tgrid.is-4 .zl-app .zl-tg, .zl-app .zl-tgrid.is-4 .zl-tg { padding: 8px 6px; }
 /* compact one-line rows (Invest home's HOLDINGS and WATCHLIST): ticker and its % on one line, the value right */
@@ -1325,8 +1336,8 @@ body.zl-calm .zl-lastp.is-loading .zl-flap .t, body.zl-calm .zl-lastp.is-loading
 .zl-ch-indrow { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .zl-ch-indrow .zl-ch-ind { flex: none; }
 .zl-ch-line { flex: 1; min-width: 0; }
-.zl-fchart button.zl-th-strip { width: 100%; display: flex; align-items: center; gap: 10px; height: 24px; margin: 0; padding: 0 8px; border: 2px solid var(--zl-text); background: none; font: 400 11px var(--zl-ui); color: var(--zl-text); white-space: nowrap; overflow: hidden; }
-.zl-th-strip.is-loud { border-color: var(--zl-loud); color: var(--zl-loud); }
+.zl-app button.zl-th-strip { width: 100%; display: flex; align-items: center; gap: 10px; height: 24px; margin: 0; padding: 0 8px; border: 2px solid var(--zl-text); background: none; font: 400 11px var(--zl-ui); color: var(--zl-text); white-space: nowrap; overflow: hidden; }
+.zl-app button.zl-th-strip.is-loud { border-color: var(--zl-loud); color: var(--zl-loud); }
 .zl-th-strip-k { flex: none; font: 400 10px var(--zl-pixel); letter-spacing: .06em; }
 .zl-th-strip-c { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: left; }
 .zl-th-strip-c.is-loud { color: var(--zl-loud); }

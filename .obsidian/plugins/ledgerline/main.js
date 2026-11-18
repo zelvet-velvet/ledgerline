@@ -1661,6 +1661,7 @@ var TTL = 10 * 60 * 1e3;
 var TTL_MIN = 15 * 1e3;
 var KEY = "ledgerline-prices";
 var Prices = class {
+  // quotes older than this came from storage
   constructor(load2, save, onFresh, provider = yahoo, taiwan = () => false) {
     this.load = load2;
     this.save = save;
@@ -1669,6 +1670,7 @@ var Prices = class {
     this.taiwan = taiwan;
     this.q = {};
     this.busy = /* @__PURE__ */ new Set();
+    this.born = Date.now();
     this.otc = null;
     // sources that did not answer: symbol (or series key) → when and how often in a row. A failed one is asked again after a
     // minute at the earliest (it was asked on every redraw), and the pages can say it failed instead of "loading"
@@ -1772,7 +1774,8 @@ var Prices = class {
   }
   // fetch what is missing or old, in the background; one redraw when anything changed
   refresh(symbols, force = false) {
-    const due = [...new Set(symbols)].filter((s2) => s2 && !this.busy.has(s2) && (force || !this.resting(s2)) && (force || !this.q[s2] || Date.now() - this.q[s2].time > TTL || isTwSym(s2) && !this.q[s2].prev));
+    const noPrev = (s2) => isTwSym(s2) && !this.q[s2].prev && this.q[s2].time < this.born;
+    const due = [...new Set(symbols)].filter((s2) => s2 && !this.busy.has(s2) && (force || !this.resting(s2)) && (force || !this.q[s2] || Date.now() - this.q[s2].time > TTL || noPrev(s2)));
     if (!due.length) return;
     due.forEach((s2) => this.busy.add(s2));
     void Promise.all(due.map((s2) => this.ask(s2).then(([k, x]) => {
@@ -3140,6 +3143,8 @@ var en = {
   iAvgCost: "Average cost",
   iDashed: "dashed line",
   iValueNow: "Value now",
+  iValueShort: "Value",
+  iAvgShort: "Avg cost",
   iChartSet: "CHART",
   close: "Close",
   dTitle: "Chart settings \xB7 {tk}",
@@ -5319,7 +5324,9 @@ var Flap = class {
     const lf = document.createElement("span");
     lf.className = "lf";
     lf.append(fr, bk);
-    t2.append(st, sb, dr, lf);
+    const tx = document.createElement("b");
+    tx.className = "tx";
+    t2.append(st, sb, dr, lf, tx);
     const x = { el: t2, st, sb, fr, bk, lf, frSh: fr.lastChild, bkSh: bk.lastChild, dr, shown: BLANK, target: BLANK, rolling: false, deadline: 0, wait: 0, gen: 0 };
     TILES.set(t2, x);
     this.show(x, BLANK);
@@ -6282,6 +6289,7 @@ var tileGrid = (parent, list5, cols) => {
     sprite(top, x.icon ?? rowSprite(x.k), "zl-px zl-tg-ic");
     h(top, "span", "zl-tg-k", x.k);
     const v = h(b, "span", "zl-tg-v", x.v);
+    if (x.u) h(v, "span", "zl-tg-u", x.u);
     if (x.s) h(b, "span", "zl-tg-s", x.s);
     b.addEventListener("click", (e) => {
       e.preventDefault();
@@ -7949,13 +7957,14 @@ var flowsTile = (ctx, tk, codes) => {
   const flows = ctx.plugin.flows;
   const val = () => {
     const s2 = flows.series(code), last = s2?.[s2.length - 1];
-    return last ? { v: short(lots(last.total)), s: `${shortDate(last.date).toUpperCase()} \xB7 ${t("fLots")}`, n: last.total } : { v: "-", s: "", n: 0 };
+    return last ? { v: short(lots(last.total)), s: shortDate(last.date), n: last.total } : { v: "-", s: "", n: 0 };
   };
   const v0 = val();
   flows.ensure(codes);
   const paint = (b) => {
     const x = val();
-    b.querySelector(".zl-tg-v")?.setText(x.v);
+    const ve = b.querySelector(".zl-tg-v");
+    if (ve?.firstChild) ve.firstChild.textContent = x.v;
     (b.querySelector(".zl-tg-s") ?? b.createSpan({ cls: "zl-tg-s" })).setText(x.s);
     b.toggleClass("is-hot", x.n < 0);
     b.toggleClass("is-up", x.n > 0);
@@ -7965,6 +7974,7 @@ var flowsTile = (ctx, tk, codes) => {
     k: t("fRowK"),
     icon: "flows",
     v: v0.v,
+    u: t("fLots"),
     s: v0.s,
     dim: v0.v === "-",
     onTap: () => ctx.push({ key: "flows:" + tk, title: t("fTitle", { tk }) }),
@@ -8533,9 +8543,9 @@ var keepSideways = (el2) => {
 };
 var RUN = 27;
 var RUN_V = RUN / 1e3;
-var WM = { pos: 0, v: RUN_V, el: null, run: null, raf: 0, last: 0, held: false };
+var WM = { pos: 0, v: RUN_V, el: null, run: null, raf: 0, last: 0, held: false, half: 0 };
 var wmPlace = () => {
-  const r = WM.run, half = r ? r.scrollWidth / 2 : 0;
+  const r = WM.run, half = WM.half;
   if (!r || half <= 0) return;
   WM.pos = (WM.pos % half + half) % half;
   r.style.transform = `translateX(${-WM.pos}px)`;
@@ -8666,11 +8676,15 @@ var watchStrip = (x, el2) => {
   WM.el = vp;
   WM.run = run;
   fingers(true);
-  new ResizeObserver(() => {
+  WM.half = 0;
+  const ro = new ResizeObserver(() => {
     if (!vp.isConnected || !vp.clientWidth || WM.el !== vp) return;
+    WM.half = run.scrollWidth / 2;
     wmPlace();
     if (!WM.raf) WM.raf = requestAnimationFrame(runWm);
-  }).observe(vp);
+  });
+  ro.observe(vp);
+  ro.observe(run);
   return g;
 };
 
@@ -9761,7 +9775,7 @@ var thesisLine = (x, tk) => (parent) => {
   if (d) h(b, "span", "zl-th-strip-n" + (d.diff > 0 ? " is-up" : d.diff < 0 ? " is-hot" : ""), `${t("thVsShort", { b: BENCH })} ${pctS(d.diff)}`);
   b.addEventListener("click", (e) => {
     e.preventDefault();
-    const layer = b.closest(".zl-fchart") ?? document.body;
+    const layer = b.closest(".zl-fchart") ?? b.closest(".zl-page")?.querySelector(".zl-chartg") ?? document.body;
     const pane = h(layer, "div", "zl-th-float");
     thesisCard(x, pane, tk);
     const off = (ev) => {
@@ -9964,17 +9978,32 @@ var assetPage = (x, p) => {
   el2.addClass("zl-c-stack");
   const costP = p.q > 0 ? p.avgP : null;
   chartBlock(x, el2, p.ticker, p.currency, costP);
-  thesisCard(x, el2, p.ticker);
-  const hold = h(el2, "div", "zl-c-group zl-hold");
+  thesisStrip(x, el2, p.ticker);
+  const next = nextDca(p.dca, today()), thoughts = x.journal(p.ticker);
+  const hold = h(el2, "div", "zl-c-group zl-hold is-4");
+  const valueK = (pl, cost) => {
+    const v = cost > 0 ? pl / cost * 100 : 0, a = Math.abs(v);
+    return `${t("iValueShort")} ${v > 0 ? "+" : v < 0 ? "\u2212" : ""}${a.toFixed(a >= 10 ? 0 : 1)}%`;
+  };
   const items2 = [
     [t("iYouHold"), qty(p.shares), false],
-    [t("iAvgCost"), costP !== null ? price2(costP) : "-", false],
-    [p.price !== null ? `${t("iValueNow")} ${pctS(p.cost > 0 ? p.pl / p.cost * 100 : 0)}` : t("iValueNow"), num(p.value), p.pl < 0]
+    [t("iAvgShort"), costP !== null ? price2(costP) : "-", false],
+    [p.price !== null ? valueK(p.pl, p.cost) : t("iValueShort"), num(p.value), p.pl < 0],
+    [t("iPlanT"), next ? shortDate(next).toUpperCase() : "-", false]
   ];
   const r = h(hold, "div", "zl-sum-items");
   const vals = items2.map(([k, v, hot]) => {
     const it = h(r, "div");
     return [h(it, "span", "zl-sum-k", k.toUpperCase()), h(it, "span", "zl-sum-v" + (hot ? " is-hot" : ""), v)];
+  });
+  const plan = r.lastElementChild;
+  plan.addClass("zl-hold-go");
+  plan.toggleClass("is-dim", !p.dca);
+  plan.setAttr("role", "button");
+  plan.setAttr("aria-label", t("iPlanT"));
+  plan.addEventListener("click", (e) => {
+    e.preventDefault();
+    x.editPlan(p);
   });
   const pr = ctx.plugin.prices, sym = pr.symbol(p.ticker);
   pr.onQuote((s2) => {
@@ -9982,13 +10011,12 @@ var assetPage = (x, p) => {
     if (s2 !== sym) return true;
     const q = atNow(pr, p.ticker, p);
     if (q.price === null) return true;
-    vals[2][0].setText(`${t("iValueNow")} ${pctS(q.cost > 0 ? q.pl / q.cost * 100 : 0)}`.toUpperCase());
+    vals[2][0].setText(valueK(q.pl, q.cost).toUpperCase());
     vals[2][1].setText(num(q.value));
     vals[2][1].toggleClass("is-hot", q.pl < 0);
     vals[2][1].toggleClass("is-up", q.pl > 0);
     return true;
   });
-  const next = nextDca(p.dca, today()), thoughts = x.journal(p.ticker);
   const off = p.trades.some((tr) => {
     const l = x.links.get(tr.id);
     return !!l && !!l.diff;
@@ -9997,7 +10025,6 @@ var assetPage = (x, p) => {
     flowsTile(ctx, p.ticker, flowCodes(ctx, flowTickers(x.P))),
     revenueTile(x, p.ticker),
     { k: t("iTrades"), icon: "list", v: String(p.trades.length), hot: off, onTap: () => ctx.push({ key: "trades:" + p.ticker, title: t("iTrades") }) },
-    { k: t("iPlanT"), icon: "calendar", v: next ? shortDate(next) : "-", dim: !p.dca, onTap: () => x.editPlan(p) },
     { k: t("iJournal"), icon: "receipt", v: String(thoughts.length), dim: !thoughts.length, onTap: () => ctx.push({ key: "journal:" + p.ticker, title: t("iJournal") }) }
   ].filter((v) => !!v);
   tileGrid(h(el2, "div", "zl-c-group"), tiles);
@@ -10101,6 +10128,7 @@ var chartBlock = (x, el2, tk, currency, cost) => {
   const cv = holdingChart(cg, { ticker: tk, currency, prices, prefs: readPrefs(ctx.plugin.store.fm(journalPath(tk))), cost, memo, height: 0, onLeave: () => ctx.pop(), fullLine: thesisLine(x, tk) });
   flowModes(x, srcRow, cg, tk, cv.el);
 };
+var thesisStrip = (x, el2, tk) => thesisLine(x, tk)(h(el2, "div", "zl-c-group zl-thline"));
 var drawAct = (x, tk) => ({ text: t("iChartSet"), label: t("dTitle", { tk }), onTap: () => new DrawingsSheet(x.ctx.app, x.ctx.plugin.store, tk, () => x.addThought(tk)).open() });
 var tickerPage = (x, tk) => {
   const { ctx, P } = x;
@@ -10110,7 +10138,7 @@ var tickerPage = (x, tk) => {
   el2.addClass("zl-c-stack");
   const watched = P.watch.includes(tk);
   chartBlock(x, el2, tk, guessCur(prices.symbol(tk)), null);
-  thesisCard(x, el2, tk);
+  thesisStrip(x, el2, tk);
   const tiles = [
     watched ? { k: "", icon: "eye", v: t("iWatching").toUpperCase(), onTap: () => {
       void x.dropWatch(tk);

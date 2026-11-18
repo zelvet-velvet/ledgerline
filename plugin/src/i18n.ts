@@ -743,6 +743,8 @@ const en = {
     iAvgCost: "Average cost",
     iDashed: "dashed line",
     iValueNow: "Value now",
+    iValueShort: "Value",
+    iAvgShort: "Avg cost",
     iChartSet: "CHART",
     close: "Close",
     dTitle: "Chart settings · {tk}",

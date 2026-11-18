@@ -1,0 +1,308 @@
+{
+ "id": "ref-flaps-surface",
+ "name": "Split-flaps · surface",
+ "parent": "ref-flaps",
+ "mock": true,
+ "note": "PICKED 2026-11-18: 2 Matte grain (in css/c.css, .zl-flap .t .tx). Options (2026-11-18): the cards' SURFACE, not their shape. Each is the real card rendered by the app with one texture layer on its face (under the split and the pins, over the digits as if printed on it), so the picked one goes straight into css/c.css. 1 Smooth: as now. 2 Matte grain: fine noise, soft-light. 3 Brushed: horizontal streaks. 4 Satin: a sheen at the top of each half, a light top edge, a dark bottom edge. 5 Worn: grain, faint scratches, edges a touch lighter.",
+ "blocks": [
+  {
+   "id": "top-bar-0",
+   "name": "Top bar",
+   "kind": "nav",
+   "x": 16,
+   "y": 47,
+   "w": 396,
+   "h": 48,
+   "items": [
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 0,
+     "dy": 44,
+     "w": 396,
+     "h": 4,
+     "fill": "text",
+     "id": "topbar0"
+    },
+    {
+     "type": "text",
+     "v": "SURFACE",
+     "g": "tl",
+     "dx": 0,
+     "dy": 7,
+     "size": 30,
+     "id": "t582",
+     "font": "display",
+     "ls": 0.005,
+     "lh": 0.9
+    }
+   ],
+   "fill": "paper"
+  },
+  {
+   "id": "surf-smooth",
+   "name": "1 Smooth (now)",
+   "kind": "card",
+   "x": 16,
+   "y": 105,
+   "w": 396,
+   "h": 156,
+   "items": [
+    {
+     "type": "text",
+     "v": "1 · SMOOTH (NOW)",
+     "g": "tl",
+     "dx": 0,
+     "dy": 0,
+     "size": 11,
+     "ls": 0.06,
+     "id": "sf1a"
+    },
+    {
+     "type": "text",
+     "v": "the halves' gradient only",
+     "g": "tl",
+     "dx": 0,
+     "dy": 14,
+     "size": 10,
+     "color": "dim",
+     "id": "sf1b"
+    },
+    {
+     "type": "img",
+     "g": "tl",
+     "dx": 0,
+     "dy": 30,
+     "w": 303.0,
+     "h": 84.0,
+     "src": "Docs/Design/Screens/img/surf-smooth-xl.png",
+     "fit": "fill",
+     "id": "sf1c"
+    },
+    {
+     "type": "img",
+     "g": "tl",
+     "dx": 0,
+     "dy": 118.0,
+     "w": 344.0,
+     "h": 38.0,
+     "src": "Docs/Design/Screens/img/surf-smooth-md.png",
+     "fit": "fill",
+     "id": "sf1d"
+    }
+   ]
+  },
+  {
+   "id": "surf-grain",
+   "name": "2 Matte grain",
+   "kind": "card",
+   "x": 16,
+   "y": 269,
+   "w": 396,
+   "h": 156,
+   "items": [
+    {
+     "type": "text",
+     "v": "2 · MATTE GRAIN",
+     "g": "tl",
+     "dx": 0,
+     "dy": 0,
+     "size": 11,
+     "ls": 0.06,
+     "id": "sf2a"
+    },
+    {
+     "type": "text",
+     "v": "fine grain over the whole card, digits too (printed on a matte card)",
+     "g": "tl",
+     "dx": 0,
+     "dy": 14,
+     "size": 10,
+     "color": "dim",
+     "id": "sf2b"
+    },
+    {
+     "type": "img",
+     "g": "tl",
+     "dx": 0,
+     "dy": 30,
+     "w": 303.0,
+     "h": 84.0,
+     "src": "Docs/Design/Screens/img/surf-grain-xl.png",
+     "fit": "fill",
+     "id": "sf2c"
+    },
+    {
+     "type": "img",
+     "g": "tl",
+     "dx": 0,
+     "dy": 118.0,
+     "w": 344.0,
+     "h": 38.0,
+     "src": "Docs/Design/Screens/img/surf-grain-md.png",
+     "fit": "fill",
+     "id": "sf2d"
+    }
+   ]
+  },
+  {
+   "id": "surf-brushed",
+   "name": "3 Brushed",
+   "kind": "card",
+   "x": 16,
+   "y": 433,
+   "w": 396,
+   "h": 156,
+   "items": [
+    {
+     "type": "text",
+     "v": "3 · BRUSHED",
+     "g": "tl",
+     "dx": 0,
+     "dy": 0,
+     "size": 11,
+     "ls": 0.06,
+     "id": "sf3a"
+    },
+    {
+     "type": "text",
+     "v": "horizontal streaks, like brushed plastic or metal",
+     "g": "tl",
+     "dx": 0,
+     "dy": 14,
+     "size": 10,
+     "color": "dim",
+     "id": "sf3b"
+    },
+    {
+     "type": "img",
+     "g": "tl",
+     "dx": 0,
+     "dy": 30,
+     "w": 303.0,
+     "h": 84.0,
+     "src": "Docs/Design/Screens/img/surf-brushed-xl.png",
+     "fit": "fill",
+     "id": "sf3c"
+    },
+    {
+     "type": "img",
+     "g": "tl",
+     "dx": 0,
+     "dy": 118.0,
+     "w": 344.0,
+     "h": 38.0,
+     "src": "Docs/Design/Screens/img/surf-brushed-md.png",
+     "fit": "fill",
+     "id": "sf3d"
+    }
+   ]
+  },
+  {
+   "id": "surf-satin",
+   "name": "4 Satin",
+   "kind": "card",
+   "x": 16,
+   "y": 597,
+   "w": 396,
+   "h": 156,
+   "items": [
+    {
+     "type": "text",
+     "v": "4 · SATIN",
+     "g": "tl",
+     "dx": 0,
+     "dy": 0,
+     "size": 11,
+     "ls": 0.06,
+     "id": "sf4a"
+    },
+    {
+     "type": "text",
+     "v": "a soft sheen at the top of each half, a light top edge, a dark bottom edge",
+     "g": "tl",
+     "dx": 0,
+     "dy": 14,
+     "size": 10,
+     "color": "dim",
+     "id": "sf4b"
+    },
+    {
+     "type": "img",
+     "g": "tl",
+     "dx": 0,
+     "dy": 30,
+     "w": 303.0,
+     "h": 84.0,
+     "src": "Docs/Design/Screens/img/surf-satin-xl.png",
+     "fit": "fill",
+     "id": "sf4c"
+    },
+    {
+     "type": "img",
+     "g": "tl",
+     "dx": 0,
+     "dy": 118.0,
+     "w": 344.0,
+     "h": 38.0,
+     "src": "Docs/Design/Screens/img/surf-satin-md.png",
+     "fit": "fill",
+     "id": "sf4d"
+    }
+   ]
+  },
+  {
+   "id": "surf-worn",
+   "name": "5 Worn",
+   "kind": "card",
+   "x": 16,
+   "y": 761,
+   "w": 396,
+   "h": 156,
+   "items": [
+    {
+     "type": "text",
+     "v": "5 · WORN",
+     "g": "tl",
+     "dx": 0,
+     "dy": 0,
+     "size": 11,
+     "ls": 0.06,
+     "id": "sf5a"
+    },
+    {
+     "type": "text",
+     "v": "grain, a few fine scratches, edges a touch lighter from handling",
+     "g": "tl",
+     "dx": 0,
+     "dy": 14,
+     "size": 10,
+     "color": "dim",
+     "id": "sf5b"
+    },
+    {
+     "type": "img",
+     "g": "tl",
+     "dx": 0,
+     "dy": 30,
+     "w": 303.0,
+     "h": 84.0,
+     "src": "Docs/Design/Screens/img/surf-worn-xl.png",
+     "fit": "fill",
+     "id": "sf5c"
+    },
+    {
+     "type": "img",
+     "g": "tl",
+     "dx": 0,
+     "dy": 118.0,
+     "w": 344.0,
+     "h": 38.0,
+     "src": "Docs/Design/Screens/img/surf-worn-md.png",
+     "fit": "fill",
+     "id": "sf5d"
+    }
+   ]
+  }
+ ]
+}
