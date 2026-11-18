@@ -1385,8 +1385,10 @@ body.zl-calm .zl-lastp.is-loading .zl-flap .t, body.zl-calm .zl-lastp.is-loading
 .zl-app button.zl-mlink { min-height: 44px; } .zl-mlinks { min-height: 47px; }   /* HOLDINGS / MAP / ALERTS / MIX */
 :is(.zl-app, .zl-sheet-host) .zl-drw-chip, .zl-sheet button.zl-chip { height: 44px; }   /* the pad's +50 / +100 / +200, a sheet's chips */
 
-/* the page scrolls under the masthead, split-flaps too: the scroll area is its own stacking layer (z 0) below the masthead (z 2).
+/* the page scrolls under the masthead, split-flaps too: the scroll area is its own stacking layer (z 1) below the masthead (z 2).
    Without it a flap card (absolute, z 2, a 3D flip layer on iOS) sat in the app's own layer and painted over the masthead's rule
    when a page scrolled (phone test 2026-11-17, This month and a chart page). Fixed parts (bubble, search, text window) hang on
-   .zl-app, not here, so they still cover everything. */
-.zl-app .zl-scroll { position: relative; z-index: 0; isolation: isolate; }
+   .zl-app, not here, so they still cover everything.
+   z 1, not 0: the copy of the page being left (.zl-ghost, view.ts move) is z 0 and comes after it, so at z 0 it painted over the
+   new page sliding in (owner, 2026-11-18: the page enter transition was bad). */
+.zl-app .zl-scroll { position: relative; z-index: 1; isolation: isolate; }

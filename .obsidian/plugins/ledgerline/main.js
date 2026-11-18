@@ -13210,6 +13210,11 @@ var LedgerView = class extends import_obsidian17.ItemView {
     const c = pg.cloneNode(true);
     c.removeClass("zl-enter");
     c.style.transform = `translateY(${-s2.scrollTop}px)`;
+    const from = pg.querySelectorAll("canvas"), to = c.querySelectorAll("canvas");
+    to.forEach((cv, i) => {
+      const src = from[i];
+      if (src?.width && src.height) cv.getContext("2d")?.drawImage(src, 0, 0);
+    });
     g.appendChild(c);
     return g;
   }

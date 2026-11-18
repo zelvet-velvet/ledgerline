@@ -210,6 +210,9 @@ export class LedgerView extends ItemView {
         const c = pg.cloneNode(true) as HTMLElement;
         c.removeClass("zl-enter");
         c.style.transform = `translateY(${-s.scrollTop}px)`;
+        // a clone keeps no canvas drawing (the big number board, charts): copy each one, or the copy shows holes as it moves
+        const from = pg.querySelectorAll("canvas"), to = c.querySelectorAll("canvas");
+        to.forEach((cv, i) => { const src = from[i]; if (src?.width && src.height) cv.getContext("2d")?.drawImage(src, 0, 0); });
         g.appendChild(c);
         return g;
     }
