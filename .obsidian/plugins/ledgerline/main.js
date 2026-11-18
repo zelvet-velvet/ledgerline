@@ -5306,7 +5306,6 @@ var TILES = /* @__PURE__ */ new WeakMap();
 var Flap = class {
   // direct is kept for the callers (the amount pad); every field now turns the same way
   constructor(cls = "md", pad2 = 0, _direct = false) {
-    this.cls = cls;
     this.pad = pad2;
     this.cur = "";
     this.el = document.createElement("div");
@@ -5427,14 +5426,6 @@ var Flap = class {
     }
     if (x.gen === g) x.rolling = false;
   }
-  // the side the number leans on: right when it sits against its box's right edge (readouts, the pad), else left; before
-  // layout, a fixed row of tiles (pad > 0) is a right-aligned readout
-  leansRight() {
-    const p = this.el.parentElement, r = this.el.getBoundingClientRect();
-    if (!p || !r.width) return this.pad > 0 || p?.classList.contains("zl-read") === true;
-    const q = p.getBoundingClientRect();
-    return q.right - r.right < r.left - q.left;
-  }
   // the appear again: every tile back to a blank card, then the value (owner, 2026-11-06: each time a page opens)
   replay() {
     if (!this.cur || calm()) return;
@@ -5453,7 +5444,7 @@ var Flap = class {
     this.set(text2);
   }
   // dir "del": a delete runs from the leftmost tile (its digits move right, the left finishes first); anything else starts
-  // from the side the number leans on
+  // from the rightmost tile
   set(text2, dir) {
     text2 = text2.toUpperCase();
     if (this.pad) {
@@ -5465,8 +5456,7 @@ var Flap = class {
     while (this.el.children.length > text2.length) this.el.firstChild?.remove();
     while (this.el.children.length < text2.length) this.el.insertBefore(this.mk(), this.el.firstChild);
     const tiles = Array.from(this.el.children).map((t2) => TILES.get(t2));
-    const big = this.cls === "lg" || this.cls === "xl" || this.cls === "amt";
-    const n = text2.length, fromLeft = dir === "del" || !big && !this.leansRight();
+    const n = text2.length, fromLeft = dir === "del";
     const still = calm();
     const now = performance.now();
     let order = 0;

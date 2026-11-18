@@ -30,7 +30,7 @@ export class Flap {
     private cur = "";
 
     // direct is kept for the callers (the amount pad); every field now turns the same way
-    constructor(private cls: "xs" | "md" | "lg" | "xl" | "amt" = "md", private pad = 0, _direct = false) {
+    constructor(cls: "xs" | "md" | "lg" | "xl" | "amt" = "md", private pad = 0, _direct = false) {
         this.el = document.createElement("div");
         this.el.className = "zl-flap is-" + cls;
         // a page coming on screen (view.ts: open, Back, tab) plays the appear again: blank cards, then the value
@@ -132,15 +132,6 @@ export class Flap {
         if (x.gen === g) x.rolling = false;
     }
 
-    // the side the number leans on: right when it sits against its box's right edge (readouts, the pad), else left; before
-    // layout, a fixed row of tiles (pad > 0) is a right-aligned readout
-    private leansRight(): boolean {
-        const p = this.el.parentElement, r = this.el.getBoundingClientRect();
-        if (!p || !r.width) return this.pad > 0 || p?.classList.contains("zl-read") === true;
-        const q = p.getBoundingClientRect();
-        return q.right - r.right < r.left - q.left;
-    }
-
     // the appear again: every tile back to a blank card, then the value (owner, 2026-11-06: each time a page opens)
     replay(): void {
         if (!this.cur || calm()) return;
@@ -157,7 +148,7 @@ export class Flap {
     }
 
     // dir "del": a delete runs from the leftmost tile (its digits move right, the left finishes first); anything else starts
-    // from the side the number leans on
+    // from the rightmost tile
     set(text: string, dir?: "del"): void {
         text = text.toUpperCase();
         // a fixed row (pad) keeps its tiles like a real board: a shorter number turns the spare ones blank, and a sign always
@@ -172,10 +163,9 @@ export class Flap {
         while (this.el.children.length > text.length) this.el.firstChild?.remove();
         while (this.el.children.length < text.length) this.el.insertBefore(this.mk(), this.el.firstChild);   // new tiles: blank cards
         const tiles = (Array.from(this.el.children) as HTMLElement[]).map((t) => TILES.get(t)!);
-        // the big sizes (lg, xl, the pad) always start from the rightmost digit, like an odometer (owner, 2026-11-18); the small ones
-        // from the side the number leans on
-        const big = this.cls === "lg" || this.cls === "xl" || this.cls === "amt";
-        const n = text.length, fromLeft = dir === "del" || (!big && !this.leansRight());
+        // every field starts from its rightmost digit, like an odometer (owner, 2026-11-18: lg / xl, then the marquee's change lines
+        // that started from the left because they sit left in their cell)
+        const n = text.length, fromLeft = dir === "del";
         const still = calm();
         const now = performance.now();
         let order = 0;
