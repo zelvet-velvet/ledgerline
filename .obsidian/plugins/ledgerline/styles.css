@@ -928,6 +928,9 @@ body.zl-calm .zl-grow rect, body.zl-calm .zl-waffle .zl-grow rect { animation: n
 .zl-page.zl-c-stack:has(> .zl-chartg), .zl-page.zl-c-stack.zl-has-bar:has(> .zl-chartg) { gap: 10px; }
 .zl-page.zl-c-stack.is-tight:has(> .zl-chartg) { gap: 8px; }
 .zl-page.zl-c-stack.is-tighter:has(> .zl-chartg) { gap: 6px; }
+/* and its foot as the mock: the tiles 10 px above the dock (no padding under them) and 64 px tall (owner, 2026-11-18: gaps like Vellum) */
+.zl-page.zl-c-stack:has(> .zl-chartg) { padding-bottom: 0; }
+.zl-page.zl-c-stack:has(> .zl-chartg) .zl-tg { gap: 2px; padding-top: 5px; padding-bottom: 5px; }
 .zl-page.is-tighter .zl-read { padding: 2px 0; }
 .zl-app .zl-page.is-tighter .zl-brow { padding: 3px 0; min-height: 40px; }
 .zl-app .zl-page.is-tighter .zl-fig { min-height: 48px; padding: 8px 0; }
