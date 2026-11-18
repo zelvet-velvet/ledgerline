@@ -3152,6 +3152,7 @@ var en = {
   dFibShown: "Fib levels shown",
   dFibNote: "50 to 61.8 get the shaded band. 127.2 and up are extensions past the high.",
   dDrawing: "Drawing",
+  dDraw: "Draw",
   dSnap: "Snap to candle high / low",
   dSnapS: "Swing points land exactly",
   dCost: "Show my average cost",
@@ -10173,7 +10174,19 @@ var chartBlock = (x, el2, tk, currency, cost) => {
   const box = cv.el, dock2 = h(cg, "div", "zl-ch zl-ch-dock");
   const fm = srcRow.querySelector(":scope > .zl-fmode"), tools = box.querySelector(":scope > .zl-ch-tools");
   if (fm) dock2.appendChild(fm);
+  const drawB = h(dock2, "button", "zl-ch-drawb", `\u270E ${t("dDraw").toUpperCase()} \u25BE`);
   if (tools) dock2.appendChild(tools);
+  const doneB = h(dock2, "button", "zl-ch-doneb", t("done").toUpperCase());
+  drawB.addEventListener("click", (e) => {
+    e.preventDefault();
+    dock2.addClass("is-drawing");
+  });
+  doneB.addEventListener("click", (e) => {
+    e.preventDefault();
+    tools?.querySelector("button.zl-ch-tool.is-on")?.click();
+    dock2.removeClass("is-drawing");
+  });
+  fm?.addEventListener("click", () => dock2.removeClass("is-drawing"));
   box.insertBefore(srcRow, box.querySelector(":scope > .zl-ch-plot"));
   box.addClass("is-d2");
 };

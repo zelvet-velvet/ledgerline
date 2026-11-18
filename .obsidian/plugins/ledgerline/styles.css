@@ -1654,12 +1654,20 @@ body.zl-calm .zl-lastp.is-loading .zl-flap .t, body.zl-calm .zl-lastp.is-loading
 .zl-ch.is-d2 > .zl-ch-plot { order: 4; } .zl-ch.is-d2 > .zl-ch-ranges { order: 5; } .zl-ch.is-d2 > .zl-ch-dock { order: 6; } .zl-ch.is-d2 > .zl-ch-foot { order: 7; }
 .zl-ch.is-d2 > .zl-flow-top { justify-content: flex-end; min-height: 0; margin-bottom: -6px; }
 .zl-ch.is-d2 > .zl-flow-top .zl-ch-src { font-size: 10px; }
-.zl-ch-dock { display: grid; grid-template-columns: 1.3fr 1fr; gap: 8px; }
+.zl-ch.zl-ch-dock { display: flex; flex-direction: row; align-items: stretch; justify-content: space-between; gap: 8px; }
+/* R4: the views and DRAW; while drawing, the tools and DONE take the row */
+.zl-app .zl-ch.zl-ch-dock:not(.is-drawing) > .zl-ch-tools, .zl-app .zl-ch.zl-ch-dock:not(.is-drawing) > button.zl-ch-doneb { display: none; }
+.zl-app .zl-ch.zl-ch-dock.is-drawing > .zl-fmode, .zl-app .zl-ch.zl-ch-dock.is-drawing > button.zl-ch-drawb { display: none; }
+.zl-app .zl-ch-dock.is-drawing > .zl-ch-tools { display: grid; flex: 1; }
+.zl-app .zl-ch-dock.is-drawing > button.zl-ch-doneb { display: flex; }
+.zl-app .zl-ch-dock > button.zl-ch-drawb, .zl-app .zl-ch-dock > button.zl-ch-doneb { all: unset; box-sizing: border-box; display: flex; align-items: center; justify-content: center; height: 28px; padding: 0 12px; border: 1.5px solid var(--zl-ink); font: 400 10px var(--zl-pixel); letter-spacing: .06em; color: var(--zl-ink); cursor: pointer; }
+.zl-app .zl-ch-dock > button.zl-ch-doneb { background: var(--zl-ink); color: var(--zl-paper); }
+.zl-chartg:has(> .zl-ch.zl-hide) > .zl-ch-dock > .zl-ch-drawb { opacity: .35; pointer-events: none; }   /* off the candles: faint, never gone, so the row keeps still */
 .zl-chartg > .zl-ch-dock { order: 9; flex: none; margin-top: 6px; }   /* under the candle chart or the tape, whichever shows */
 .zl-chartg > .zl-flow { order: 1; } .zl-chartg > .zl-ch { order: 1; }
-.zl-chartg:has(> .zl-ch.zl-hide) > .zl-ch-dock .zl-ch-tools { visibility: hidden; }
-.zl-ch-dock > .zl-fmode { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, .9fr); }
-.zl-ch-dock > .zl-fmode button { min-width: 0; height: 28px; padding: 0 2px; font-size: 9px; letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; }
+
+.zl-ch-dock > .zl-fmode { display: flex; }
+.zl-app .zl-ch-dock > .zl-fmode button.zl-fmode-b { display: flex; align-items: center; height: 28px; padding: 0 10px; }
 .zl-ch-dock > .zl-ch-tools button.zl-ch-tool { box-sizing: border-box; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; }
 /* the MA readouts on one line: a swatch, the name, the value (tap to switch the line on or off) */
 .zl-ch.is-d2 > .zl-ch-ind { border: 0; }

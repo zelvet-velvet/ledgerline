@@ -170,8 +170,20 @@ export const chartBlock = (x: X, el: HTMLElement, tk: string, currency: string, 
     // stay to come back (owner, 2026-11-18: no way back to the chart); the draw tools hide while it is not the candles
     const box = cv.el, dock = h(cg, "div", "zl-ch zl-ch-dock");   // zl-ch: the tool buttons keep their look
     const fm = srcRow.querySelector(":scope > .zl-fmode"), tools = box.querySelector(":scope > .zl-ch-tools");
+    // Vellum "Chart · view and draw row" R4 (owner picked 2026-11-18): the views as a compact switch, one DRAW button; DRAW swaps
+    // the row for FIB · LINE · LEVEL and DONE while drawing (DONE also puts down a tool still armed)
     if (fm) dock.appendChild(fm);
+    const drawB = h(dock, "button", "zl-ch-drawb", `\u270e ${t("dDraw").toUpperCase()} \u25be`);
     if (tools) dock.appendChild(tools);
+    const doneB = h(dock, "button", "zl-ch-doneb", t("done").toUpperCase());
+    drawB.addEventListener("click", (e) => { e.preventDefault(); dock.addClass("is-drawing"); });
+    doneB.addEventListener("click", (e) => {
+        e.preventDefault();
+        (tools?.querySelector("button.zl-ch-tool.is-on") as HTMLElement | null)?.click();
+        dock.removeClass("is-drawing");
+    });
+    // leaving the candles (FOOTPRINT, HEAT) closes the tools
+    fm?.addEventListener("click", () => dock.removeClass("is-drawing"));
     box.insertBefore(srcRow, box.querySelector(":scope > .zl-ch-plot"));
     box.addClass("is-d2");
 };

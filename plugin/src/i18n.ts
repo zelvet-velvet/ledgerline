@@ -752,6 +752,7 @@ const en = {
     dFibShown: "Fib levels shown",
     dFibNote: "50 to 61.8 get the shaded band. 127.2 and up are extensions past the high.",
     dDrawing: "Drawing",
+    dDraw: "Draw",
     dSnap: "Snap to candle high / low",
     dSnapS: "Swing points land exactly",
     dCost: "Show my average cost",
