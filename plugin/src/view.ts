@@ -355,7 +355,13 @@ export class LedgerView extends ItemView {
         const acts = e.out.actions ?? [];
         this.setBar(e.out.title, acts.filter((a) => !a.dock), e.out.badge);
         this.setFab(e.out.fab, acts.filter((a) => a.dock));
-        if (e.out.el.hasClass("zl-c-stack")) window.requestAnimationFrame(() => this.fit(e.out.el, key, e.out.trim));
+        // fit now when the view has its size: the page move reads the layout next anyway, so both share one layout; in the next
+        // frame it laid the page out a second time (the flaps had started), about 40 ms more as the slide began (owner,
+        // 2026-11-18: page to sub page felt laggy). Not yet sized (the view opening): the next frame, as before.
+        if (e.out.el.hasClass("zl-c-stack")) {
+            if (this.scrollEl.clientHeight > 0) this.fit(e.out.el, key, e.out.trim);
+            else window.requestAnimationFrame(() => this.fit(e.out.el, key, e.out.trim));
+        }
         else {   // Balance: a short list page centres its content in the room under the masthead
             const el = e.out.el;
             el.removeClass("is-short");

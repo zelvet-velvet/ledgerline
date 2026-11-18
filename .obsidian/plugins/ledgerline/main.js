@@ -13369,8 +13369,10 @@ var LedgerView = class extends import_obsidian17.ItemView {
     const acts = e.out.actions ?? [];
     this.setBar(e.out.title, acts.filter((a) => !a.dock), e.out.badge);
     this.setFab(e.out.fab, acts.filter((a) => a.dock));
-    if (e.out.el.hasClass("zl-c-stack")) window.requestAnimationFrame(() => this.fit(e.out.el, key, e.out.trim));
-    else {
+    if (e.out.el.hasClass("zl-c-stack")) {
+      if (this.scrollEl.clientHeight > 0) this.fit(e.out.el, key, e.out.trim);
+      else window.requestAnimationFrame(() => this.fit(e.out.el, key, e.out.trim));
+    } else {
       const el2 = e.out.el;
       el2.removeClass("is-short");
       window.requestAnimationFrame(() => {
