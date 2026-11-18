@@ -98,7 +98,7 @@ export class LedgerView extends ItemView {
         void this.plugin.debug.flush();
     }
 
-    async onClose(): Promise<void> { this.cache.clear(); this.plugin.debug.note("view closed"); }
+    async onClose(): Promise<void> { this.fitRO?.disconnect(); this.cache.clear(); this.plugin.debug.note("view closed"); }
 
     // Phone full screen is a property of the screen itself (set when it is built), not of which tab Obsidian says is active:
     // that news arrives a moment after the screen shows, and the layout jumped in between.
@@ -199,6 +199,7 @@ export class LedgerView extends ItemView {
         this.slideT = window.setTimeout(() => { s.removeClass("is-push", "is-pop"); this.appEl.querySelectorAll(".zl-ghost").forEach((g) => g.remove()); }, 340);
     }
     private slideT = 0;
+    private fitRO: ResizeObserver | null = null;   // re-fits the one-screen page on screen when a part of it grows
     private ghostOf(): HTMLElement | null {
         const s = this.scrollEl, pg = s.firstElementChild as HTMLElement | null;
         if (!pg) return null;
@@ -358,9 +359,16 @@ export class LedgerView extends ItemView {
         // fit now when the view has its size: the page move reads the layout next anyway, so both share one layout; in the next
         // frame it laid the page out a second time (the flaps had started), about 40 ms more as the slide began (owner,
         // 2026-11-18: page to sub page felt laggy). Not yet sized (the view opening): the next frame, as before.
+        this.fitRO?.disconnect(); this.fitRO = null;
         if (e.out.el.hasClass("zl-c-stack")) {
             if (this.scrollEl.clientHeight > 0) this.fit(e.out.el, key, e.out.trim);
             else window.requestAnimationFrame(() => this.fit(e.out.el, key, e.out.trim));
+            // and again when a part grows on the page (a chart switched to W gains its date row: owner, 2026-11-18, 2330 ran 3 px
+            // over); fit only ever tightens, so this settles
+            const el = e.out.el;
+            let q = 0;
+            this.fitRO = new ResizeObserver(() => { window.cancelAnimationFrame(q); q = window.requestAnimationFrame(() => { if (el.isConnected && el.scrollHeight > this.scrollEl.clientHeight) this.fit(el, key, e.out.trim); }); });
+            for (const c of Array.from(el.children)) this.fitRO.observe(c);
         }
         else {   // Balance: a short list page centres its content in the room under the masthead
             const el = e.out.el;

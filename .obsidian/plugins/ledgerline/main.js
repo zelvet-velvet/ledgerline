@@ -5119,7 +5119,7 @@ var drawBars = (plot, full, win, off, range, W, H, o, L2, cross = null) => {
   }
   const pad2 = (hi - lo) * 0.06 || hi * 0.02;
   const vol = o.volume !== false && B.v.some((v) => v > 0);
-  const yb = H - BOTTOM, y1 = vol ? Math.round(TOP + (yb - TOP) * 0.74) : yb;
+  const yb = H - BOTTOM, y1 = vol ? Math.round(Math.min(TOP + (yb - TOP) * 0.66, yb - 48)) : yb;
   const tw = isTwSym(o.prices.symbol(o.ticker)), slots = range === "I" && win >= windowOf(full, "I") ? Math.max(n, tw ? 55 : 79) : n;
   const tagW = (n ? price2(B.c[n - 1]).length : 4) * 6.6 + 8, gap = tagW + 6, span = W - 3;
   const free = n ? (slots - n) * span / Math.max(1, slots) : span;
@@ -5165,14 +5165,14 @@ var drawBars = (plot, full, win, off, range, W, H, o, L2, cross = null) => {
       const b = svgEl(vl, "tspan", {});
       b.textContent = vn(v);
     }
+    for (const [a, cls] of [[v5, "zl-ch-v5"], [v10, "zl-ch-v10"]]) {
+      const pts = a.map((m2, i) => m2 === null ? "" : `${G.x(i)},${vy(m2)}`).filter(Boolean);
+      if (pts.length > 1) svgEl(svg, "polyline", { points: pts.join(" ") }, cls);
+    }
     const vw = Math.max(1, Math.min(18, G.step * 0.64));
     for (let i = 0; i < n; i++) {
       const ht = yb - vy(B.v[i]);
       if (ht > 0) svgEl(svg, "rect", { x: G.x(i) - vw / 2, y: yb - ht, width: vw, height: ht }, B.c[i] >= B.o[i] ? "zl-ch-up zl-ch-vol" : "zl-ch-down zl-ch-vol");
-    }
-    for (const [a, cls] of [[v5, "zl-ch-v5"], [v10, "zl-ch-v10"]]) {
-      const pts = a.map((m2, i) => m2 === null ? "" : `${G.x(i)},${vy(m2)}`).filter(Boolean);
-      if (pts.length > 1) svgEl(svg, "polyline", { points: pts.join(" ") }, cls);
     }
   }
   const path = (a) => a.map((m2, i) => m2 === null ? "" : `${G.x(i)},${G.y(m2)}`).filter(Boolean);
@@ -5296,6 +5296,7 @@ var TILES = /* @__PURE__ */ new WeakMap();
 var Flap = class {
   // direct is kept for the callers (the amount pad); every field now turns the same way
   constructor(cls = "md", pad2 = 0, _direct = false) {
+    this.cls = cls;
     this.pad = pad2;
     this.cur = "";
     this.el = document.createElement("div");
@@ -5454,7 +5455,8 @@ var Flap = class {
     while (this.el.children.length > text2.length) this.el.firstChild?.remove();
     while (this.el.children.length < text2.length) this.el.insertBefore(this.mk(), this.el.firstChild);
     const tiles = Array.from(this.el.children).map((t2) => TILES.get(t2));
-    const n = text2.length, fromLeft = dir === "del" || !this.leansRight();
+    const big = this.cls === "lg" || this.cls === "xl" || this.cls === "amt";
+    const n = text2.length, fromLeft = dir === "del" || !big && !this.leansRight();
     const still = calm();
     const now = performance.now();
     let order = 0;
@@ -11245,7 +11247,8 @@ var DEFAULTS = {
   debugLog: false,
   debugPath: ".ledgerline/debug.log",
   bigNumber: "dots",
-  pageMove: "slide",
+  pageMove: "fade",
+  // owner, 2026-11-18: fade in / out instead of the slide
   calm: false,
   tabOrder: [...TAB_ORDER],
   theme: "auto",
@@ -11312,7 +11315,7 @@ var LedgerSettingTab = class extends import_obsidian16.PluginSettingTab {
       const names2 = { slide: "sMoveSlide", push: "sMovePush", wipe: "sMoveWipe", fade: "sMoveFade", cascade: "sMoveCascade" };
       PAGE_MOVES.forEach((k) => x.addOption(k, t(names2[k])));
       x.setValue(s2.pageMove).onChange(async (v) => {
-        s2.pageMove = PAGE_MOVES.includes(v) ? v : "slide";
+        s2.pageMove = PAGE_MOVES.includes(v) ? v : "fade";
         await save();
       });
     });
@@ -13016,6 +13019,7 @@ var LedgerView = class extends import_obsidian17.ItemView {
     this.enter = null;
     this.enterT = 0;
     this.slideT = 0;
+    this.fitRO = null;
     this.firstShown = false;
   }
   getViewType() {
@@ -13104,6 +13108,7 @@ var LedgerView = class extends import_obsidian17.ItemView {
     void this.plugin.debug.flush();
   }
   async onClose() {
+    this.fitRO?.disconnect();
     this.cache.clear();
     this.plugin.debug.note("view closed");
   }
@@ -13199,6 +13204,7 @@ var LedgerView = class extends import_obsidian17.ItemView {
       this.appEl.querySelectorAll(".zl-ghost").forEach((g) => g.remove());
     }, 340);
   }
+  // re-fits the one-screen page on screen when a part of it grows
   ghostOf() {
     const s2 = this.scrollEl, pg = s2.firstElementChild;
     if (!pg) return null;
@@ -13369,9 +13375,20 @@ var LedgerView = class extends import_obsidian17.ItemView {
     const acts = e.out.actions ?? [];
     this.setBar(e.out.title, acts.filter((a) => !a.dock), e.out.badge);
     this.setFab(e.out.fab, acts.filter((a) => a.dock));
+    this.fitRO?.disconnect();
+    this.fitRO = null;
     if (e.out.el.hasClass("zl-c-stack")) {
       if (this.scrollEl.clientHeight > 0) this.fit(e.out.el, key, e.out.trim);
       else window.requestAnimationFrame(() => this.fit(e.out.el, key, e.out.trim));
+      const el2 = e.out.el;
+      let q = 0;
+      this.fitRO = new ResizeObserver(() => {
+        window.cancelAnimationFrame(q);
+        q = window.requestAnimationFrame(() => {
+          if (el2.isConnected && el2.scrollHeight > this.scrollEl.clientHeight) this.fit(el2, key, e.out.trim);
+        });
+      });
+      for (const c of Array.from(el2.children)) this.fitRO.observe(c);
     } else {
       const el2 = e.out.el;
       el2.removeClass("is-short");

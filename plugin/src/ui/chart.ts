@@ -523,7 +523,9 @@ const drawBars = (plot: HTMLElement, full: Bars, win: number, off: number, range
     if (cost && !isMinutes(range) && cost > lo * 0.7 && cost < hi * 1.3) { lo = Math.min(lo, cost); hi = Math.max(hi, cost); }   // a far-off cost stays off the chart
     const pad = (hi - lo) * 0.06 || hi * 0.02;
     const vol = o.volume !== false && B.v.some((v) => v > 0);   // no volume known (index, live ticks only): no pane of zeros
-    const yb = H - BOTTOM, y1 = vol ? Math.round(TOP + (yb - TOP) * 0.74) : yb;   // the price pane's bottom; volume below it
+    // the price pane's bottom; volume below it: a third of the plot and at least 48 px, so its bars read on a short phone chart
+    // (owner, 2026-11-18: VOL too short, bars about 14 px)
+    const yb = H - BOTTOM, y1 = vol ? Math.round(Math.min(TOP + (yb - TOP) * 0.66, yb - 48)) : yb;
     // TODAY: room for the whole session (Taiwan 09:00–13:30 = 270 minutes, else 6.5 hours), the bars so far from the left
     // (zoomed into TODAY: just the bars on screen, like any interval)
     const tw = isTwSym(o.prices.symbol(o.ticker)), slots = range === "I" && win >= windowOf(full, "I") ? Math.max(n, tw ? 55 : 79) : n;
@@ -572,12 +574,13 @@ const drawBars = (plot: HTMLElement, full: Bars, win: number, off: number, range
             const a = svgEl(vl, "tspan", { dx: k2 === "VOL" ? 0 : 8 }, "zl-ch-vk " + cls); a.textContent = k2 + " ";
             const b = svgEl(vl, "tspan", {}); b.textContent = vn(v);
         }
-        const vw = Math.max(1, Math.min(18, G.step * 0.64));
-        for (let i = 0; i < n; i++) { const ht = yb - vy(B.v[i]); if (ht > 0) svgEl(svg, "rect", { x: G.x(i) - vw / 2, y: yb - ht, width: vw, height: ht }, B.c[i] >= B.o[i] ? "zl-ch-up zl-ch-vol" : "zl-ch-down zl-ch-vol"); }
+        // the 5 and 10 bar averages first, faint, so the bars stay readable over them (owner, 2026-11-18: the lines hid the bars)
         for (const [a, cls] of [[v5, "zl-ch-v5"], [v10, "zl-ch-v10"]] as [(number | null)[], string][]) {
             const pts = a.map((m, i) => (m === null ? "" : `${G.x(i)},${vy(m)}`)).filter(Boolean);
             if (pts.length > 1) svgEl(svg, "polyline", { points: pts.join(" ") }, cls);
         }
+        const vw = Math.max(1, Math.min(18, G.step * 0.64));
+        for (let i = 0; i < n; i++) { const ht = yb - vy(B.v[i]); if (ht > 0) svgEl(svg, "rect", { x: G.x(i) - vw / 2, y: yb - ht, width: vw, height: ht }, B.c[i] >= B.o[i] ? "zl-ch-up zl-ch-vol" : "zl-ch-down zl-ch-vol"); }
     }
 
     // Bollinger: a faint fill between UB and LB, both edges muted (BB 2σ); MB its own line (MB 20), drawn with MA60 over the candles

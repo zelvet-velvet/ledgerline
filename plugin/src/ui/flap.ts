@@ -30,7 +30,7 @@ export class Flap {
     private cur = "";
 
     // direct is kept for the callers (the amount pad); every field now turns the same way
-    constructor(cls: "xs" | "md" | "lg" | "xl" | "amt" = "md", private pad = 0, _direct = false) {
+    constructor(private cls: "xs" | "md" | "lg" | "xl" | "amt" = "md", private pad = 0, _direct = false) {
         this.el = document.createElement("div");
         this.el.className = "zl-flap is-" + cls;
         // a page coming on screen (view.ts: open, Back, tab) plays the appear again: blank cards, then the value
@@ -172,7 +172,10 @@ export class Flap {
         while (this.el.children.length > text.length) this.el.firstChild?.remove();
         while (this.el.children.length < text.length) this.el.insertBefore(this.mk(), this.el.firstChild);   // new tiles: blank cards
         const tiles = (Array.from(this.el.children) as HTMLElement[]).map((t) => TILES.get(t)!);
-        const n = text.length, fromLeft = dir === "del" || !this.leansRight();
+        // the big sizes (lg, xl, the pad) always start from the rightmost digit, like an odometer (owner, 2026-11-18); the small ones
+        // from the side the number leans on
+        const big = this.cls === "lg" || this.cls === "xl" || this.cls === "amt";
+        const n = text.length, fromLeft = dir === "del" || (!big && !this.leansRight());
         const still = calm();
         const now = performance.now();
         let order = 0;

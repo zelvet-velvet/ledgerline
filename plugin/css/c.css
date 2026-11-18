@@ -894,12 +894,12 @@ body.zl-calm .zl-ch-in { animation: none; }
 .zl-ch-full .zl-ch-plot { flex: 1; min-height: 0; touch-action: none; }
 /* opened from a phone held upright: the layer is drawn sideways (turn the phone left to read it), the notch side on its left */
 .zl-fchart.is-turned { inset: auto; top: 0; left: 100vw; width: 100vh; height: 100vw; transform-origin: top left; transform: rotate(90deg); padding: env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left) env(safe-area-inset-top); }
-.zl-ch-vol { opacity: .7; }
+.zl-ch-vol { opacity: .9; }
 .zl-ch-vl { font: 10px var(--zl-ui); fill: var(--zl-ink); }
 .zl-ch-vk { font: 9px var(--zl-pixel); fill: var(--zl-mut); }
 .zl-ch-vk.is-5 { fill: var(--zl-ink); } .zl-ch-vk.is-10 { fill: var(--zl-loud); }
-.zl-ch-v5 { fill: none; stroke: var(--zl-ink); stroke-width: 1; }
-.zl-ch-v10 { fill: none; stroke: var(--zl-loud); stroke-width: 1; }
+.zl-ch-v5 { fill: none; stroke: var(--zl-ink); stroke-width: 1; opacity: .45; }   /* behind the bars, faint (owner, 2026-11-18) */
+.zl-ch-v10 { fill: none; stroke: var(--zl-loud); stroke-width: 1; opacity: .45; }
 .zl-ch-dl.is-ext { fill: var(--zl-ink); font-weight: 600; }
 /* the interval row as one segmented strip (portrait): TODAY 1 5 15 30 60 D W M */
 .zl-ch-ranges.is-seg { display: grid; grid-template-columns: repeat(8, 1fr) 1.6fr;   /* M W D 60 30 15 5 1 TODAY */ gap: 0; border: 1px solid var(--zl-ink); }
@@ -932,14 +932,16 @@ body.zl-calm .zl-fl-svg.is-light .zl-fl-bar { animation: none; }
 .zl-fl-src { white-space: normal; padding: 0 0 8px; }
 
 /* one-screen chart pages (2026-11-04): the chart takes the room left, a strip of what you hold, tiles to the rest */
-.zl-page.zl-c-stack > .zl-c-fill.zl-chartg { max-height: none; min-height: 300px; position: relative; }   /* relative: the thesis card floats over it */
+.zl-page.zl-c-stack > .zl-c-fill.zl-chartg { max-height: none; min-height: auto; position: relative; }   /* relative: the thesis card floats over it */
 .zl-page.zl-c-stack > .zl-lastp { flex-shrink: 0; }   /* the price block never gives up its lines (the chart takes what is left) */
 .zl-app .zl-thline button.zl-th-strip { height: 32px; }   /* the thesis strip under the chart (chart page, mock B 2026-11-18) */
 .zl-c-group.zl-hold.is-4 .zl-sum-items { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .zl-hold.is-4 .zl-sum-k { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .zl-hold-go { cursor: pointer; }
 .zl-hold-go.is-dim .zl-sum-v { color: var(--zl-muted); }
-.zl-chartg > .zl-ch.is-fill { flex: 1 1 0; min-height: 0; }
+/* the chart never spills out of its group (owner, 2026-11-18: FULL CHART sat on the thesis strip on a short phone): the group is
+   at least as tall as the chart's controls, plot and foot, so a page that runs out of room tightens (view.ts fit) instead */
+.zl-chartg > .zl-ch.is-fill { flex: 1 1 auto; min-height: auto; }
 .zl-ch.is-fill .zl-ch-plot { flex: 1 1 0; min-height: 160px; }
 .zl-c-group.zl-hold .zl-sum-items { margin-top: 0; padding-top: 0; border-top: 0; }
 .zl-tgrid.is-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
