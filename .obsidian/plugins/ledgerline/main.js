@@ -5331,10 +5331,15 @@ var Flap = class {
     return t2;
   }
   // % is drawn smaller than the digits (owner, 2026-11-06: too big on the big cards), on every face it shows on
-  txt(i, ch) {
+  // a leading + / − is painted on each face it shows on (class sg / is-plus on the face, css/c.css), so the turning leaf carries
+  // it too and a sign turns in like a card (owner, 2026-11-18: the +/− did not flip to show)
+  txt(i, ch, t2) {
     const u = i.firstChild.firstChild;
     u.textContent = ch;
     u.classList.toggle("sym", ch === "%");
+    const sg = isSign(ch) && !!t2 && t2.parentElement?.firstElementChild === t2;
+    i.classList.toggle("sg", sg);
+    i.classList.toggle("is-plus", sg && ch === "+");
   }
   stop(x) {
     [x.lf, x.frSh, x.bkSh, x.dr].forEach((e) => e.getAnimations().forEach((a) => a.cancel()));
@@ -5346,13 +5351,10 @@ var Flap = class {
     t2.dataset.ch = ch;
     t2.classList.toggle("sp", ch === " ");
     t2.classList.toggle("bl", ch === BLANK);
-    const sg = isSign(ch) && t2.parentElement?.firstElementChild === t2;
-    t2.classList.toggle("sg", sg);
-    t2.classList.toggle("is-plus", sg && ch === "+");
     t2.classList.remove("c");
     this.stop(x);
-    this.txt(x.st, ch);
-    this.txt(x.sb, ch);
+    this.txt(x.st, ch, t2);
+    this.txt(x.sb, ch, t2);
     x.lf.style.visibility = "hidden";
   }
   drumOf(a, b) {
@@ -5367,11 +5369,11 @@ var Flap = class {
   turn(x, a, b, ms, last) {
     return new Promise((done) => {
       const t2 = x.el;
-      t2.classList.remove("bl", "sp", "sg", "is-plus");
-      this.txt(x.st, b);
-      this.txt(x.sb, a);
-      this.txt(x.fr, a);
-      this.txt(x.bk, b);
+      t2.classList.remove("bl", "sp");
+      this.txt(x.st, b, t2);
+      this.txt(x.sb, a, t2);
+      this.txt(x.fr, a, t2);
+      this.txt(x.bk, b, t2);
       x.lf.style.visibility = "visible";
       const anim = x.lf.animate(
         [{ transform: "rotateX(0deg)" }, { transform: "rotateX(-180deg)" }],
@@ -5432,7 +5434,7 @@ var Flap = class {
       window.clearTimeout(x.wait);
       x.gen++;
       x.rolling = false;
-      const keep2 = isSign(x.shown) || x.shown === " ";
+      const keep2 = x.shown === " ";
       this.show(x, keep2 ? x.shown : BLANK);
       x.target = x.shown;
     }
@@ -5453,12 +5455,12 @@ var Flap = class {
     while (this.el.children.length < text2.length) this.el.insertBefore(this.mk(), this.el.firstChild);
     const tiles = Array.from(this.el.children).map((t2) => TILES.get(t2));
     const n = text2.length, fromLeft = dir === "del" || !this.leansRight();
-    const still = calm(), punct = (c) => c === " " || isSign(c);
+    const still = calm();
     const now = performance.now();
     let order = 0;
     for (let k = 0; k < n; k++) {
       const i = fromLeft ? k : n - 1 - k, x = tiles[i], ch = text2[i];
-      if (still || punct(ch) || punct(x.shown)) {
+      if (still || ch === " " || x.shown === " ") {
         window.clearTimeout(x.wait);
         x.gen++;
         x.rolling = false;

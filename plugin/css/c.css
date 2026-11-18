@@ -660,22 +660,22 @@ body.zl-calm .zl-bubble, body.zl-calm .zl-bubble-v.is-tick { animation: none; }
    - xs: one 2 px bar sitting on the gap (cut in two it would be 1 px lines), the upright through the split.
    The bar is .705 of the card wide at every size. Painted in the text colour (loud on the big fields) over the card's own
    shading. !important: background shorthands elsewhere would wipe it */
-.zl-flap .t.sg em { visibility: hidden; }
-.zl-flap .t.sg i { --ws: round(calc(var(--cw) * .705), 2px); --ss: 6px; --bt: 5px; --bb: 3px; --ut: 17px; --ub: 15px; }
-.zl-flap.is-xs .t.sg i { --ss: 2px; --bt: 2px; --bb: 0px; --ut: 6px; --ub: 4px; }
-.zl-flap.is-md .t.sg i { --ss: 4px; --bt: 2px; --bb: 3px; --ut: 7px; --ub: 8px; }
-.zl-flap.is-lg .t.sg i { --ss: 5px; --bt: 5px; --bb: 3px; --ut: 16px; --ub: 14px; }
-.zl-flap.is-xl .t.sg i { --ss: 6px; --bt: 5px; --bb: 3px; --ut: 17px; --ub: 15px; }
-.zl-flap.is-amt .t.sg i { --ss: 7px; --bt: 5px; --bb: 3px; --ut: 18px; --ub: 16px; }
-.zl-flap .t.sg .st { background-image: linear-gradient(currentColor, currentColor), var(--zl-tile-top) !important; background-repeat: no-repeat !important;
+.zl-flap .t i.sg em { visibility: hidden; }
+.zl-flap .t i.sg { --ws: round(calc(var(--cw) * .705), 2px); --ss: 6px; --bt: 5px; --bb: 3px; --ut: 17px; --ub: 15px; }
+.zl-flap.is-xs .t i.sg { --ss: 2px; --bt: 2px; --bb: 0px; --ut: 6px; --ub: 4px; }
+.zl-flap.is-md .t i.sg { --ss: 4px; --bt: 2px; --bb: 3px; --ut: 7px; --ub: 8px; }
+.zl-flap.is-lg .t i.sg { --ss: 5px; --bt: 5px; --bb: 3px; --ut: 16px; --ub: 14px; }
+.zl-flap.is-xl .t i.sg { --ss: 6px; --bt: 5px; --bb: 3px; --ut: 17px; --ub: 15px; }
+.zl-flap.is-amt .t i.sg { --ss: 7px; --bt: 5px; --bb: 3px; --ut: 18px; --ub: 16px; }
+.zl-flap .t :is(.st, .fr).sg { background-image: linear-gradient(currentColor, currentColor), var(--zl-tile-top) !important; background-repeat: no-repeat !important;
     background-size: var(--ws) var(--bt), 100% 100% !important; background-position: 50% 100%, 0 0 !important; }
-.zl-flap .t.sg .sb { background-image: linear-gradient(currentColor, currentColor), var(--zl-tile-bot) !important; background-repeat: no-repeat !important;
+.zl-flap .t :is(.sb, .bk).sg { background-image: linear-gradient(currentColor, currentColor), var(--zl-tile-bot) !important; background-repeat: no-repeat !important;
     background-size: var(--ws) var(--bb), 100% 100% !important; background-position: 50% 0, 0 0 !important; }
-.zl-flap .t.sg.is-plus .st { background-image: linear-gradient(currentColor, currentColor), linear-gradient(currentColor, currentColor), var(--zl-tile-top) !important;
+.zl-flap .t :is(.st, .fr).sg.is-plus { background-image: linear-gradient(currentColor, currentColor), linear-gradient(currentColor, currentColor), var(--zl-tile-top) !important;
     background-size: var(--ws) var(--bt), var(--ss) var(--ut), 100% 100% !important; background-position: 50% 100%, 50% 100%, 0 0 !important; }
-.zl-flap .t.sg.is-plus .sb { background-image: linear-gradient(currentColor, currentColor), linear-gradient(currentColor, currentColor), var(--zl-tile-bot) !important;
+.zl-flap .t :is(.sb, .bk).sg.is-plus { background-image: linear-gradient(currentColor, currentColor), linear-gradient(currentColor, currentColor), var(--zl-tile-bot) !important;
     background-size: var(--ws) var(--bb), var(--ss) var(--ub), 100% 100% !important; background-position: 50% 0, 50% 0, 0 0 !important; }
-.zl-flap .t.sg i { color: var(--zl-loud); }
+.zl-flap .t i.sg { color: var(--zl-loud); }
 .zl-page.zl-c-stack:not(.zl-has-bar) { justify-content: space-between; }
 .zl-app .zl-bline { width: 100%; height: auto; display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 6px 0; border: 0; background: none; color: var(--zl-text); text-align: left; }
 .zl-app .zl-bline:active { background: var(--zl-dim); }
@@ -1183,8 +1183,8 @@ body.zl-calm .zl-lastp.is-loading .zl-flap .t, body.zl-calm .zl-lastp.is-loading
 .zl-down { color: var(--zl-down); }
 .zl-flap.is-up .t i { color: var(--zl-tile-up); }
 .zl-flap.is-down .t i { color: var(--zl-tile-down); }
-.zl-flap.is-up .t.sg i { color: var(--zl-tile-up); }
-.zl-flap.is-down .t.sg i { color: var(--zl-tile-down); }
+.zl-flap.is-up .t i.sg { color: var(--zl-tile-up); }
+.zl-flap.is-down .t i.sg { color: var(--zl-tile-down); }
 .zl-read-kk { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .zl-read-s { font: 400 12px var(--zl-ui); color: var(--zl-muted); }
 /* the market card: index tabs, the index and today's %, then the ticker chart (no tools, no volume) taking the room left */
