@@ -10170,7 +10170,7 @@ var chartBlock = (x, el2, tk, currency, cost) => {
   DRAWN.set(ctx.frame, memo);
   const cv = holdingChart(cg, { ticker: tk, currency, prices, prefs: readPrefs(ctx.plugin.store.fm(journalPath(tk))), cost, memo, height: 0, onLeave: () => ctx.pop(), fullLine: thesisLine(x, tk), noteEnd: thesisButton(x, tk) });
   flowModes(x, srcRow, cg, tk, cv.el);
-  const box = cv.el, dock2 = h(box, "div", "zl-ch-dock");
+  const box = cv.el, dock2 = h(cg, "div", "zl-ch zl-ch-dock");
   const fm = srcRow.querySelector(":scope > .zl-fmode"), tools = box.querySelector(":scope > .zl-ch-tools");
   if (fm) dock2.appendChild(fm);
   if (tools) dock2.appendChild(tools);

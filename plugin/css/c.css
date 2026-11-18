@@ -1342,6 +1342,9 @@ body.zl-calm .zl-lastp.is-loading .zl-flap .t, body.zl-calm .zl-lastp.is-loading
 .zl-ch.is-d2 > .zl-flow-top { justify-content: flex-end; min-height: 0; margin-bottom: -6px; }
 .zl-ch.is-d2 > .zl-flow-top .zl-ch-src { font-size: 10px; }
 .zl-ch-dock { display: grid; grid-template-columns: 1.3fr 1fr; gap: 8px; }
+.zl-chartg > .zl-ch-dock { order: 9; flex: none; margin-top: 6px; }   /* under the candle chart or the tape, whichever shows */
+.zl-chartg > .zl-flow { order: 1; } .zl-chartg > .zl-ch { order: 1; }
+.zl-chartg:has(> .zl-ch.zl-hide) > .zl-ch-dock .zl-ch-tools { visibility: hidden; }
 .zl-ch-dock > .zl-fmode { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, .9fr); }
 .zl-ch-dock > .zl-fmode button { min-width: 0; height: 28px; padding: 0 2px; font-size: 9px; letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; }
 .zl-ch-dock > .zl-ch-tools button.zl-ch-tool { box-sizing: border-box; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; }

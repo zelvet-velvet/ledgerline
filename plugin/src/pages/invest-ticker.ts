@@ -166,7 +166,9 @@ export const chartBlock = (x: X, el: HTMLElement, tk: string, currency: string, 
     // Vellum "2330 · page D2 controls under the chart" (owner picked 2026-11-18): the readout line, the MA line, the source over
     // the plot, the plot, then by the thumb the ranges and one row of CANDLE · FOOTPRINT · HEAT and FIB · LINE · LEVEL. The chart
     // only refills these rows, never replaces them, so they can move (css .zl-ch.is-d2 orders them)
-    const box = cv.el, dock = h(box, "div", "zl-ch-dock");
+    // the kind / draw row hangs on the chart group, not the chart: FOOTPRINT and HEAT hide the candle chart, and the switch must
+    // stay to come back (owner, 2026-11-18: no way back to the chart); the draw tools hide while it is not the candles
+    const box = cv.el, dock = h(cg, "div", "zl-ch zl-ch-dock");   // zl-ch: the tool buttons keep their look
     const fm = srcRow.querySelector(":scope > .zl-fmode"), tools = box.querySelector(":scope > .zl-ch-tools");
     if (fm) dock.appendChild(fm);
     if (tools) dock.appendChild(tools);
