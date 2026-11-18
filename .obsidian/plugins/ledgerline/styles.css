@@ -1674,11 +1674,11 @@ body.zl-calm .zl-lastp.is-loading .zl-flap .t, body.zl-calm .zl-lastp.is-loading
 .zl-app .zl-ch-dock > button.zl-ch-drawb, .zl-app .zl-ch-dock > button.zl-ch-doneb { all: unset; box-sizing: border-box; display: flex; align-items: center; justify-content: center; height: 28px; padding: 0 12px; border: 1.5px solid var(--zl-ink); font: 400 10px var(--zl-pixel); letter-spacing: .06em; color: var(--zl-ink); cursor: pointer; }
 .zl-app .zl-ch-dock > button.zl-ch-doneb { background: var(--zl-ink); color: var(--zl-paper); }
 .zl-chartg:has(> .zl-ch.zl-hide) > .zl-ch-dock > .zl-ch-drawb { opacity: .35; pointer-events: none; }   /* off the candles: faint, never gone, so the row keeps still */
-.zl-chartg > .zl-ch-dock { order: 9; flex: none; margin-top: 6px; }   /* under the candle chart or the tape, whichever shows */
+.zl-chartg > .zl-ch-dock { order: 9; flex: none; margin-top: 6px; box-sizing: border-box; height: 28px; }   /* under the candle chart or the tape, whichever shows; one height for both rows, so DRAW / DONE never move the chart */
 .zl-chartg > .zl-flow { order: 1; } .zl-chartg > .zl-ch { order: 1; }
 
-.zl-ch-dock > .zl-fmode { display: flex; }
-.zl-app .zl-ch-dock > .zl-fmode button.zl-fmode-b { display: flex; align-items: center; height: 28px; padding: 0 10px; }
+.zl-ch-dock > .zl-fmode { display: flex; box-sizing: border-box; height: 28px; }   /* 28 with its frame, as DRAW and the tools */
+.zl-app .zl-ch-dock > .zl-fmode button.zl-fmode-b { display: flex; align-items: center; height: 100%; padding: 0 10px; }
 .zl-ch-dock > .zl-ch-tools button.zl-ch-tool { box-sizing: border-box; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; }
 /* the MA readouts on one line: a swatch, the name, the value (tap to switch the line on or off) */
 .zl-ch.is-d2 > .zl-ch-ind { border: 0; }
