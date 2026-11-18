@@ -5142,7 +5142,17 @@ var drawBars = (plot, full, win, off, range, W, H, o, L2, cross = null) => {
   text(svg, G.x0 + 7, 10, o.currency, "zl-ch-cur");
   let right = -Infinity;
   const sym = o.prices.symbol(o.ticker);
-  for (const t2 of xTicks(B.d.map((d) => shownD(sym, d, range)), range)) {
+  const dd = B.d.slice();
+  if (range === "I" && sl > n && n > 0) {
+    const at0 = (x) => Date.UTC(+x.slice(0, 4), +x.slice(5, 7) - 1, +x.slice(8, 10), +x.slice(11, 13), +x.slice(14, 16));
+    const stepMs = 3e5;
+    const pad22 = (v) => String(v).padStart(2, "0");
+    for (let t2 = at0(B.d[n - 1]) + stepMs; dd.length < Math.min(sl, slots); t2 += stepMs) {
+      const q = new Date(t2);
+      dd.push(`${q.getUTCFullYear()}-${pad22(q.getUTCMonth() + 1)}-${pad22(q.getUTCDate())} ${pad22(q.getUTCHours())}:${pad22(q.getUTCMinutes())}`);
+    }
+  }
+  for (const t2 of xTicks(dd.map((d) => shownD(sym, d, range)), range)) {
     const x = G.x(t2.i), w = t2.label.length * 6.6;
     svgEl(svg, "line", { x1: x, x2: x, y1: G.y0, y2: yb }, "zl-ch-grid zl-ch-vgrid");
     svgEl(svg, "line", { x1: x, x2: x, y1: yb, y2: yb + 4 }, "zl-ch-axis");

@@ -339,7 +339,7 @@ body.is-mobile:not(.zl-on) .zl-home:active { transform: scale(0.94); }
    down the Malachite of the green-up set */
 body.zl-red-up :is(.zl-app, .zl-sheet, .zl-sheet-host, .zl-fchart) { --zl-up: #B8263A; --zl-down: #126B55; --zl-tile-up: #FF5C70; --zl-tile-down: #45D6AC; }
 body.zl-red-up.theme-dark :is(.zl-app, .zl-sheet, .zl-sheet-host, .zl-fchart), body.zl-red-up :is(.zl-app, .zl-fchart).theme-dark { --zl-up: #FF5F6F; --zl-down: #3FC29C; }
-.zl-app, .zl-sheet, .zl-sheet-host {
+.zl-app, .zl-sheet, .zl-sheet-host, .zl-fchart {   /* the full chart too: the thesis card floats in it */
     --zl-bg: var(--zl-paper); --zl-surface: var(--zl-paper); --zl-text: var(--zl-ink); --zl-muted: var(--zl-mut); --zl-faint: var(--zl-mut);
     --zl-accent: var(--zl-loud); --zl-line: var(--zl-dim); --zl-press: var(--zl-dim); --zl-radius: 0px;
     --zl-pos: var(--zl-ink); --zl-neg: var(--zl-loud); --zl-info: var(--zl-mut); --zl-warn: var(--zl-loud);
@@ -445,7 +445,7 @@ body :is(.zl-app, .zl-sheet-host) button:not(.clickable-icon):not(.zl-pill) { bo
 .zl-flap .t.c::after, .zl-flap .t.c::before { display: none; }
 
 /* ---- section heads, waffle, budget rows, ruled figures */
-.zl-app .zl-sec { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 8px; padding: 0; text-align: left; font: 400 12px var(--zl-pixel); letter-spacing: .06em; color: var(--zl-text); }
+:is(.zl-app, .zl-fchart) .zl-sec { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 8px; padding: 0; text-align: left; font: 400 12px var(--zl-pixel); letter-spacing: .06em; color: var(--zl-text); }
 .zl-sec-go { display: flex; align-items: center; gap: 4px; color: var(--zl-muted); }
 .zl-sec-go .zl-px { width: 12px; height: 12px; transform: scaleX(-1); }
 
@@ -1647,8 +1647,9 @@ body.zl-calm .zl-lastp.is-loading .zl-flap .t, body.zl-calm .zl-lastp.is-loading
 .zl-ch-indrow { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .zl-ch-indrow .zl-ch-ind { flex: none; }
 .zl-ch-line { flex: 1; min-width: 0; }
-.zl-app button.zl-th-strip { width: 100%; display: flex; align-items: center; gap: 10px; height: 24px; margin: 0; padding: 0 8px; border: 2px solid var(--zl-text); background: none; font: 400 11px var(--zl-ui); color: var(--zl-text); white-space: nowrap; overflow: hidden; }
-.zl-app button.zl-th-strip.is-loud { border-color: var(--zl-loud); color: var(--zl-loud); }
+:is(.zl-app, .zl-fchart) button.zl-th-strip { width: 100%; display: flex; align-items: center; gap: 10px; height: 24px; margin: 0; padding: 0 8px; border: 2px solid var(--zl-text); background: none; font: 400 11px var(--zl-ui); color: var(--zl-text); white-space: nowrap; overflow: hidden; }
+:is(.zl-app, .zl-fchart) button.zl-th-strip.is-loud { border-color: var(--zl-loud); color: var(--zl-loud); }
+.zl-fchart button.zl-sec { background: none; box-shadow: none; height: auto; border-radius: 0; color: var(--zl-text); }   /* the thesis card's head in the full chart (Obsidian's button look off) */
 .zl-th-strip-k { flex: none; font: 400 10px var(--zl-pixel); letter-spacing: .06em; }
 .zl-th-strip-c { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: left; }
 .zl-th-strip-c.is-loud { color: var(--zl-loud); }
