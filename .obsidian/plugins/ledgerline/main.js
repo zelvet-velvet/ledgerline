@@ -5132,12 +5132,14 @@ var drawBars = (plot, full, win, off, range, W, H, o, L2, cross = null) => {
   svgEl(cp, "rect", { x: G.x0, y: G.y0 - 6, width: G.x1 - G.x0, height: G.y1 - G.y0 + 6 });
   const inPlot = () => svgEl(svg, "g", { "clip-path": `url(#${clipId})` });
   const yLast = Math.max(G.y0, Math.min(G.y1, G.y(B.c[n - 1])));
-  for (const t2 of niceTicks(G.lo, G.hi)) {
+  const yt = niceTicks(G.lo, G.hi), yd = yt.every((t2) => t2 % 100 === 0) ? 0 : yt.every((t2) => t2 % 10 === 0) ? 1 : 2;
+  const tickL = (t2) => (t2 / 100).toLocaleString(void 0, { minimumFractionDigits: yd, maximumFractionDigits: yd });
+  for (const t2 of yt) {
     const y = G.y(t2);
     if (y < G.y0 - 1 || y > G.y1 + 1) continue;
     svgEl(svg, "line", { x1: G.x0, x2: G.x1, y1: y, y2: y }, "zl-ch-grid");
     svgEl(svg, "line", { x1: G.x0, x2: G.x0 + 4, y1: y, y2: y }, "zl-ch-axis");
-    if (Math.abs(y - yLast) >= 14 && y >= 24) text(svg, G.x0 + 7, y + 4, price2(t2), "zl-ch-yl");
+    if (Math.abs(y - yLast) >= 14 && y >= 24) text(svg, G.x0 + 7, y + 4, tickL(t2), "zl-ch-yl");
   }
   text(svg, G.x0 + 7, 10, o.currency, "zl-ch-cur");
   let right = -Infinity;
@@ -5203,8 +5205,8 @@ var drawBars = (plot, full, win, off, range, W, H, o, L2, cross = null) => {
   if (B.ohlc) for (let i = 0; i < n; i++) {
     const up = B.c[i] >= B.o[i], x = G.x(i), cls = up ? "zl-ch-up" : "zl-ch-down";
     svgEl(svg, "line", { x1: x, x2: x, y1: G.y(B.h[i]), y2: G.y(B.l[i]) }, cls + " zl-ch-wick");
-    const yt = G.y(Math.max(B.o[i], B.c[i])), yb2 = G.y(Math.min(B.o[i], B.c[i]));
-    svgEl(svg, "rect", { x: x - cw / 2, y: yt, width: cw, height: Math.max(1, yb2 - yt) }, cls);
+    const yt2 = G.y(Math.max(B.o[i], B.c[i])), yb2 = G.y(Math.min(B.o[i], B.c[i]));
+    svgEl(svg, "rect", { x: x - cw / 2, y: yt2, width: cw, height: Math.max(1, yb2 - yt2) }, cls);
   }
   else svgEl(svg, "polyline", { points: B.c.map((c, i) => `${G.x(i)},${G.y(c)}`).join(" ") }, "zl-ch-line");
   for (const [a, cls] of [[mb, "zl-ch-ma is-mb"], [ma60, "zl-ch-ma is-60"]]) {

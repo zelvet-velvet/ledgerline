@@ -546,12 +546,15 @@ const drawBars = (plot: HTMLElement, full: Bars, win: number, off: number, range
 
     // price grid + the axis on the left, labels inside the plot right of it (a tick label too close to the last price tag gives way to it)
     const yLast = Math.max(G.y0, Math.min(G.y1, G.y(B.c[n - 1])));
-    for (const t of niceTicks(G.lo, G.hi)) {
+    // tick labels carry only the decimals their step needs: 24,200 not 24,200.00 (owner, 2026-11-18); prices themselves keep two
+    const yt = niceTicks(G.lo, G.hi), yd = yt.every((t) => t % 100 === 0) ? 0 : yt.every((t) => t % 10 === 0) ? 1 : 2;
+    const tickL = (t: number) => (t / 100).toLocaleString(undefined, { minimumFractionDigits: yd, maximumFractionDigits: yd });
+    for (const t of yt) {
         const y = G.y(t);
         if (y < G.y0 - 1 || y > G.y1 + 1) continue;
         svgEl(svg, "line", { x1: G.x0, x2: G.x1, y1: y, y2: y }, "zl-ch-grid");
         svgEl(svg, "line", { x1: G.x0, x2: G.x0 + 4, y1: y, y2: y }, "zl-ch-axis");
-        if (Math.abs(y - yLast) >= 14 && y >= 24) text(svg, G.x0 + 7, y + 4, price2(t), "zl-ch-yl");
+        if (Math.abs(y - yLast) >= 14 && y >= 24) text(svg, G.x0 + 7, y + 4, tickL(t), "zl-ch-yl");
     }
     text(svg, G.x0 + 7, 10, o.currency, "zl-ch-cur");
     // time ticks: tick, faint grid line, label clear of both edges
