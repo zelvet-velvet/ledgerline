@@ -163,6 +163,15 @@ export const chartBlock = (x: X, el: HTMLElement, tk: string, currency: string, 
     DRAWN.set(ctx.frame, memo);
     const cv = holdingChart(cg, { ticker: tk, currency, prices, prefs: readPrefs(ctx.plugin.store.fm(journalPath(tk))), cost, memo, height: 0, onLeave: () => ctx.pop(), fullLine: thesisLine(x, tk), noteEnd: thesisButton(x, tk) });
     flowModes(x, srcRow, cg, tk, cv.el);   // Taiwan stocks: CANDLE · FOOTPRINT · VOLUME HEAT
+    // Vellum "2330 · page D2 controls under the chart" (owner picked 2026-11-18): the readout line, the MA line, the source over
+    // the plot, the plot, then by the thumb the ranges and one row of CANDLE · FOOTPRINT · HEAT and FIB · LINE · LEVEL. The chart
+    // only refills these rows, never replaces them, so they can move (css .zl-ch.is-d2 orders them)
+    const box = cv.el, dock = h(box, "div", "zl-ch-dock");
+    const fm = srcRow.querySelector(":scope > .zl-fmode"), tools = box.querySelector(":scope > .zl-ch-tools");
+    if (fm) dock.appendChild(fm);
+    if (tools) dock.appendChild(tools);
+    box.insertBefore(srcRow, box.querySelector(":scope > .zl-ch-plot"));
+    box.addClass("is-d2");
 };
 // the thesis on a chart page (owner picked mock B, 2026-11-18: the chart takes the room): the full chart's one line (next check,
 // what must hold, vs 0050); a tap floats the whole card over the chart

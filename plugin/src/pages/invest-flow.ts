@@ -263,8 +263,9 @@ export const sectorLine = (x: X, parent: HTMLElement, tk: string): void => {
         ke.setText(k); ve.setText(k ? (v === null ? "-" : pc(v)) : "");
         ve.className = "zl-ctx-v" + (v === null ? "" : v > 0 ? " is-up" : v < 0 ? " is-hot" : "");
     };
-    const paint = () => {
-        if (!line.isConnected) return false;
+    // the first paint runs before the page is on screen (labels and dashes while the indices load); later ones stop with the page
+    const paint = (first = false) => {
+        if (!first && !line.isConnected) return false;
         const sec = flow.sectorOf(sym), sp = sec ? flow.idx.get(sec.code) ?? null : null, ix = flow.idx.get("t00") ?? null, me = todayOf(prices, tk)?.pct ?? null;
         if (sec) { put(0, sec.name, sp); put(1, "TAIEX", ix); put(2, "REL", sp !== null && me !== null ? me - sp : null); }
         else { put(0, "TAIEX", ix); put(1, "VS TAIEX", ix !== null && me !== null ? me - ix : null); put(2, "", null); }
@@ -277,6 +278,6 @@ export const sectorLine = (x: X, parent: HTMLElement, tk: string): void => {
         stop?.(); codes = want.join();
         stop = flow.follow(want, () => { if (!line.isConnected) { stop?.(); return false; } start(); return paint(); });
     };
-    start(); paint();
+    start(); paint(true);
     prices.onQuote((s) => { if (!line.isConnected) return false; if (s === sym) paint(); return true; });
 };

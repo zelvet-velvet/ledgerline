@@ -1,0 +1,2024 @@
+{
+ "id": "invest-asset-page-d1",
+ "name": "2330 · page D1 tabs and a toolbar",
+ "parent": "invest-asset",
+ "mock": true,
+ "note": "MOCK 2026-11-18, the whole chart page, option D1. Top as picked (top A, the hold row right-aligned), the tiles as now. The ranges as plain tabs (the active one underlined in loud); one thin toolbar: CANDLE · FOOTPRINT · HEAT as text toggles on the left, FIB / LINE / LVL as small square buttons on the right; the readout line with THESIS ›; MB · BB · MA60 on one line (tap a key to switch it on or off); the source and its time small over the plot. The chart gains about 54 px. Made-up values.",
+ "blocks": [
+  {
+   "id": "top-bar-0",
+   "name": "Top bar",
+   "kind": "nav",
+   "x": 16,
+   "y": 47,
+   "w": 396,
+   "h": 48,
+   "items": [
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 0,
+     "dy": 44,
+     "w": 396,
+     "h": 4,
+     "fill": "text",
+     "id": "topbar0"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 338,
+     "dy": 6,
+     "w": 58,
+     "h": 30,
+     "stroke": "text",
+     "sw": 0.8,
+     "id": "topbar1"
+    },
+    {
+     "type": "text",
+     "v": "2330",
+     "g": "tl",
+     "dx": 0,
+     "dy": 7,
+     "size": 30,
+     "font": "display",
+     "ls": 0.005,
+     "lh": 0.9,
+     "id": "topbar2"
+    },
+    {
+     "type": "text",
+     "v": "TW OPENS WED 09:00",
+     "g": "tl",
+     "dx": 70,
+     "dy": 16,
+     "size": 10,
+     "color": "dim",
+     "ls": 0.04,
+     "id": "topbar3"
+    },
+    {
+     "type": "text",
+     "v": "CHART",
+     "g": "tl",
+     "dx": 349,
+     "dy": 15,
+     "size": 10,
+     "id": "topbar4"
+    }
+   ],
+   "fill": "paper"
+  },
+  {
+   "id": "lastp-185",
+   "name": "Top: price and what you hold (A)",
+   "kind": "hero",
+   "x": 16,
+   "y": 105,
+   "w": 396,
+   "h": 121,
+   "items": [
+    {
+     "type": "text",
+     "v": "TODAY",
+     "g": "tl",
+     "dx": 0,
+     "dy": 2,
+     "size": 10,
+     "id": "xt1",
+     "color": "dim",
+     "ls": 0.06
+    },
+    {
+     "type": "text",
+     "v": "+12.50  +0.58%",
+     "g": "tl",
+     "dx": 0,
+     "dy": 17,
+     "size": 15,
+     "id": "xt2",
+     "color": "#ff5c70",
+     "wt": 600
+    },
+    {
+     "type": "text",
+     "v": "2",
+     "g": "tl",
+     "dx": 206,
+     "dy": 0,
+     "size": 28,
+     "id": "xt3",
+     "font": "display",
+     "lh": 1,
+     "color": "#E6E3DC",
+     "fill": "#121214",
+     "r": 3,
+     "w": 22,
+     "h": 38
+    },
+    {
+     "type": "text",
+     "v": ",",
+     "g": "tl",
+     "dx": 230,
+     "dy": 0,
+     "size": 28,
+     "id": "xt4",
+     "font": "display",
+     "lh": 1,
+     "color": "#E6E3DC",
+     "fill": "#121214",
+     "r": 3,
+     "w": 22,
+     "h": 38
+    },
+    {
+     "type": "text",
+     "v": "1",
+     "g": "tl",
+     "dx": 254,
+     "dy": 0,
+     "size": 28,
+     "id": "xt5",
+     "font": "display",
+     "lh": 1,
+     "color": "#E6E3DC",
+     "fill": "#121214",
+     "r": 3,
+     "w": 22,
+     "h": 38
+    },
+    {
+     "type": "text",
+     "v": "8",
+     "g": "tl",
+     "dx": 278,
+     "dy": 0,
+     "size": 28,
+     "id": "xt6",
+     "font": "display",
+     "lh": 1,
+     "color": "#E6E3DC",
+     "fill": "#121214",
+     "r": 3,
+     "w": 22,
+     "h": 38
+    },
+    {
+     "type": "text",
+     "v": "2",
+     "g": "tl",
+     "dx": 302,
+     "dy": 0,
+     "size": 28,
+     "id": "xt7",
+     "font": "display",
+     "lh": 1,
+     "color": "#E6E3DC",
+     "fill": "#121214",
+     "r": 3,
+     "w": 22,
+     "h": 38
+    },
+    {
+     "type": "text",
+     "v": ".",
+     "g": "tl",
+     "dx": 326,
+     "dy": 0,
+     "size": 28,
+     "id": "xt8",
+     "font": "display",
+     "lh": 1,
+     "color": "#E6E3DC",
+     "fill": "#121214",
+     "r": 3,
+     "w": 22,
+     "h": 38
+    },
+    {
+     "type": "text",
+     "v": "5",
+     "g": "tl",
+     "dx": 350,
+     "dy": 0,
+     "size": 28,
+     "id": "xt9",
+     "font": "display",
+     "lh": 1,
+     "color": "#E6E3DC",
+     "fill": "#121214",
+     "r": 3,
+     "w": 22,
+     "h": 38
+    },
+    {
+     "type": "text",
+     "v": "0",
+     "g": "tl",
+     "dx": 374,
+     "dy": 0,
+     "size": 28,
+     "id": "xt10",
+     "font": "display",
+     "lh": 1,
+     "color": "#E6E3DC",
+     "fill": "#121214",
+     "r": 3,
+     "w": 22,
+     "h": 38
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 0,
+     "dy": 46,
+     "w": 396,
+     "h": 1,
+     "id": "rt11",
+     "fill": "line"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 0,
+     "dy": 74,
+     "w": 396,
+     "h": 1,
+     "id": "rt12",
+     "fill": "line"
+    },
+    {
+     "type": "text",
+     "v": "半導體",
+     "g": "tl",
+     "dx": 0,
+     "dy": 56,
+     "size": 10,
+     "id": "xt13",
+     "color": "dim",
+     "ls": 0.06
+    },
+    {
+     "type": "text",
+     "v": "+0.60%",
+     "g": "tl",
+     "dx": 80,
+     "dy": 54,
+     "size": 12,
+     "id": "xt14",
+     "color": "#ff5c70",
+     "wt": 600
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 132,
+     "dy": 46,
+     "w": 1,
+     "h": 29,
+     "id": "rt15",
+     "fill": "line"
+    },
+    {
+     "type": "text",
+     "v": "TAIEX",
+     "g": "tl",
+     "dx": 140,
+     "dy": 56,
+     "size": 10,
+     "id": "xt16",
+     "color": "dim",
+     "ls": 0.06
+    },
+    {
+     "type": "text",
+     "v": "+0.04%",
+     "g": "tl",
+     "dx": 212,
+     "dy": 54,
+     "size": 12,
+     "id": "xt17",
+     "color": "#ff5c70",
+     "wt": 600
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 264,
+     "dy": 46,
+     "w": 1,
+     "h": 29,
+     "id": "rt18",
+     "fill": "line"
+    },
+    {
+     "type": "text",
+     "v": "REL",
+     "g": "tl",
+     "dx": 272,
+     "dy": 56,
+     "size": 10,
+     "id": "xt19",
+     "color": "dim",
+     "ls": 0.06
+    },
+    {
+     "type": "text",
+     "v": "−0.02%",
+     "g": "tl",
+     "dx": 352,
+     "dy": 54,
+     "size": 12,
+     "id": "xt20",
+     "color": "#3fc29c",
+     "wt": 600
+    },
+    {
+     "type": "text",
+     "v": "YOU HOLD",
+     "g": "tl",
+     "dx": 35,
+     "dy": 84,
+     "size": 10,
+     "id": "xt21",
+     "color": "dim",
+     "ls": 0.06
+    },
+    {
+     "type": "text",
+     "v": "10",
+     "g": "tl",
+     "dx": 72,
+     "dy": 98,
+     "size": 22,
+     "id": "xt22",
+     "font": "display",
+     "lh": 1,
+     "color": "text"
+    },
+    {
+     "type": "text",
+     "v": "AVG COST",
+     "g": "tl",
+     "dx": 134,
+     "dy": 84,
+     "size": 10,
+     "id": "xt23",
+     "color": "dim",
+     "ls": 0.06
+    },
+    {
+     "type": "text",
+     "v": "1,025.00",
+     "g": "tl",
+     "dx": 119,
+     "dy": 98,
+     "size": 22,
+     "id": "xt24",
+     "font": "display",
+     "lh": 1,
+     "color": "text"
+    },
+    {
+     "type": "text",
+     "v": "VALUE +112%",
+     "g": "tl",
+     "dx": 212,
+     "dy": 84,
+     "size": 10,
+     "id": "xt25",
+     "color": "dim",
+     "ls": 0.06
+    },
+    {
+     "type": "text",
+     "v": "21,825",
+     "g": "tl",
+     "dx": 234,
+     "dy": 98,
+     "size": 22,
+     "id": "xt26",
+     "font": "display",
+     "lh": 1,
+     "color": "#ff5c70"
+    },
+    {
+     "type": "text",
+     "v": "PLAN",
+     "g": "tl",
+     "dx": 367,
+     "dy": 84,
+     "size": 10,
+     "id": "xt27",
+     "color": "dim",
+     "ls": 0.06
+    },
+    {
+     "type": "text",
+     "v": "—",
+     "g": "tl",
+     "dx": 386,
+     "dy": 98,
+     "size": 22,
+     "id": "xt28",
+     "font": "display",
+     "lh": 1,
+     "color": "text"
+    }
+   ]
+  },
+  {
+   "id": "chart-297",
+   "name": "Chart",
+   "kind": "card",
+   "x": 16,
+   "y": 236,
+   "w": 396,
+   "h": 437,
+   "items": [
+    {
+     "type": "text",
+     "v": "M",
+     "g": "tl",
+     "dx": 11.5,
+     "dy": 4,
+     "size": 11,
+     "id": "dp1",
+     "color": "dim",
+     "ls": 0.04
+    },
+    {
+     "type": "text",
+     "v": "W",
+     "g": "tl",
+     "dx": 49.5,
+     "dy": 4,
+     "size": 11,
+     "id": "dp2",
+     "color": "dim",
+     "ls": 0.04
+    },
+    {
+     "type": "text",
+     "v": "D",
+     "g": "tl",
+     "dx": 87.5,
+     "dy": 4,
+     "size": 11,
+     "id": "dp3",
+     "color": "dim",
+     "ls": 0.04
+    },
+    {
+     "type": "text",
+     "v": "60",
+     "g": "tl",
+     "dx": 122.0,
+     "dy": 4,
+     "size": 11,
+     "id": "dp4",
+     "color": "dim",
+     "ls": 0.04
+    },
+    {
+     "type": "text",
+     "v": "30",
+     "g": "tl",
+     "dx": 160.0,
+     "dy": 4,
+     "size": 11,
+     "id": "dp5",
+     "color": "dim",
+     "ls": 0.04
+    },
+    {
+     "type": "text",
+     "v": "15",
+     "g": "tl",
+     "dx": 198.0,
+     "dy": 4,
+     "size": 11,
+     "id": "dp6",
+     "color": "dim",
+     "ls": 0.04
+    },
+    {
+     "type": "text",
+     "v": "5",
+     "g": "tl",
+     "dx": 239.5,
+     "dy": 4,
+     "size": 11,
+     "id": "dp7",
+     "color": "dim",
+     "ls": 0.04
+    },
+    {
+     "type": "text",
+     "v": "1",
+     "g": "tl",
+     "dx": 277.5,
+     "dy": 4,
+     "size": 11,
+     "id": "dp8",
+     "color": "dim",
+     "ls": 0.04
+    },
+    {
+     "type": "text",
+     "v": "TODAY",
+     "g": "tl",
+     "dx": 309.5,
+     "dy": 4,
+     "size": 11,
+     "id": "dp9",
+     "color": "text",
+     "ls": 0.04
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 304,
+     "dy": 22,
+     "w": 46,
+     "h": 2,
+     "id": "rp10",
+     "fill": "loud"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 0,
+     "dy": 25,
+     "w": 396,
+     "h": 1,
+     "id": "rp11",
+     "fill": "line"
+    },
+    {
+     "type": "text",
+     "v": "CANDLE",
+     "g": "tl",
+     "dx": 0,
+     "dy": 38,
+     "size": 10,
+     "id": "dp12",
+     "color": "text",
+     "ls": 0.06
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 0,
+     "dy": 52,
+     "w": 50,
+     "h": 2,
+     "id": "rp13",
+     "fill": "text"
+    },
+    {
+     "type": "text",
+     "v": "FOOTPRINT",
+     "g": "tl",
+     "dx": 62,
+     "dy": 38,
+     "size": 10,
+     "id": "dp14",
+     "color": "dim",
+     "ls": 0.06
+    },
+    {
+     "type": "text",
+     "v": "HEAT",
+     "g": "tl",
+     "dx": 148,
+     "dy": 38,
+     "size": 10,
+     "id": "dp15",
+     "color": "dim",
+     "ls": 0.06
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 280,
+     "dy": 31,
+     "w": 36,
+     "h": 24,
+     "id": "rp16",
+     "stroke": "text",
+     "sw": 1.6
+    },
+    {
+     "type": "text",
+     "v": "FIB",
+     "g": "tl",
+     "dx": 287.2,
+     "dy": 38,
+     "size": 10,
+     "id": "dp17",
+     "color": "text",
+     "ls": 0.06
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 320,
+     "dy": 31,
+     "w": 36,
+     "h": 24,
+     "id": "rp18",
+     "stroke": "text",
+     "sw": 1.6
+    },
+    {
+     "type": "text",
+     "v": "LINE",
+     "g": "tl",
+     "dx": 323.6,
+     "dy": 38,
+     "size": 10,
+     "id": "dp19",
+     "color": "text",
+     "ls": 0.06
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 360,
+     "dy": 31,
+     "w": 36,
+     "h": 24,
+     "id": "rp20",
+     "stroke": "text",
+     "sw": 1.6
+    },
+    {
+     "type": "text",
+     "v": "LVL",
+     "g": "tl",
+     "dx": 367.2,
+     "dy": 38,
+     "size": 10,
+     "id": "dp21",
+     "color": "text",
+     "ls": 0.06
+    },
+    {
+     "type": "text",
+     "v": "Nov 17 13:30  2,170.00",
+     "g": "tl",
+     "dx": 0,
+     "dy": 69,
+     "size": 11,
+     "id": "dp22"
+    },
+    {
+     "type": "text",
+     "v": "−0.23%",
+     "g": "tl",
+     "dx": 160,
+     "dy": 69,
+     "size": 11,
+     "id": "dp23",
+     "color": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 322,
+     "dy": 64,
+     "w": 74,
+     "h": 22,
+     "id": "rp24",
+     "stroke": "text",
+     "sw": 1.6
+    },
+    {
+     "type": "text",
+     "v": "THESIS ›",
+     "g": "tl",
+     "dx": 331,
+     "dy": 70,
+     "size": 10,
+     "id": "dp25",
+     "color": "text",
+     "ls": 0.06
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 0,
+     "dy": 95,
+     "w": 10,
+     "h": 2,
+     "id": "rp26",
+     "fill": "text"
+    },
+    {
+     "type": "text",
+     "v": "MB",
+     "g": "tl",
+     "dx": 14,
+     "dy": 90,
+     "size": 10,
+     "id": "dp27",
+     "color": "dim",
+     "ls": 0.06
+    },
+    {
+     "type": "text",
+     "v": "2,181.25",
+     "g": "tl",
+     "dx": 32.8,
+     "dy": 89,
+     "size": 10,
+     "id": "dp28",
+     "color": "dim"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 132,
+     "dy": 95,
+     "w": 10,
+     "h": 2,
+     "id": "rp29",
+     "fill": "dim"
+    },
+    {
+     "type": "text",
+     "v": "BB",
+     "g": "tl",
+     "dx": 146,
+     "dy": 90,
+     "size": 10,
+     "id": "dp30",
+     "color": "dim",
+     "ls": 0.06
+    },
+    {
+     "type": "text",
+     "v": "2,156–2,206",
+     "g": "tl",
+     "dx": 164.8,
+     "dy": 89,
+     "size": 10,
+     "id": "dp31",
+     "color": "dim"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 264,
+     "dy": 95,
+     "w": 10,
+     "h": 2,
+     "id": "rp32",
+     "fill": "#E8B04A"
+    },
+    {
+     "type": "text",
+     "v": "MA60",
+     "g": "tl",
+     "dx": 278,
+     "dy": 90,
+     "size": 10,
+     "id": "dp33",
+     "color": "dim",
+     "ls": 0.06
+    },
+    {
+     "type": "text",
+     "v": "2,148.70",
+     "g": "tl",
+     "dx": 311.6,
+     "dy": 89,
+     "size": 10,
+     "id": "dp34",
+     "color": "dim"
+    },
+    {
+     "type": "text",
+     "v": "TWSE · 13:30:00",
+     "g": "tl",
+     "dx": 286,
+     "dy": 108,
+     "size": 10,
+     "id": "dp35",
+     "color": "dim",
+     "ls": 0.06
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 0,
+     "dy": 108.0,
+     "w": 396,
+     "h": 335.9,
+     "id": "plp36",
+     "stroke": "dim",
+     "sw": 1,
+     "op": 60,
+     "note": "chart"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 8.3,
+     "dy": 285.4,
+     "w": 1,
+     "h": 1,
+     "id": "plp37",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 5.9,
+     "dy": 273.0,
+     "w": 5.8,
+     "h": 10.7,
+     "id": "plp38",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 17.9,
+     "dy": 279.6,
+     "w": 1,
+     "h": 1,
+     "id": "plp39",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 15.5,
+     "dy": 249.4,
+     "w": 5.8,
+     "h": 23.5,
+     "id": "plp40",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 27.5,
+     "dy": 255.6,
+     "w": 1,
+     "h": 1,
+     "id": "plp41",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 25.1,
+     "dy": 225.3,
+     "w": 5.8,
+     "h": 24.3,
+     "id": "plp42",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 37.1,
+     "dy": 226.0,
+     "w": 1,
+     "h": 1,
+     "id": "plp43",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 34.7,
+     "dy": 220.3,
+     "w": 5.8,
+     "h": 4.9,
+     "id": "plp44",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 46.6,
+     "dy": 230.3,
+     "w": 1,
+     "h": 1,
+     "id": "plp45",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 44.3,
+     "dy": 214.9,
+     "w": 5.8,
+     "h": 5.4,
+     "id": "plp46",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 56.2,
+     "dy": 222.4,
+     "w": 1,
+     "h": 1,
+     "id": "plp47",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 53.9,
+     "dy": 199.2,
+     "w": 5.8,
+     "h": 15.7,
+     "id": "plp48",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 65.8,
+     "dy": 206.3,
+     "w": 1,
+     "h": 1,
+     "id": "plp49",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 63.4,
+     "dy": 199.2,
+     "w": 5.8,
+     "h": 2.4,
+     "id": "plp50",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 75.4,
+     "dy": 211.9,
+     "w": 1,
+     "h": 1,
+     "id": "plp51",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 73,
+     "dy": 176.6,
+     "w": 5.8,
+     "h": 24.9,
+     "id": "plp52",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 85,
+     "dy": 178.1,
+     "w": 1,
+     "h": 1,
+     "id": "plp53",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 82.6,
+     "dy": 156.9,
+     "w": 5.8,
+     "h": 19.7,
+     "id": "plp54",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 94.6,
+     "dy": 173.8,
+     "w": 1,
+     "h": 1,
+     "id": "plp55",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 92.2,
+     "dy": 156.9,
+     "w": 5.8,
+     "h": 14.7,
+     "id": "plp56",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 104.2,
+     "dy": 181.8,
+     "w": 1,
+     "h": 1,
+     "id": "plp57",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 101.8,
+     "dy": 171.6,
+     "w": 5.8,
+     "h": 5.6,
+     "id": "plp58",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 113.8,
+     "dy": 178.0,
+     "w": 1,
+     "h": 1,
+     "id": "plp59",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 111.4,
+     "dy": 153.2,
+     "w": 5.8,
+     "h": 24.0,
+     "id": "plp60",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 123.4,
+     "dy": 166.2,
+     "w": 1,
+     "h": 1,
+     "id": "plp61",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 121,
+     "dy": 153.2,
+     "w": 5.8,
+     "h": 7.8,
+     "id": "plp62",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 132.9,
+     "dy": 169.3,
+     "w": 1,
+     "h": 1,
+     "id": "plp63",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 130.6,
+     "dy": 161.1,
+     "w": 5.8,
+     "h": 2.8,
+     "id": "plp64",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 142.5,
+     "dy": 186.0,
+     "w": 1,
+     "h": 1,
+     "id": "plp65",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 140.2,
+     "dy": 163.9,
+     "w": 5.8,
+     "h": 13.6,
+     "id": "plp66",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 152.1,
+     "dy": 186.3,
+     "w": 1,
+     "h": 1,
+     "id": "plp67",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 149.7,
+     "dy": 177.6,
+     "w": 5.8,
+     "h": 2.2,
+     "id": "plp68",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 161.7,
+     "dy": 193.7,
+     "w": 1,
+     "h": 1,
+     "id": "plp69",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 159.3,
+     "dy": 179.8,
+     "w": 5.8,
+     "h": 10.3,
+     "id": "plp70",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 171.3,
+     "dy": 195.3,
+     "w": 1,
+     "h": 1,
+     "id": "plp71",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 168.9,
+     "dy": 169.0,
+     "w": 5.8,
+     "h": 21.2,
+     "id": "plp72",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 180.9,
+     "dy": 174.9,
+     "w": 1,
+     "h": 1,
+     "id": "plp73",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 178.5,
+     "dy": 149.6,
+     "w": 5.8,
+     "h": 19.5,
+     "id": "plp74",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 190.5,
+     "dy": 166.0,
+     "w": 1,
+     "h": 1,
+     "id": "plp75",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 188.1,
+     "dy": 149.6,
+     "w": 5.8,
+     "h": 7.2,
+     "id": "plp76",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 200.1,
+     "dy": 178.4,
+     "w": 1,
+     "h": 1,
+     "id": "plp77",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 197.7,
+     "dy": 156.8,
+     "w": 5.8,
+     "h": 17.9,
+     "id": "plp78",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 209.6,
+     "dy": 185.0,
+     "w": 1,
+     "h": 1,
+     "id": "plp79",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 207.3,
+     "dy": 174.6,
+     "w": 5.8,
+     "h": 3.3,
+     "id": "plp80",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 219.2,
+     "dy": 205.3,
+     "w": 1,
+     "h": 1,
+     "id": "plp81",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 216.9,
+     "dy": 177.9,
+     "w": 5.8,
+     "h": 16.1,
+     "id": "plp82",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 228.8,
+     "dy": 201.5,
+     "w": 1,
+     "h": 1,
+     "id": "plp83",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 226.4,
+     "dy": 193.9,
+     "w": 5.8,
+     "h": 6.9,
+     "id": "plp84",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 238.4,
+     "dy": 218.8,
+     "w": 1,
+     "h": 1,
+     "id": "plp85",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 236,
+     "dy": 200.8,
+     "w": 5.8,
+     "h": 6.0,
+     "id": "plp86",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 248,
+     "dy": 211.5,
+     "w": 1,
+     "h": 1,
+     "id": "plp87",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 245.6,
+     "dy": 194.2,
+     "w": 5.8,
+     "h": 12.6,
+     "id": "plp88",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 257.6,
+     "dy": 199.8,
+     "w": 1,
+     "h": 1,
+     "id": "plp89",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 255.2,
+     "dy": 168.2,
+     "w": 5.8,
+     "h": 26.1,
+     "id": "plp90",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 267.2,
+     "dy": 168.9,
+     "w": 1,
+     "h": 1,
+     "id": "plp91",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 264.8,
+     "dy": 147.0,
+     "w": 5.8,
+     "h": 21.3,
+     "id": "plp92",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 276.8,
+     "dy": 149.9,
+     "w": 1,
+     "h": 1,
+     "id": "plp93",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 274.4,
+     "dy": 141.3,
+     "w": 5.8,
+     "h": 5.6,
+     "id": "plp94",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 286.4,
+     "dy": 159.9,
+     "w": 1,
+     "h": 1,
+     "id": "plp95",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 284,
+     "dy": 141.3,
+     "w": 5.8,
+     "h": 17.5,
+     "id": "plp96",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 295.9,
+     "dy": 170.5,
+     "w": 1,
+     "h": 1,
+     "id": "plp97",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 293.6,
+     "dy": 158.9,
+     "w": 5.8,
+     "h": 2.2,
+     "id": "plp98",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 305.5,
+     "dy": 180.4,
+     "w": 1,
+     "h": 1,
+     "id": "plp99",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 303.2,
+     "dy": 159.9,
+     "w": 5.8,
+     "h": 17.3,
+     "id": "plp100",
+     "fill": "#3fc29c"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 315.1,
+     "dy": 187.8,
+     "w": 1,
+     "h": 1,
+     "id": "plp101",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 312.7,
+     "dy": 168.3,
+     "w": 5.8,
+     "h": 8.8,
+     "id": "plp102",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 324.7,
+     "dy": 170.4,
+     "w": 1,
+     "h": 1,
+     "id": "plp103",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 322.3,
+     "dy": 148.8,
+     "w": 5.8,
+     "h": 19.5,
+     "id": "plp104",
+     "fill": "#ff5f6f"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 332,
+     "dy": 292.7,
+     "w": 62,
+     "h": 24.0,
+     "id": "plp105",
+     "fill": "#121214"
+    },
+    {
+     "type": "text",
+     "v": "2,170.00",
+     "g": "tl",
+     "dx": 336,
+     "dy": 295.8,
+     "size": 10,
+     "id": "plp106",
+     "color": "#ff5f6f"
+    },
+    {
+     "type": "text",
+     "v": "10:00",
+     "g": "tl",
+     "dx": 50,
+     "dy": 422.9,
+     "size": 9,
+     "id": "plp107",
+     "color": "dim"
+    },
+    {
+     "type": "text",
+     "v": "11:00",
+     "g": "tl",
+     "dx": 140,
+     "dy": 422.9,
+     "size": 9,
+     "id": "plp108",
+     "color": "dim"
+    },
+    {
+     "type": "text",
+     "v": "12:00",
+     "g": "tl",
+     "dx": 230,
+     "dy": 422.9,
+     "size": 9,
+     "id": "plp109",
+     "color": "dim"
+    },
+    {
+     "type": "text",
+     "v": "13:00",
+     "g": "tl",
+     "dx": 310,
+     "dy": 422.9,
+     "size": 9,
+     "id": "plp110",
+     "color": "dim"
+    }
+   ]
+  },
+  {
+   "id": "tiles-333",
+   "name": "Tiles: 4 across",
+   "kind": "action",
+   "x": 16,
+   "y": 683,
+   "w": 396,
+   "h": 64,
+   "items": [
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 0,
+     "dy": 0,
+     "w": 94.5,
+     "h": 64,
+     "id": "r314",
+     "stroke": "text",
+     "sw": 1.6
+    },
+    {
+     "type": "icon",
+     "g": "tl",
+     "dx": 6,
+     "dy": 8,
+     "name": "zlpx-flows",
+     "size": 12,
+     "color": "text",
+     "id": "i315"
+    },
+    {
+     "type": "text",
+     "v": "三大法人",
+     "g": "tl",
+     "dx": 22,
+     "dy": 8,
+     "size": 9,
+     "id": "t316",
+     "ls": 0.04,
+     "color": "text"
+    },
+    {
+     "type": "text",
+     "v": "−5.5K",
+     "g": "tl",
+     "dx": 6,
+     "dy": 26,
+     "size": 20,
+     "id": "t317",
+     "font": "display",
+     "lh": 1,
+     "color": "#3fc29c"
+    },
+    {
+     "type": "text",
+     "v": "張",
+     "g": "tl",
+     "dx": 56,
+     "dy": 30,
+     "size": 12,
+     "id": "t318",
+     "color": "dim",
+     "wt": 600
+    },
+    {
+     "type": "text",
+     "v": "Nov 17",
+     "g": "tl",
+     "dx": 6,
+     "dy": 48,
+     "size": 10,
+     "id": "t319",
+     "color": "dim",
+     "lh": 1.2
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 100.5,
+     "dy": 0,
+     "w": 94.5,
+     "h": 64,
+     "id": "r320",
+     "stroke": "text",
+     "sw": 1.6
+    },
+    {
+     "type": "icon",
+     "g": "tl",
+     "dx": 106.5,
+     "dy": 8,
+     "name": "zlpx-receipt",
+     "size": 12,
+     "color": "text",
+     "id": "i321"
+    },
+    {
+     "type": "text",
+     "v": "REVENUE",
+     "g": "tl",
+     "dx": 122.5,
+     "dy": 8,
+     "size": 9,
+     "id": "t322",
+     "ls": 0.04,
+     "color": "text"
+    },
+    {
+     "type": "text",
+     "v": "+59.71%",
+     "g": "tl",
+     "dx": 106.5,
+     "dy": 26,
+     "size": 20,
+     "id": "t323",
+     "font": "display",
+     "lh": 1,
+     "color": "#ff5f6f"
+    },
+    {
+     "type": "text",
+     "v": "Oct · YoY",
+     "g": "tl",
+     "dx": 106.5,
+     "dy": 48,
+     "size": 10,
+     "id": "t324",
+     "color": "dim",
+     "lh": 1.2
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 201,
+     "dy": 0,
+     "w": 94.5,
+     "h": 64,
+     "id": "r325",
+     "stroke": "text",
+     "sw": 1.6
+    },
+    {
+     "type": "icon",
+     "g": "tl",
+     "dx": 207,
+     "dy": 8,
+     "name": "zlpx-list",
+     "size": 12,
+     "color": "text",
+     "id": "i326"
+    },
+    {
+     "type": "text",
+     "v": "TRADES",
+     "g": "tl",
+     "dx": 223,
+     "dy": 8,
+     "size": 9,
+     "id": "t327",
+     "ls": 0.04,
+     "color": "text"
+    },
+    {
+     "type": "text",
+     "v": "1",
+     "g": "tl",
+     "dx": 207,
+     "dy": 26,
+     "size": 20,
+     "id": "t328",
+     "font": "display",
+     "lh": 1,
+     "color": "text"
+    },
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 301.5,
+     "dy": 0,
+     "w": 94.5,
+     "h": 64,
+     "id": "r329",
+     "stroke": "line",
+     "sw": 1.6
+    },
+    {
+     "type": "icon",
+     "g": "tl",
+     "dx": 307.5,
+     "dy": 8,
+     "name": "zlpx-receipt",
+     "size": 12,
+     "color": "dim",
+     "id": "i330"
+    },
+    {
+     "type": "text",
+     "v": "JOURNAL",
+     "g": "tl",
+     "dx": 323.5,
+     "dy": 8,
+     "size": 9,
+     "id": "t331",
+     "ls": 0.04,
+     "color": "dim"
+    },
+    {
+     "type": "text",
+     "v": "0",
+     "g": "tl",
+     "dx": 307.5,
+     "dy": 26,
+     "size": 20,
+     "id": "t332",
+     "font": "display",
+     "lh": 1,
+     "color": "dim"
+    }
+   ]
+  },
+  {
+   "id": "dock-710",
+   "name": "Dock",
+   "kind": "action",
+   "x": 16,
+   "y": 757,
+   "w": 396,
+   "h": 52,
+   "items": [
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 0,
+     "dy": 0,
+     "w": 166,
+     "h": 52,
+     "stroke": "text",
+     "sw": 1.6,
+     "id": "dock0"
+    },
+    {
+     "id": "dock1",
+     "type": "row",
+     "g": "tl",
+     "dx": 174,
+     "dy": 0,
+     "w": 222,
+     "h": 52,
+     "gap": 8,
+     "main": "center",
+     "cross": "center",
+     "fill": "loud",
+     "sw": 1.6,
+     "stroke": "loud",
+     "items": [
+      {
+       "type": "icon",
+       "name": "zlpx-plus",
+       "size": 16,
+       "color": "paper",
+       "id": "dock4"
+      },
+      {
+       "type": "text",
+       "v": "TRADE",
+       "size": 19,
+       "font": "display",
+       "color": "paper",
+       "ls": 0.04,
+       "id": "dock5"
+      }
+     ]
+    },
+    {
+     "type": "icon",
+     "g": "tl",
+     "dx": 18,
+     "dy": 18,
+     "name": "zlpx-back",
+     "size": 16,
+     "color": "loud",
+     "id": "dock2"
+    },
+    {
+     "type": "text",
+     "v": "BACK · INVEST",
+     "g": "tl",
+     "dx": 42,
+     "dy": 12,
+     "size": 19,
+     "font": "display",
+     "ls": 0.04,
+     "id": "dock3"
+    }
+   ]
+  },
+  {
+   "id": "tab-bar-776",
+   "name": "Tab bar",
+   "kind": "nav",
+   "x": 0,
+   "y": 823,
+   "w": 428,
+   "h": 67,
+   "items": [
+    {
+     "type": "rect",
+     "g": "tl",
+     "dx": 0,
+     "dy": 0,
+     "w": 428,
+     "h": 4,
+     "fill": "text",
+     "id": "tabbar0"
+    },
+    {
+     "id": "tabs",
+     "type": "row",
+     "g": "tl",
+     "dx": 4,
+     "dy": 8,
+     "w": 428,
+     "h": 59,
+     "items": [
+      {
+       "id": "tab-debt",
+       "type": "col",
+       "w": 84,
+       "h": 58.8,
+       "main": "center",
+       "cross": "center",
+       "gap": 6,
+       "items": [
+        {
+         "id": "tab-debt-ic",
+         "type": "icon",
+         "name": "zlpx-debt",
+         "size": 26,
+         "color": "dim"
+        },
+        {
+         "id": "tab-debt-l",
+         "type": "text",
+         "v": "DEBT",
+         "size": 10,
+         "color": "dim"
+        }
+       ]
+      },
+      {
+       "id": "tab-invest",
+       "type": "col",
+       "w": 84,
+       "h": 58.8,
+       "main": "center",
+       "cross": "center",
+       "gap": 6,
+       "items": [
+        {
+         "id": "tab-invest-ic",
+         "type": "icon",
+         "name": "zlpx-invest",
+         "size": 26,
+         "color": "loud"
+        },
+        {
+         "id": "tab-invest-l",
+         "type": "text",
+         "v": "INVEST",
+         "size": 10,
+         "color": "text"
+        }
+       ]
+      },
+      {
+       "id": "tab-log",
+       "type": "col",
+       "w": 84,
+       "h": 58.8,
+       "main": "center",
+       "cross": "center",
+       "gap": 6,
+       "items": [
+        {
+         "id": "tab-log-ic",
+         "type": "icon",
+         "name": "zlpx-log",
+         "size": 26,
+         "color": "dim"
+        },
+        {
+         "id": "tab-log-l",
+         "type": "text",
+         "v": "LOG",
+         "size": 10,
+         "color": "dim"
+        }
+       ]
+      },
+      {
+       "id": "tab-ledger",
+       "type": "col",
+       "w": 84,
+       "h": 58.8,
+       "main": "center",
+       "cross": "center",
+       "gap": 6,
+       "items": [
+        {
+         "id": "tab-ledger-ic",
+         "type": "icon",
+         "name": "zlpx-ledger",
+         "size": 26,
+         "color": "dim"
+        },
+        {
+         "id": "tab-ledger-l",
+         "type": "text",
+         "v": "LEDGER",
+         "size": 10,
+         "color": "dim"
+        }
+       ]
+      },
+      {
+       "id": "tab-goals",
+       "type": "col",
+       "w": 84,
+       "h": 58.8,
+       "main": "center",
+       "cross": "center",
+       "gap": 6,
+       "items": [
+        {
+         "id": "tab-goals-ic",
+         "type": "icon",
+         "name": "zlpx-goals",
+         "size": 26,
+         "color": "dim"
+        },
+        {
+         "id": "tab-goals-l",
+         "type": "text",
+         "v": "GOALS",
+         "size": 10,
+         "color": "dim"
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "fill": "paper"
+  }
+ ]
+}

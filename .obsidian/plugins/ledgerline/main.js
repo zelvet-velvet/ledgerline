@@ -9625,8 +9625,8 @@ var sectorLine = (x, parent, tk) => {
     ve.setText(k ? v === null ? "-" : pc(v) : "");
     ve.className = "zl-ctx-v" + (v === null ? "" : v > 0 ? " is-up" : v < 0 ? " is-hot" : "");
   };
-  const paint = () => {
-    if (!line.isConnected) return false;
+  const paint = (first2 = false) => {
+    if (!first2 && !line.isConnected) return false;
     const sec2 = flow.sectorOf(sym), sp = sec2 ? flow.idx.get(sec2.code) ?? null : null, ix = flow.idx.get("t00") ?? null, me = todayOf(prices, tk)?.pct ?? null;
     if (sec2) {
       put(0, sec2.name, sp);
@@ -9655,7 +9655,7 @@ var sectorLine = (x, parent, tk) => {
     });
   };
   start();
-  paint();
+  paint(true);
   prices.onQuote((s2) => {
     if (!line.isConnected) return false;
     if (s2 === sym) paint();
@@ -10170,6 +10170,12 @@ var chartBlock = (x, el2, tk, currency, cost) => {
   DRAWN.set(ctx.frame, memo);
   const cv = holdingChart(cg, { ticker: tk, currency, prices, prefs: readPrefs(ctx.plugin.store.fm(journalPath(tk))), cost, memo, height: 0, onLeave: () => ctx.pop(), fullLine: thesisLine(x, tk), noteEnd: thesisButton(x, tk) });
   flowModes(x, srcRow, cg, tk, cv.el);
+  const box = cv.el, dock2 = h(box, "div", "zl-ch-dock");
+  const fm = srcRow.querySelector(":scope > .zl-fmode"), tools = box.querySelector(":scope > .zl-ch-tools");
+  if (fm) dock2.appendChild(fm);
+  if (tools) dock2.appendChild(tools);
+  box.insertBefore(srcRow, box.querySelector(":scope > .zl-ch-plot"));
+  box.addClass("is-d2");
 };
 var drawAct = (x, tk) => ({ text: t("iChartSet"), label: t("dTitle", { tk }), onTap: () => new DrawingsSheet(x.ctx.app, x.ctx.plugin.store, tk, () => x.addThought(tk)).open() });
 var tickerPage = (x, tk) => {
