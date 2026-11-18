@@ -5324,9 +5324,7 @@ var Flap = class {
     const lf = document.createElement("span");
     lf.className = "lf";
     lf.append(fr, bk);
-    const tx = document.createElement("b");
-    tx.className = "tx";
-    t2.append(st, sb, dr, lf, tx);
+    t2.append(st, sb, dr, lf);
     const x = { el: t2, st, sb, fr, bk, lf, frSh: fr.lastChild, bkSh: bk.lastChild, dr, shown: BLANK, target: BLANK, rolling: false, deadline: 0, wait: 0, gen: 0 };
     TILES.set(t2, x);
     this.show(x, BLANK);
