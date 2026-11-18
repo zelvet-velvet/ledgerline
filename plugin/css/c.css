@@ -1315,6 +1315,20 @@ body.zl-calm .zl-lastp.is-loading .zl-flap .t, body.zl-calm .zl-lastp.is-loading
 .zl-fade-in { animation: zl-flow-in .3s ease both; }
 @keyframes zl-flow-in { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .zl-flow-load::before, .zl-fade-in { animation: none; } .zl-flow-plot > canvas { transition: none; } }
+/* the chart page's top, Vellum top A (owner picked 2026-11-18): the price row, then the market in one row of three cells between
+   thin rules (label left, value right), then the hold strip with each label and value against its column's right edge */
+.zl-lastp.is-a { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+.zl-lastp-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.zl-lastp.is-a .zl-lastp-k { font: 400 10px var(--zl-pixel); letter-spacing: .06em; text-transform: uppercase; color: var(--zl-mut); min-height: 0; line-height: 14px; }
+.zl-lastp.is-a .zl-lastp-s { font: 600 15px var(--zl-ui); line-height: 20px; min-height: 20px; }
+.zl-ctx { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--zl-dim); border-bottom: 1px solid var(--zl-dim); }
+.zl-ctx-c { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; min-width: 0; padding: 6px 8px; line-height: 15px; }
+.zl-ctx-c:first-child { padding-left: 0; } .zl-ctx-c:last-child { padding-right: 0; }
+.zl-ctx-c + .zl-ctx-c { border-left: 1px solid var(--zl-dim); }
+.zl-ctx-k { font: 400 10px var(--zl-pixel); letter-spacing: .06em; color: var(--zl-mut); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.zl-ctx-v { flex: none; font: 600 12px var(--zl-ui); font-variant-numeric: tabular-nums; color: var(--zl-mut); }
+.zl-ctx-v.is-up { color: var(--zl-up); } .zl-ctx-v.is-hot { color: var(--zl-down); }
+.zl-hold.is-4 .zl-sum-items > div { align-items: flex-end; text-align: right; }
 .zl-lastp-x { display: flex; flex-wrap: nowrap; overflow: hidden; min-height: 1.4em; line-height: 1.4; gap: 2px 10px; font: 400 10px var(--zl-pixel); letter-spacing: .04em; color: var(--zl-mut); margin-top: 2px; }
 .zl-lastp-x > span { display: inline-flex; gap: 4px; white-space: nowrap; }
 .zl-lastp-x .is-up { color: var(--zl-up); } .zl-lastp-x .is-hot { color: var(--zl-down); }

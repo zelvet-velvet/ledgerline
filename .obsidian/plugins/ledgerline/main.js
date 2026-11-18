@@ -9613,21 +9613,30 @@ var mapPage = (x) => {
 var sectorLine = (x, parent, tk) => {
   const prices = x.ctx.plugin.prices, flow = x.ctx.plugin.flow, sym = prices.symbol(tk);
   if (!fugleCode(sym)) return;
-  const line = h(parent, "div", "zl-lastp-x"), rel = h(parent, "div", "zl-lastp-x");
+  const line = h(parent, "div", "zl-ctx");
+  const cells = [0, 1, 2].map(() => {
+    const c = h(line, "span", "zl-ctx-c");
+    return [h(c, "span", "zl-ctx-k"), h(c, "span", "zl-ctx-v")];
+  });
   const pc = (n, d = 2) => `${n > 0 ? "+" : n < 0 ? "\u2212" : ""}${Math.abs(n).toFixed(d)}%`;
-  const part = (k, v, into = line) => {
-    const s2 = h(into, "span");
-    h(s2, "span", "zl-lastp-xk", k);
-    h(s2, "span", v === null ? "" : v > 0 ? "is-up" : v < 0 ? "is-hot" : "", v === null ? "-" : pc(v));
+  const put = (i, k, v) => {
+    const [ke, ve] = cells[i];
+    ke.setText(k);
+    ve.setText(k ? v === null ? "-" : pc(v) : "");
+    ve.className = "zl-ctx-v" + (v === null ? "" : v > 0 ? " is-up" : v < 0 ? " is-hot" : "");
   };
   const paint = () => {
     if (!line.isConnected) return false;
-    line.empty();
-    rel.empty();
     const sec2 = flow.sectorOf(sym), sp = sec2 ? flow.idx.get(sec2.code) ?? null : null, ix = flow.idx.get("t00") ?? null, me = todayOf(prices, tk)?.pct ?? null;
-    if (sec2) part(sec2.name, sp);
-    part("TAIEX", ix);
-    if (sec2 && sp !== null && me !== null) part("REL", me - sp, rel);
+    if (sec2) {
+      put(0, sec2.name, sp);
+      put(1, "TAIEX", ix);
+      put(2, "REL", sp !== null && me !== null ? me - sp : null);
+    } else {
+      put(0, "TAIEX", ix);
+      put(1, "VS TAIEX", ix !== null && me !== null ? me - ix : null);
+      put(2, "", null);
+    }
     return true;
   };
   let stop = null, codes = "";
@@ -10090,8 +10099,9 @@ var chartBlock = (x, el2, tk, currency, cost) => {
   prices.refreshSeries(tk, "D");
   const lastP = live?.price ?? bars2?.c[bars2.c.length - 1] ?? null;
   const td = todayOf(prices, tk), ch = td?.ch ?? null;
-  const top = h(el2, "div", "zl-c-group zl-c-top zl-lastp");
-  const lt = h(top, "div", "zl-lastp-l");
+  const top = h(el2, "div", "zl-c-group zl-c-top zl-lastp is-a");
+  const row2 = h(top, "div", "zl-lastp-row");
+  const lt = h(row2, "div", "zl-lastp-l");
   const isOpen = () => prices.isOpen(tk);
   const kText = () => t(isOpen() ? "iNowPrice" : "iLastPrice");
   const srcText = () => {
@@ -10106,11 +10116,11 @@ var chartBlock = (x, el2, tk, currency, cost) => {
     f = new Flap("md");
     LAST.set(tk, f);
   }
-  top.appendChild(f.el);
+  row2.appendChild(f.el);
   let loading = lastP === null;
   f.set(lastP !== null ? price2(lastP) : "\xA0".repeat(6));
   const flap2 = f, todayEl = lt.lastElementChild;
-  sectorLine(x, lt, tk);
+  sectorLine(x, top, tk);
   const loaded = (text2) => {
     if (!loading) return;
     loading = false;

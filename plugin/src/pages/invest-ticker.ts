@@ -105,8 +105,11 @@ export const chartBlock = (x: X, el: HTMLElement, tk: string, currency: string, 
     prices.refreshSeries(tk, "D");
     const lastP = live?.price ?? bars?.c[bars.c.length - 1] ?? null;
     const td = todayOf(prices, tk), ch = td?.ch ?? null;
-    const top = h(el, "div", "zl-c-group zl-c-top zl-lastp");
-    const lt = h(top, "div", "zl-lastp-l");
+    // the top as Vellum "2330 · top A ruled rows" (owner picked 2026-11-18): the price row (label, today's change a size up,
+    // the split-flap), then the market around it in one ruled row of three cells
+    const top = h(el, "div", "zl-c-group zl-c-top zl-lastp is-a");
+    const row = h(top, "div", "zl-lastp-row");
+    const lt = h(row, "div", "zl-lastp-l");
     // CURRENT PRICE while its market trades (prices.isOpen: clock + market calendar; before the open TWSE's fresh quote is
     // only yesterday's close), else LAST PRICE
     const isOpen = () => prices.isOpen(tk);
@@ -118,13 +121,13 @@ export const chartBlock = (x: X, el: HTMLElement, tk: string, currency: string, 
     h(lt, "div", "zl-lastp-s" + (ch !== null && ch < 0 ? " is-hot" : ch !== null && ch > 0 ? " is-up" : ""), !td ? asOfText(q?.asOf ?? null) : t("iToday", { n: `${td.ch > 0 ? "+" : td.ch < 0 ? "\u2212" : ""}${price2(Math.abs(td.ch))}`, p: pctS(td.pct) }));
     let f = LAST.get(tk);
     if (!f) { f = new Flap("md"); LAST.set(tk, f); }
-    top.appendChild(f.el);
+    row.appendChild(f.el);
     // no price yet (a first look at a ticker; owner, 2026-11-05: the top sat empty while it loaded): dark blank tiles with a
     // light running across them, the lines under the label dim bars; the first quote flips the tiles to the price
     let loading = lastP === null;
     f.set(lastP !== null ? price2(lastP) : "\u00a0".repeat(6));
     const flap = f, todayEl = lt.lastElementChild as HTMLElement;
-    sectorLine(x, lt, tk);   // 半導體 +1.20% · TAIEX +0.85% · REL +0.35% (Taiwan stocks)
+    sectorLine(x, top, tk);   // 半導體 +1.20% | TAIEX +0.85% | REL +0.35% (Taiwan stocks)
     const loaded = (text: string) => { if (!loading) return; loading = false; top.removeClass("is-loading"); flap.set(text); };
     if (loading) {
         top.addClass("is-loading");
