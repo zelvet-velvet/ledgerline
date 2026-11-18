@@ -923,6 +923,11 @@ body.zl-calm .zl-grow rect, body.zl-calm .zl-waffle .zl-grow rect { animation: n
 .zl-page.zl-c-stack.is-tight, .zl-page.zl-c-stack.is-tight.zl-has-bar { gap: 12px; }
 .zl-page.zl-c-stack.is-tighter, .zl-page.zl-c-stack.is-tighter.zl-has-bar { gap: 8px; padding-top: 4px; padding-bottom: 4px; }
 .zl-page.is-tighter .zl-reads { margin-top: 4px; }
+/* a chart page as its Vellum mock (C1, owner 2026-11-18: on the phone every gap read too big): groups 10 px apart, then 8 and 6
+   when it tightens; the chart takes what is left */
+.zl-page.zl-c-stack:has(> .zl-chartg), .zl-page.zl-c-stack.zl-has-bar:has(> .zl-chartg) { gap: 10px; }
+.zl-page.zl-c-stack.is-tight:has(> .zl-chartg) { gap: 8px; }
+.zl-page.zl-c-stack.is-tighter:has(> .zl-chartg) { gap: 6px; }
 .zl-page.is-tighter .zl-read { padding: 2px 0; }
 .zl-app .zl-page.is-tighter .zl-brow { padding: 3px 0; min-height: 40px; }
 .zl-app .zl-page.is-tighter .zl-fig { min-height: 48px; padding: 8px 0; }
@@ -1151,6 +1156,8 @@ body.zl-calm .zl-ch-in { animation: none; }
 .zl-ch-tools { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; }   /* FIB LINE LEVEL */
 .zl-ch button.zl-ch-tool { all: unset; cursor: pointer; text-align: center; padding: 8px 0; font: 12px var(--zl-pixel); color: var(--zl-ink); border: 1px solid var(--zl-ink); margin-left: -1px; }
 .zl-ch button.zl-ch-tool:first-child { margin-left: 0; }
+/* FIB LINE LEVEL: 28 px, as the mock (owner, 2026-11-18: they stood too tall on the phone) */
+.zl-chartg .zl-ch button.zl-ch-tool { box-sizing: border-box; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center; }
 .zl-ch button.zl-ch-tool.is-on { background: var(--zl-ink); color: var(--zl-paper); }
 .zl-ch button.zl-ch-tool.is-clear { color: var(--zl-loud); }
 .zl-ch-plot.is-armed { cursor: crosshair; }
