@@ -610,8 +610,8 @@ body[data-zl-move="cascade"] .zl-page.zl-enter[data-enter="pop"] > :not(.zl-titl
 @keyframes zl-wipe-on { from { clip-path: inset(0 0 0 100%); } to { clip-path: inset(0); } }
 @keyframes zl-wipe-off { from { clip-path: inset(0); } to { clip-path: inset(0 0 0 100%); } }
 @keyframes zl-fade-out { to { opacity: 0; } }
-@keyframes zl-fade-up { from { opacity: 0; scale: .98; } }
-@keyframes zl-fade-down { from { opacity: 0; scale: 1.02; } }
+@keyframes zl-fade-up { from { opacity: 0; } }   /* no scale: it read as the parts resizing (owner, 2026-11-18) */
+@keyframes zl-fade-down { from { opacity: 0; } }
 /* Back is never in the masthead now */
 .zl-app .zl-top.has-back .zl-back { display: none; }
 @media (prefers-reduced-motion: reduce) { .zl-app .zl-scroll.is-push, .zl-app .zl-scroll.is-pop, .zl-app .zl-scroll.is-rise { animation: none; } }
