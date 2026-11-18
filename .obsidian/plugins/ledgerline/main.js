@@ -10013,6 +10013,7 @@ var assetPage = (x, p) => {
   chartBlock(x, el2, p.ticker, p.currency, costP);
   const next = nextDca(p.dca, today()), thoughts = x.journal(p.ticker);
   const hold = h(el2, "div", "zl-c-group zl-hold is-4");
+  el2.insertBefore(hold, el2.querySelector(":scope > .zl-chartg"));
   const valueK = (pl, cost) => {
     const v = cost > 0 ? pl / cost * 100 : 0, a = Math.abs(v);
     return `${t("iValueShort")} ${v > 0 ? "+" : v < 0 ? "\u2212" : ""}${a.toFixed(a >= 10 ? 0 : 1)}%`;

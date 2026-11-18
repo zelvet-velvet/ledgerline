@@ -28,8 +28,8 @@ export const asOfText = (ms: number | null): string => {
     return t("iAsOf", { t: day === today() ? hm : `${shortDate(day)} ${hm}` });
 };
 
-// One-screen chart page (owner, 2026-11-04: nothing much below the fold): last price, the chart taking the room left, one
-// strip with what you hold, then tiles to the rest (法人 flows, trades, plan, journal)
+// One-screen chart page (owner, 2026-11-04: nothing much below the fold): last price, one strip with what you hold, the chart
+// taking the room left, then tiles to the rest (法人 flows, trades, plan, journal)
 export const assetPage = (x: X, p: Position): PageOut => {
     const { ctx } = x;
     const el = page(p.ticker);
@@ -39,6 +39,8 @@ export const assetPage = (x: X, p: Position): PageOut => {
     // the hold strip, four across (owner picked mock B, 2026-11-18): PLAN joined it from the tiles; a tap on it opens the plan sheet
     const next = nextDca(p.dca, today()), thoughts = x.journal(p.ticker);
     const hold = h(el, "div", "zl-c-group zl-hold is-4");
+    // right under the last price, above the chart (owner's edit of Vellum C1, 2026-11-18): the price, then what you hold at it
+    el.insertBefore(hold, el.querySelector(":scope > .zl-chartg"));
     // a quarter of the row: whole percents from 10 % up (+111%, not +110.78%), one decimal under it
     const valueK = (pl: number, cost: number) => { const v = cost > 0 ? (pl / cost) * 100 : 0, a = Math.abs(v); return `${t("iValueShort")} ${v > 0 ? "+" : v < 0 ? "\u2212" : ""}${a.toFixed(a >= 10 ? 0 : 1)}%`; };
     const items: [string, string, boolean][] = [
