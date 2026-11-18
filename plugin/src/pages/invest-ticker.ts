@@ -74,7 +74,7 @@ export const assetPage = (x: X, p: Position): PageOut => {
         { k: t("iTrades"), icon: "list", v: String(p.trades.length), hot: off, onTap: () => ctx.push({ key: "trades:" + p.ticker, title: t("iTrades") }) },
         { k: t("iJournal"), icon: "receipt", v: String(thoughts.length), dim: !thoughts.length, onTap: () => ctx.push({ key: "journal:" + p.ticker, title: t("iJournal") }) },
     ].filter((v): v is NonNullable<typeof v> => !!v);
-    tileGrid(h(el, "div", "zl-c-group"), tiles);
+    tileGrid(h(el, "div", "zl-c-group zl-tstrip"), tiles);   // a ruled strip, not boxes (Vellum tiles E4a, owner 2026-11-18)
     return { title: p.ticker, el, still: true, actions: [drawAct(x, p.ticker)], fab: tradeFab(x, p.ticker), badge: tickerBadge(x, p.ticker) };
 };
 
@@ -208,7 +208,7 @@ export const tickerPage = (x: X, tk: string): PageOut => {
         flowsTile(ctx, tk, flowCodes(ctx, flowTickers(P))),
         revenueTile(x, tk),
     ].filter((v): v is NonNullable<typeof v> => !!v);
-    tileGrid(h(el, "div", "zl-c-group"), tiles);
+    tileGrid(h(el, "div", "zl-c-group zl-tstrip"), tiles);   // a ruled strip, not boxes (Vellum tiles E4a, owner 2026-11-18)
     return { title: tk, el, still: true, actions: [drawAct(x, tk)], fab: tradeFab(x, tk), badge: tickerBadge(x, tk) };
 };
 

@@ -10070,7 +10070,7 @@ var assetPage = (x, p) => {
     { k: t("iTrades"), icon: "list", v: String(p.trades.length), hot: off, onTap: () => ctx.push({ key: "trades:" + p.ticker, title: t("iTrades") }) },
     { k: t("iJournal"), icon: "receipt", v: String(thoughts.length), dim: !thoughts.length, onTap: () => ctx.push({ key: "journal:" + p.ticker, title: t("iJournal") }) }
   ].filter((v) => !!v);
-  tileGrid(h(el2, "div", "zl-c-group"), tiles);
+  tileGrid(h(el2, "div", "zl-c-group zl-tstrip"), tiles);
   return { title: p.ticker, el: el2, still: true, actions: [drawAct(x, p.ticker)], fab: tradeFab(x, p.ticker), badge: tickerBadge(x, p.ticker) };
 };
 var tradesPage = (x, p) => {
@@ -10208,7 +10208,7 @@ var tickerPage = (x, tk) => {
     flowsTile(ctx, tk, flowCodes(ctx, flowTickers(P))),
     revenueTile(x, tk)
   ].filter((v) => !!v);
-  tileGrid(h(el2, "div", "zl-c-group"), tiles);
+  tileGrid(h(el2, "div", "zl-c-group zl-tstrip"), tiles);
   return { title: tk, el: el2, still: true, actions: [drawAct(x, tk)], fab: tradeFab(x, tk), badge: tickerBadge(x, tk) };
 };
 var journalPage = (x, tk) => {
