@@ -9,7 +9,6 @@
     "loud": "var(--ze-accent, var(--color-red))",
     "accent": "var(--interactive-accent)"
   },
-  "ui": {},
   "fonts": {
     "ui": "var(--ze-font-ui, \"ZL IBM Plex Mono\", ui-monospace, monospace)",
     "display": "var(--ze-font-display, \"ZL Anton\", Impact, sans-serif)",
@@ -25,9 +24,5 @@
     "frame": true,
     "others": true,
     "guides": true
-  },
-  "edit": {
-    "arrow": 1,
-    "hold": true
   }
 }

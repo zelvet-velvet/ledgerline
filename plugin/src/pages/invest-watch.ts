@@ -1,7 +1,7 @@
 // Invest WATCHLIST page (Taiwan / US tabs, sort, drag to reorder) and the list rows it shares
 import { t } from "../i18n";
 import { empty, h, page } from "../ui";
-import { figures } from "../ui/c";
+import { figures, segment } from "../ui/c";
 import { isTwSym } from "../calc/quotes";
 import { sprite } from "../ui/pixel";
 import type { PageOut } from "./index";
@@ -130,11 +130,7 @@ export const watchPage = (x: X): PageOut => {
         // the tabs and the sort are the page's top: on a turned phone they sit in the left column, the rows on the right
         const top = h(el, "div", "zl-c-group zl-c-top zl-wtop");
         el.insertBefore(top, g);
-        const tabs = h(top, "div", "zl-fl-seg zl-wmkt");
-        ([["tw", t("iMktTw")], ["us", t("iMktUs")]] as const).forEach(([k, label]) => {
-            const b = h(tabs, "button", "zl-fl-segb" + (mkt === k ? " is-on" : ""), label.toUpperCase());
-            b.addEventListener("click", (e) => { e.preventDefault(); if (WMKT === k) return; WMKT = k; ctx.app.saveLocalStorage(WMKT_KEY, k); ctx.redraw(); });
-        });
+        segment(top, ([["tw", t("iMktTw")], ["us", t("iMktUs")]] as const).map(([k, l]): ["tw" | "us", string] => [k, l.toUpperCase()]), mkt, (k) => { if (WMKT === k) return; WMKT = k; ctx.app.saveLocalStorage(WMKT_KEY, k); ctx.redraw(); }, { wide: true }).el.addClass("zl-wmkt");
         const sort = watchSort(x);
         // the sort as a quiet line of words under the tabs (owner, 2026-11-05: a second segment bar looked like more tabs)
         const seg = h(top, "div", "zl-wsort");

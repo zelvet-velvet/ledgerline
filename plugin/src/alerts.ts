@@ -1,4 +1,5 @@
-import { Notice, requestUrl } from "obsidian";
+import { requestUrl } from "obsidian";
+import { toast } from "./ui/toast";
 import type LedgerlinePlugin from "./main";
 import { comingDates, DateItem, fromTwt48u, hit, keepSent, readAlerts, Sent } from "./calc/alerts";
 import { buildPortfolio, journalPath } from "./calc/invest";
@@ -93,7 +94,7 @@ export class AlertWatch {
             await this.plugin.store.update(this.path(), (f: FM) => {
                 f.sent = [...keepSent(readAlerts(f).sent, day), { key, date: day, text: `${stamp} · ${text}` } satisfies Sent];
             });
-            new Notice(text, 10000);
+            toast(text, true, 10000);
             if (A.topic) await requestUrl({ url: `${NTFY}/${encodeURIComponent(A.topic)}`, method: "POST", body: text, headers: { Title: "Ledgerline", Tags: "chart_with_upwards_trend" }, throw: false }).catch(() => null);
         } finally { this.sending = false; }
     }

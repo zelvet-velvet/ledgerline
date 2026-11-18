@@ -571,7 +571,8 @@ export const confirmSheet = (app: App, title: string, text: string, okText: stri
     let answer = false;
     const c = base(m, title, text);
     const bar = h(c, "div", "zl-sheet-btns");
-    h(bar, "button", "mod-warning", okText).addEventListener("click", () => { answer = true; m.close(); });
+    // the asked action is the main button (filled, right); CANCEL the quiet one beside it
+    h(bar, "button", "mod-cta", okText).addEventListener("click", () => { answer = true; m.close(); });
     h(bar, "button", "", t("cancel")).addEventListener("click", () => m.close());
     const done = m.onClose.bind(m);   // keeps the clean-up of centerCard
     m.onClose = () => { done(); resolve(answer); };

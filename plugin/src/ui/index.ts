@@ -94,40 +94,6 @@ export const skeleton = (title: string): HTMLElement => {
 // Colours (tokens with Obsidian fallbacks, defined in styles.css)
 export const C = { pos: "var(--zl-pos)", neg: "var(--zl-neg)", info: "var(--zl-info)", warn: "var(--zl-warn)", accent: "var(--zl-accent)", faint: "var(--zl-faint)" };
 
-// Summary card: a big number, an optional progress bar, and up to three small figures under it
-export interface HeroSpec { label: string; value: string; unit?: string; color?: string; sub?: string; progress?: number; progressColor?: string; split?: [number, string][]; items?: [string, string, string?][]; button?: { text: string; onTap: () => void } }
-export const hero = (parent: HTMLElement, o: HeroSpec): HTMLElement => {
-    const card = h(parent, "div", "zl-hero");
-    h(card, "div", "zl-hero-l", o.label);
-    const v = h(card, "div", "zl-hero-v");
-    const n = h(v, "span", "", o.value);
-    if (o.color) n.style.color = o.color;
-    if (o.unit) h(v, "span", "zl-hero-u", o.unit);
-    if (o.sub) h(card, "div", "zl-hero-s", o.sub);
-    const total = (o.split ?? []).reduce((t, [n]) => t + Math.max(0, n), 0);
-    if (total > 0) {   // a bar split into coloured parts (e.g. owed to you / owed by you)
-        const bar = h(card, "div", "zl-prog zl-split");
-        for (const [n, col] of o.split!) { const p = h(bar, "div", "zl-prog-f"); p.style.width = `${(Math.max(0, n) / total) * 100}%`; p.style.background = col; }
-    }
-    if (o.progress !== undefined) {
-        const bar = h(card, "div", "zl-prog");
-        const fill = h(bar, "div", "zl-prog-f");
-        fill.style.width = `${Math.max(0, Math.min(100, o.progress))}%`;
-        if (o.progressColor) fill.style.background = o.progressColor;
-    }
-    if (o.items?.length) {
-        const grid = h(card, "div", "zl-hero-items");
-        for (const [l, val, col] of o.items) {
-            const it = h(grid, "div", "zl-hero-it");
-            h(it, "div", "zl-hero-il", l);
-            const x = h(it, "div", "zl-hero-iv", val);
-            if (col) x.style.color = col;
-        }
-    }
-    if (o.button) { const b = o.button; const btn = h(card, "button", "zl-pill zl-hero-btn", b.text); btn.addEventListener("click", (e) => { e.preventDefault(); b.onTap(); }); }
-    return card;
-};
-
 export const empty = (parent: HTMLElement, o: { icon: string; title: string; text?: string; button?: string; onTap?: () => void }): HTMLElement => {
     const box = h(parent, "div", "zl-empty");
     icon(box, o.icon, "zl-empty-ic");

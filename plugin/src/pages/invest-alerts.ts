@@ -8,7 +8,7 @@ import { daysBetween } from "../calc/thesis";
 import { parseNum, shortDate, today } from "../format";
 import { t } from "../i18n";
 import { h, page } from "../ui";
-import { figures, Fig, sec } from "../ui/c";
+import { figures, Fig, sec, segment } from "../ui/c";
 import { confirmSheet, FormSheet } from "../ui/sheet";
 import type { PageOut } from "./index";
 import { guessCur, X } from "./invest-shared";
@@ -59,11 +59,7 @@ export const alertsPage = (x: X): PageOut => {
     const A = alerts.read(), day = today();
     // ALL · PRICES · DATES, and whether pushes go out (a topic in Config/Alerts.md)
     const top = h(el, "div", "zl-c-group zl-al-top");
-    const words = h(top, "div", "zl-words");
-    for (const [k, label] of [["all", t("alAll")], ["price", t("alPrices")], ["date", t("alDates")]] as [Filter, string][]) {
-        const b = h(words, "button", "zl-chip" + (FILTER === k ? " is-on" : ""), label.toUpperCase());
-        b.addEventListener("click", (e) => { e.preventDefault(); FILTER = k; x.ctx.redraw(); });
-    }
+    segment(top, ([["all", t("alAll")], ["price", t("alPrices")], ["date", t("alDates")]] as [Filter, string][]).map(([k, l]): [Filter, string] => [k, l.toUpperCase()]), FILTER, (k) => { FILTER = k; x.ctx.redraw(); }, { wide: true });
     const push = h(top, "button", "zl-al-push", (A.topic ? t("alPushOn") : t("alPushOff")).toUpperCase());
     push.addEventListener("click", (e) => { e.preventDefault(); void x.ctx.plugin.openPath(alerts.path()); });
     const rows: (Fig & { at: string })[] = [];

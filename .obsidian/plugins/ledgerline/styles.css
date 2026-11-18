@@ -112,7 +112,7 @@
 .zl-app .zl-tab { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 7px 0 5px; color: var(--zl-muted); }
 .zl-tab .zl-ic { display: flex; }
 .zl-tab .zl-ic svg { width: 25px; height: 25px; }
-.zl-tab-l { font-size: 10px; font-weight: 500; }
+.zl-tab-l { font-size: 11px; font-weight: 500; }
 .zl-app .zl-tab.is-on { color: var(--zl-accent); }
 
 /* ---- phone full screen: Obsidian's own bars hide while the app is the active screen */
@@ -155,15 +155,8 @@ body.is-mobile:not(.zl-on) .zl-home:active { transform: scale(0.94); }
 }
 
 /* ---- summary card */
-.zl-hero { background: var(--zl-surface); border-radius: var(--zl-radius); padding: 16px; margin-top: 8px; }
-.zl-hero-l { font-size: 13px; color: var(--zl-muted); text-transform: uppercase; letter-spacing: 0.02em; }
-.zl-hero-v { font-size: 34px; font-weight: 700; letter-spacing: -0.01em; margin-top: 2px; }
-.zl-hero-u { font-size: 15px; font-weight: 500; color: var(--zl-muted); margin-left: 6px; }
 .zl-prog { height: 6px; border-radius: 3px; background: var(--zl-line); margin-top: 12px; overflow: hidden; }
 .zl-prog-f { height: 100%; border-radius: 3px; background: var(--zl-accent); }
-.zl-hero-items { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
-.zl-hero-il { font-size: 12px; color: var(--zl-muted); }
-.zl-hero-iv { font-size: 15px; font-weight: 600; margin-top: 2px; }
 .zl-app .zl-pill { margin-top: 6px; padding: 10px 20px; border-radius: 20px; background: var(--zl-accent); color: var(--text-on-accent, #fff); font-weight: 600; }
 
 /* ---- sheets (Obsidian modals); bottom sheet on phones */
@@ -202,9 +195,6 @@ body.is-mobile:not(.zl-on) .zl-home:active { transform: scale(0.94); }
 .zl-sheet-btns button[disabled] { opacity: 0.4; }
 
 /* ---- ledger bits */
-.zl-avatar { flex: none; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 600; font-size: 15px; background: var(--zl-accent); }
-.zl-row.is-muted .zl-row-t, .zl-row.is-muted .zl-avatar { opacity: 0.6; }
-.zl-hero-s { font-size: 13px; color: var(--zl-muted); margin-top: 4px; }
 .zl-split { display: flex; }
 .zl-split .zl-prog-f { border-radius: 0; }
 .zl-field.is-hidden { display: none; }
@@ -224,7 +214,6 @@ body.is-mobile:not(.zl-on) .zl-home:active { transform: scale(0.94); }
 .zl-tile-s { font-size: 12px; color: var(--zl-muted); }
 .zl-tiles-box.is-hidden { display: none; }
 .zl-tiles-box + .zl-group { margin-top: 16px; }
-.zl-hero-btn { display: block; margin: 14px 0 0; }
 
 /* ---- compact timeline rows (Recent activity) and icon badges */
 .zl-row-ic.is-badge { width: 30px; height: 30px; border-radius: 8px; align-items: center; justify-content: center; }
@@ -267,7 +256,6 @@ body.is-mobile:not(.zl-on) .zl-home:active { transform: scale(0.94); }
 
 /* ---- goals bits */
 .zl-row-prog { height: 4px; margin-top: 6px; }
-.zl-avatar.is-emoji, .zl-row .zl-avatar:not([style*="background"]) { background: var(--zl-bg); font-size: 18px; }
 
 /* the + in the title row was hard to hit: the (invisible) top bar lay over it and took the taps. On first pages the empty bar lets
    taps through until it shows (scrolled); the title-row buttons get a full 44pt target. */
@@ -325,7 +313,7 @@ body.is-mobile:not(.zl-on) .zl-home:active { transform: scale(0.94); }
 
 /* ==== Redesign C: bold editorial (approved 2026-11-03). Warm paper by day, charcoal at night, one loud colour, huge display
    type, pixel icons and pixel charts, flat blocks with thick rules, no shadows or rounded corners. Built on top of app.css. */
-.zl-app, .zl-sheet, .zl-sheet-host, .zl-fchart {
+.zl-app, .zl-sheet, .zl-sheet-host, .zl-fchart, .zl-toast {
     --zl-paper: #ECE9E1; --zl-ink: #1C1B19; --zl-mut: #6D6A63; --zl-dim: #D5D1C7; --zl-loud: #E8461F; --zl-on-loud: #F6F3EC;
     /* split-flap cards: the same in light and dark mode (owner, 2026-11-06), the dark-mode cards; only the page around them changes */
     --zl-tile: #121214; --zl-tile-fg: #E6E3DC; --zl-tile-hot: #FF5C38; --zl-tile-mut: #96969B; --zl-tile-seam: #3A3A40;
@@ -342,7 +330,7 @@ body.is-mobile:not(.zl-on) .zl-home:active { transform: scale(0.94); }
     --zl-pixel: "ZL Silkscreen", ui-monospace, monospace;
     --zl-disp: "ZL Anton", Impact, "Arial Narrow", sans-serif;
 }
-.theme-dark .zl-app, .theme-dark .zl-sheet, .theme-dark .zl-sheet-host, .zl-app.theme-dark, .theme-dark .zl-fchart, .zl-fchart.theme-dark {
+.theme-dark .zl-app, .theme-dark .zl-sheet, .theme-dark .zl-sheet-host, .zl-app.theme-dark, .theme-dark .zl-fchart, .zl-fchart.theme-dark, .theme-dark .zl-toast {
     --zl-paper: #1F1F22; --zl-ink: #E6E3DC; --zl-mut: #96969B; --zl-dim: #36363B; --zl-loud: #FF5C38; --zl-on-loud: #1F1F22;
     --zl-mb: #F5B83D; --zl-ma60: #7DB3C9;
     --zl-up: #3FC29C; --zl-down: #FF7A63; --zl-mark: #7FBCD6; --zl-spark: #F4F1EA;
@@ -351,7 +339,7 @@ body.is-mobile:not(.zl-on) .zl-home:active { transform: scale(0.94); }
    down the Malachite of the green-up set */
 body.zl-red-up :is(.zl-app, .zl-sheet, .zl-sheet-host, .zl-fchart) { --zl-up: #B8263A; --zl-down: #126B55; --zl-tile-up: #FF5C70; --zl-tile-down: #45D6AC; }
 body.zl-red-up.theme-dark :is(.zl-app, .zl-sheet, .zl-sheet-host, .zl-fchart), body.zl-red-up :is(.zl-app, .zl-fchart).theme-dark { --zl-up: #FF5F6F; --zl-down: #3FC29C; }
-.zl-app, .zl-sheet, .zl-sheet-host {
+.zl-app, .zl-sheet, .zl-sheet-host, .zl-fchart {   /* the full chart too: the thesis card floats in it */
     --zl-bg: var(--zl-paper); --zl-surface: var(--zl-paper); --zl-text: var(--zl-ink); --zl-muted: var(--zl-mut); --zl-faint: var(--zl-mut);
     --zl-accent: var(--zl-loud); --zl-line: var(--zl-dim); --zl-press: var(--zl-dim); --zl-radius: 0px;
     --zl-pos: var(--zl-ink); --zl-neg: var(--zl-loud); --zl-info: var(--zl-mut); --zl-warn: var(--zl-loud);
@@ -404,7 +392,7 @@ body :is(.zl-app, .zl-sheet-host) button:not(.clickable-icon):not(.zl-pill) { bo
 .zl-app .zl-tabs { border-top: 4px solid var(--zl-text); background: var(--zl-bg); padding-top: 4px; }
 .zl-app .zl-tab { gap: 6px; padding: 8px 0 6px; color: var(--zl-muted); }
 .zl-tab .zl-px { width: 26px; height: 26px; transition: transform .15s steps(3); }
-.zl-tab-l { font: 400 10px var(--zl-pixel); text-transform: uppercase; }
+.zl-tab-l { font: 400 11px var(--zl-pixel); text-transform: uppercase; }
 .zl-app .zl-tab.is-on { color: var(--zl-text); }
 .zl-app .zl-tab.is-on .zl-px { color: var(--zl-loud); transform: translateY(-3px); }
 
@@ -452,16 +440,12 @@ body :is(.zl-app, .zl-sheet-host) button:not(.clickable-icon):not(.zl-pill) { bo
 .zl-flap .t::before { content: ""; position: absolute; left: -1px; right: -1px; top: 37%; height: 26%; z-index: 4; pointer-events: none;
     background: var(--zl-tile-pin) left / var(--pin) 100% no-repeat, var(--zl-tile-pin) right / var(--pin) 100% no-repeat; }
 .zl-flap .t.sp { width: round(calc(var(--cw) * .45), 1px) !important; }
-.zl-flap .t.sp i, .zl-flap .t.sp::after, .zl-flap .t.sp::before, .zl-flap .t.sp .dr, .zl-flap .t.sp .tx { display: none; }
-/* the card's surface (owner picked "matte grain" in Vellum › Split-flaps · surface, 2026-11-18): fine grey noise over the whole face,
-   the digits too, as if printed on a matte card; under the split and the pins, in soft-light so it only shades what is there */
-.zl-flap .t .tx { position: absolute; inset: 0; z-index: 2; display: block; pointer-events: none; border-radius: var(--r);
-    background: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20width%3D%2796%27%20height%3D%2796%27%3E%3Cfilter%20id%3D%27n%27%3E%3CfeTurbulence%20type%3D%27fractalNoise%27%20baseFrequency%3D%27.9%27%20numOctaves%3D%273%27%20stitchTiles%3D%27stitch%27/%3E%3CfeColorMatrix%20type%3D%27saturate%27%20values%3D%270%27/%3E%3C/filter%3E%3Crect%20width%3D%27100%25%27%20height%3D%27100%25%27%20filter%3D%27url%28%23n%29%27/%3E%3C/svg%3E") 0 0 / 64px 64px; mix-blend-mode: soft-light; opacity: .55; }
+.zl-flap .t.sp i, .zl-flap .t.sp::after, .zl-flap .t.sp::before, .zl-flap .t.sp .dr { display: none; }
 .zl-flap .t.c i { background: none; color: var(--zl-text); }
 .zl-flap .t.c::after, .zl-flap .t.c::before { display: none; }
 
 /* ---- section heads, waffle, budget rows, ruled figures */
-.zl-app .zl-sec { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 8px; padding: 0; text-align: left; font: 400 12px var(--zl-pixel); letter-spacing: .06em; color: var(--zl-text); }
+:is(.zl-app, .zl-fchart) .zl-sec { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 8px; padding: 0; text-align: left; font: 400 12px var(--zl-pixel); letter-spacing: .06em; color: var(--zl-text); }
 .zl-sec-go { display: flex; align-items: center; gap: 4px; color: var(--zl-muted); }
 .zl-sec-go .zl-px { width: 12px; height: 12px; transform: scaleX(-1); }
 
@@ -504,11 +488,9 @@ body :is(.zl-app, .zl-sheet-host) button:not(.clickable-icon):not(.zl-pill) { bo
 .zl-app .zl-row-ic { color: var(--zl-text); }
 .zl-app .zl-row.is-tap:active { background: var(--zl-dim); }
 /* the number has no rule of its own: the list under it starts with one (two rules stacked under the masthead before) */
-.zl-app .zl-hero { background: none; border-radius: 0; padding: 8px 0 12px; border-bottom: 0; }
-.zl-hero-l, .zl-card-l, .zl-tile-l, .zl-hero-il, .zl-card-il { font-family: var(--zl-pixel); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
-.zl-hero-v { font: 400 64px/0.95 var(--zl-disp); letter-spacing: .005em; }
-.zl-hero-u, .zl-card-u { font: 400 12px var(--zl-pixel); }
-.zl-hero-iv, .zl-card-iv, .zl-tile-v { font: 400 22px var(--zl-disp); }
+.zl-card-l, .zl-tile-l, .zl-card-il { font-family: var(--zl-pixel); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+.zl-card-u { font: 400 12px var(--zl-pixel); }
+.zl-card-iv, .zl-tile-v { font: 400 22px var(--zl-disp); }
 .zl-prog, .zl-prog-f { border-radius: 0; }
 .zl-prog { height: 8px; background: var(--zl-dim); }
 .zl-app .zl-card, .zl-app .zl-tile { background: none; border-radius: 0; border: 2px solid var(--zl-text); box-shadow: none; }
@@ -539,6 +521,14 @@ body :is(.zl-app, .zl-sheet-host) button:not(.clickable-icon):not(.zl-pill) { bo
 .zl-sheet .modal-title { font: 400 26px var(--zl-disp); text-transform: uppercase; text-align: left; }
 .zl-sheet-sub { text-align: left; font: 400 11px var(--zl-pixel); }
 .zl-sheet-btns button { border-radius: 0; font: 400 20px var(--zl-disp); letter-spacing: .04em; }
+/* sheet buttons (Rules - Sheets: one main button and an optional quiet second one, side by side): capitals; the main one filled
+   loud with the ink drop shadow, on the right; the second outlined in ink; a delete outlined in loud (never a grey block) */
+.zl-sheet .zl-sheet-btns { flex-direction: row; gap: 8px; }
+.zl-sheet .zl-sheet-btns button { flex: 1 1 0; min-width: 0; height: 48px; text-transform: uppercase; background: none; color: var(--zl-text); border: 2px solid var(--zl-text); }
+.zl-sheet .zl-sheet-btns button.mod-cta { order: 2; background: var(--zl-loud); border-color: var(--zl-loud); color: var(--zl-on-loud); box-shadow: 0 4px 0 var(--zl-text); }
+.zl-sheet .zl-sheet-btns button.mod-warning { background: none; border-color: var(--zl-loud); color: var(--zl-loud); }
+.zl-sheet .zl-sheet-btns button:active { background: var(--zl-text); color: var(--zl-bg); }
+.zl-sheet .zl-sheet-btns button.mod-cta:active { transform: translateY(4px); box-shadow: none; background: var(--zl-loud); color: var(--zl-on-loud); }
 .zl-sheet button.zl-tile { border-radius: 0; border: 2px solid var(--zl-dim); background: none; }
 .zl-sheet button.zl-tile.is-on { border-color: var(--zl-text); background: var(--zl-text); color: var(--zl-bg); }
 .zl-sheet input.zl-field-in, .zl-sheet select.zl-field-in { font-family: var(--zl-ui); }
@@ -620,8 +610,8 @@ body[data-zl-move="cascade"] .zl-page.zl-enter[data-enter="pop"] > :not(.zl-titl
 @keyframes zl-wipe-on { from { clip-path: inset(0 0 0 100%); } to { clip-path: inset(0); } }
 @keyframes zl-wipe-off { from { clip-path: inset(0); } to { clip-path: inset(0 0 0 100%); } }
 @keyframes zl-fade-out { to { opacity: 0; } }
-@keyframes zl-fade-up { from { opacity: 0; scale: .98; } }
-@keyframes zl-fade-down { from { opacity: 0; scale: 1.02; } }
+@keyframes zl-fade-up { from { opacity: 0; } }   /* no scale: it read as the parts resizing (owner, 2026-11-18) */
+@keyframes zl-fade-down { from { opacity: 0; } }
 /* Back is never in the masthead now */
 .zl-app .zl-top.has-back .zl-back { display: none; }
 @media (prefers-reduced-motion: reduce) { .zl-app .zl-scroll.is-push, .zl-app .zl-scroll.is-pop, .zl-app .zl-scroll.is-rise { animation: none; } }
@@ -694,7 +684,6 @@ body.zl-calm .zl-app .zl-scroll.is-rise, body.zl-calm.is-phone .modal.zl-sheet {
 /* ---- the older list pages in the C type (Design Rules, C pages): every page starts at the top under the masthead;
    rows read like figure rows (pixel name, display number, pixel arrow); no decoration icons in rows */
 .zl-app .zl-page.is-short { justify-content: flex-start; }
-.zl-app .zl-page:not(.zl-c-stack):not(.zl-c-list) .zl-hero { padding-top: 4px; }
 .zl-app .zl-row { min-height: 56px; gap: 12px; }
 .zl-app .zl-row-t { font: 400 13px var(--zl-pixel); letter-spacing: .04em; text-transform: uppercase; color: var(--zl-text); }
 .zl-app .zl-row.is-muted .zl-row-t { color: var(--zl-muted); }
@@ -793,6 +782,10 @@ body.zl-calm.is-phone .modal.zl-sheet, body.zl-calm .modal-container:has(> .zl-s
 .zl-sheet .zl-words { display: flex; }
 .zl-sheet .zl-words .zl-chip { flex: 1; }
 .zl-sheet .zl-words .zl-chip + .zl-chip { margin-left: -2px; }
+/* a choice of two or three in a sheet (BUY | SELL) is the boxed segment: one ink box split by rules, the chosen one inverted */
+.zl-sheet .zl-words:not(.zl-mpick-y) { border: 2px solid var(--zl-text); }
+.zl-sheet .zl-words:not(.zl-mpick-y) button.zl-chip { border: 0; margin: 0; }
+.zl-sheet .zl-words:not(.zl-mpick-y) button.zl-chip + button.zl-chip { border-left: 2px solid var(--zl-text); }
 .zl-sheet button.zl-chip { height: 40px; min-width: 44px; padding: 0 12px; border: 2px solid var(--zl-dim); border-radius: 0; background: none; box-shadow: none; color: var(--zl-text); font: 400 17px var(--zl-disp); letter-spacing: .04em; }
 .zl-sheet button.zl-chip.is-on { position: relative; background: var(--zl-text); border-color: var(--zl-text); color: var(--zl-bg); }
 .zl-sheet button.zl-chip:active { opacity: .6; }
@@ -820,6 +813,14 @@ body.zl-calm.is-phone .modal.zl-sheet, body.zl-calm .modal-container:has(> .zl-s
 .zl-sheet-host .zl-sheet-msg { display: block; position: fixed; left: 16px; right: 16px; top: calc(env(safe-area-inset-top) + 8px); z-index: 80; margin: 0; padding: 10px 12px;
     background: var(--zl-loud); color: var(--zl-on-loud); box-shadow: 0 4px 0 var(--zl-text); font: 700 16px/1.3 var(--zl-ui); text-align: center; pointer-events: none; opacity: 0; transform: translateY(-6px); transition: opacity .15s, transform .15s; }
 .zl-sheet-host .zl-sheet-msg.is-on { opacity: 1; transform: none; }
+/* the app's own toast (ui/toast.ts), never Obsidian's rounded Notice: floats at the top like the save hint, covers nothing that
+   matters and never moves the page. Ink for a done thing ("Saved Food 300"), loud only when something went wrong. */
+.zl-toast { position: fixed; left: 16px; right: 16px; top: calc(env(safe-area-inset-top) + 8px); z-index: 1000; padding: 10px 12px; max-width: 560px; margin: 0 auto;
+    background: var(--zl-ink); color: var(--zl-paper); box-shadow: 0 4px 0 var(--zl-loud); font: 700 15px/1.3 var(--zl-ui); text-align: center; white-space: pre-line;
+    pointer-events: none; opacity: 0; transform: translateY(-6px); transition: opacity .15s, transform .15s; }
+.zl-toast.is-loud { background: var(--zl-loud); color: var(--zl-on-loud); box-shadow: 0 4px 0 var(--zl-ink); }
+.zl-toast.is-on { opacity: 1; transform: none; }
+body.zl-calm .zl-toast { transition: none; }
 .zl-sheet .zl-field.zl-text { cursor: text; }
 .zl-text-v { font: 400 17px var(--zl-ui); padding: 6px 0; border-bottom: 2px solid var(--zl-text); overflow-wrap: anywhere; }
 .zl-text-v.is-empty { color: var(--zl-muted); }
@@ -922,6 +923,14 @@ body.zl-calm .zl-grow rect, body.zl-calm .zl-waffle .zl-grow rect { animation: n
 .zl-page.zl-c-stack.is-tight, .zl-page.zl-c-stack.is-tight.zl-has-bar { gap: 12px; }
 .zl-page.zl-c-stack.is-tighter, .zl-page.zl-c-stack.is-tighter.zl-has-bar { gap: 8px; padding-top: 4px; padding-bottom: 4px; }
 .zl-page.is-tighter .zl-reads { margin-top: 4px; }
+/* a chart page as its Vellum mock (C1, owner 2026-11-18: on the phone every gap read too big): groups 10 px apart, then 8 and 6
+   when it tightens; the chart takes what is left */
+.zl-page.zl-c-stack:has(> .zl-chartg), .zl-page.zl-c-stack.zl-has-bar:has(> .zl-chartg) { gap: 10px; }
+.zl-page.zl-c-stack.is-tight:has(> .zl-chartg) { gap: 8px; }
+.zl-page.zl-c-stack.is-tighter:has(> .zl-chartg) { gap: 6px; }
+/* and its foot as the mock: the tiles 10 px above the dock (no padding under them) and 64 px tall (owner, 2026-11-18: gaps like Vellum) */
+.zl-page.zl-c-stack:has(> .zl-chartg) { padding-bottom: 0; }
+.zl-page.zl-c-stack:has(> .zl-chartg) .zl-tg { gap: 2px; padding-top: 5px; padding-bottom: 5px; }
 .zl-page.is-tighter .zl-read { padding: 2px 0; }
 .zl-app .zl-page.is-tighter .zl-brow { padding: 3px 0; min-height: 40px; }
 .zl-app .zl-page.is-tighter .zl-fig { min-height: 48px; padding: 8px 0; }
@@ -972,22 +981,22 @@ body.zl-calm .zl-bubble, body.zl-calm .zl-bubble-v.is-tick { animation: none; }
    - xs: one 2 px bar sitting on the gap (cut in two it would be 1 px lines), the upright through the split.
    The bar is .705 of the card wide at every size. Painted in the text colour (loud on the big fields) over the card's own
    shading. !important: background shorthands elsewhere would wipe it */
-.zl-flap .t.sg em { visibility: hidden; }
-.zl-flap .t.sg i { --ws: round(calc(var(--cw) * .705), 2px); --ss: 6px; --bt: 5px; --bb: 3px; --ut: 17px; --ub: 15px; }
-.zl-flap.is-xs .t.sg i { --ss: 2px; --bt: 2px; --bb: 0px; --ut: 6px; --ub: 4px; }
-.zl-flap.is-md .t.sg i { --ss: 4px; --bt: 2px; --bb: 3px; --ut: 7px; --ub: 8px; }
-.zl-flap.is-lg .t.sg i { --ss: 5px; --bt: 5px; --bb: 3px; --ut: 16px; --ub: 14px; }
-.zl-flap.is-xl .t.sg i { --ss: 6px; --bt: 5px; --bb: 3px; --ut: 17px; --ub: 15px; }
-.zl-flap.is-amt .t.sg i { --ss: 7px; --bt: 5px; --bb: 3px; --ut: 18px; --ub: 16px; }
-.zl-flap .t.sg .st { background-image: linear-gradient(currentColor, currentColor), var(--zl-tile-top) !important; background-repeat: no-repeat !important;
+.zl-flap .t i.sg em { visibility: hidden; }
+.zl-flap .t i.sg { --ws: round(calc(var(--cw) * .705), 2px); --ss: 6px; --bt: 5px; --bb: 3px; --ut: 17px; --ub: 15px; }
+.zl-flap.is-xs .t i.sg { --ss: 2px; --bt: 2px; --bb: 0px; --ut: 6px; --ub: 4px; }
+.zl-flap.is-md .t i.sg { --ss: 4px; --bt: 2px; --bb: 3px; --ut: 7px; --ub: 8px; }
+.zl-flap.is-lg .t i.sg { --ss: 5px; --bt: 5px; --bb: 3px; --ut: 16px; --ub: 14px; }
+.zl-flap.is-xl .t i.sg { --ss: 6px; --bt: 5px; --bb: 3px; --ut: 17px; --ub: 15px; }
+.zl-flap.is-amt .t i.sg { --ss: 7px; --bt: 5px; --bb: 3px; --ut: 18px; --ub: 16px; }
+.zl-flap .t :is(.st, .fr).sg { background-image: linear-gradient(currentColor, currentColor), var(--zl-tile-top) !important; background-repeat: no-repeat !important;
     background-size: var(--ws) var(--bt), 100% 100% !important; background-position: 50% 100%, 0 0 !important; }
-.zl-flap .t.sg .sb { background-image: linear-gradient(currentColor, currentColor), var(--zl-tile-bot) !important; background-repeat: no-repeat !important;
+.zl-flap .t :is(.sb, .bk).sg { background-image: linear-gradient(currentColor, currentColor), var(--zl-tile-bot) !important; background-repeat: no-repeat !important;
     background-size: var(--ws) var(--bb), 100% 100% !important; background-position: 50% 0, 0 0 !important; }
-.zl-flap .t.sg.is-plus .st { background-image: linear-gradient(currentColor, currentColor), linear-gradient(currentColor, currentColor), var(--zl-tile-top) !important;
+.zl-flap .t :is(.st, .fr).sg.is-plus { background-image: linear-gradient(currentColor, currentColor), linear-gradient(currentColor, currentColor), var(--zl-tile-top) !important;
     background-size: var(--ws) var(--bt), var(--ss) var(--ut), 100% 100% !important; background-position: 50% 100%, 50% 100%, 0 0 !important; }
-.zl-flap .t.sg.is-plus .sb { background-image: linear-gradient(currentColor, currentColor), linear-gradient(currentColor, currentColor), var(--zl-tile-bot) !important;
+.zl-flap .t :is(.sb, .bk).sg.is-plus { background-image: linear-gradient(currentColor, currentColor), linear-gradient(currentColor, currentColor), var(--zl-tile-bot) !important;
     background-size: var(--ws) var(--bb), var(--ss) var(--ub), 100% 100% !important; background-position: 50% 0, 50% 0, 0 0 !important; }
-.zl-flap .t.sg i { color: var(--zl-loud); }
+.zl-flap .t i.sg { color: var(--zl-loud); }
 .zl-page.zl-c-stack:not(.zl-has-bar) { justify-content: space-between; }
 .zl-app .zl-bline { width: 100%; height: auto; display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 6px 0; border: 0; background: none; color: var(--zl-text); text-align: left; }
 .zl-app .zl-bline:active { background: var(--zl-dim); }
@@ -1003,6 +1012,9 @@ body.zl-calm .zl-bubble, body.zl-calm .zl-bubble-v.is-tick { animation: none; }
 .zl-tm-bar span { display: block; min-width: 0; }
 .zl-app .zl-tm-line { width: 100%; height: auto; min-height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0; border: 0; border-bottom: 1px solid var(--zl-dim); background: none; color: var(--zl-text); font: 400 15px var(--zl-ui); text-align: left; }
 .zl-app button.zl-tm-line:active { background: var(--zl-dim); }
+.zl-tm-line strong { margin-left: auto; }
+.zl-tm-line .zl-px.zl-fig-go { flex: none; width: 12px; height: 12px; color: var(--zl-muted); transform: scaleX(-1); }
+.zl-tm-line .zl-tm-nogo { flex: none; width: 12px; }   /* keeps the numbers of lines that open nothing in the same column */
 .zl-tm-k { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .zl-tm-k i { flex: none; width: 12px; height: 12px; outline: 1px solid var(--zl-muted); outline-offset: -1px; }
 .zl-tm-d { color: var(--zl-muted); font-size: 13px; }
@@ -1013,7 +1025,10 @@ body.zl-calm .zl-bubble, body.zl-calm .zl-bubble-v.is-tick { animation: none; }
 .zl-app .zl-tick { flex: none; width: 44px; height: 44px; margin-left: -12px; padding: 0; border: 0; background: none; display: grid; place-items: center; }
 .zl-app .zl-tick::before { content: ""; width: 18px; height: 18px; box-sizing: border-box; border: 2px solid var(--zl-text); }
 .zl-app .zl-tick.is-on::before { background: var(--zl-text); box-shadow: inset 0 0 0 3px var(--zl-bg, var(--background-primary)); }
-.zl-app .zl-tm-bn { flex: 1; min-width: 0; height: 44px; display: flex; justify-content: flex-start; align-items: center; padding: 0; border: 0; background: none; color: var(--zl-text); font: inherit; text-align: left; }
+.zl-app .zl-tm-bn { flex: 1; min-width: 0; height: 44px; display: flex; justify-content: flex-start; gap: 12px; align-items: center; padding: 0; border: 0; background: none; color: var(--zl-text); font: inherit; text-align: left; }
+.zl-tm-bn .zl-tm-bk { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zl-tm-bn .zl-px.zl-fig-go { flex: none; width: 12px; height: 12px; color: var(--zl-muted); transform: scaleX(-1); }
+.zl-app button.zl-tm-bn:active { background: var(--zl-dim); }
 /* amount drawer (readability redesign): over the page, the page dimmed above it */
 .zl-app { position: relative; }
 .zl-drw-wrap { position: absolute; inset: 0; z-index: 60; }
@@ -1144,6 +1159,8 @@ body.zl-calm .zl-ch-in { animation: none; }
 .zl-ch-tools { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; }   /* FIB LINE LEVEL */
 .zl-ch button.zl-ch-tool { all: unset; cursor: pointer; text-align: center; padding: 8px 0; font: 12px var(--zl-pixel); color: var(--zl-ink); border: 1px solid var(--zl-ink); margin-left: -1px; }
 .zl-ch button.zl-ch-tool:first-child { margin-left: 0; }
+/* FIB LINE LEVEL: 28 px, as the mock (owner, 2026-11-18: they stood too tall on the phone) */
+.zl-chartg .zl-ch button.zl-ch-tool { box-sizing: border-box; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center; }
 .zl-ch button.zl-ch-tool.is-on { background: var(--zl-ink); color: var(--zl-paper); }
 .zl-ch button.zl-ch-tool.is-clear { color: var(--zl-loud); }
 .zl-ch-plot.is-armed { cursor: crosshair; }
@@ -1165,13 +1182,16 @@ body.zl-calm .zl-ch-in { animation: none; }
 .zl-drow-m { flex: 1; min-width: 0; }
 .zl-drow-t { font: 14px var(--zl-ui); color: var(--zl-ink); }
 .zl-drow-s { font: 11px var(--zl-ui); color: var(--zl-mut); }
-.zl-dsheet button.zl-dcheck { all: unset; cursor: pointer; width: 18px; height: 18px; border: 1.5px solid var(--zl-ink); flex: none; }
-.zl-dsheet button.zl-dcheck.is-on { background: var(--zl-loud); border-color: var(--zl-loud); box-shadow: inset 0 0 0 3px var(--zl-loud), inset 0 0 0 5px var(--zl-on-loud); }
+/* on / off is the square switch (Rules - Controls): a box with a square knob; on = ink filled, knob paper on the right; 44 px target */
+.zl-dsheet button.zl-dcheck { all: unset; cursor: pointer; position: relative; box-sizing: border-box; width: 40px; height: 22px; border: 2px solid var(--zl-ink); flex: none; }
+.zl-dsheet button.zl-dcheck::before { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; background: var(--zl-ink); transition: left .12s steps(3); }
+.zl-dsheet button.zl-dcheck.is-on { background: var(--zl-ink); }
+.zl-dsheet button.zl-dcheck.is-on::before { left: 20px; background: var(--zl-paper); }
+.zl-dsheet button.zl-dcheck::after { content: ""; position: absolute; inset: -11px -4px; }
 .zl-dsheet button.zl-dx { all: unset; cursor: pointer; font: 16px var(--zl-ui); color: var(--zl-mut); padding: 0 4px; }
 .zl-dchips { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 6px 0; }
 .zl-dsheet button.zl-dchip { all: unset; cursor: pointer; text-align: center; padding: 9px 0; font: 12px var(--zl-ui); color: var(--zl-ink); border: 1px solid var(--zl-ink); }
 .zl-dsheet button.zl-dchip.is-on { background: var(--zl-ink); color: var(--zl-paper); }
-.zl-dsheet button.zl-dchip.is-loud { background: var(--zl-loud); border-color: var(--zl-loud); color: var(--zl-on-loud); }
 .zl-dseg { display: flex; gap: 4px; }
 .zl-dsheet .zl-dseg button { all: unset; cursor: pointer; padding: 5px 8px; font: 10px var(--zl-pixel); color: var(--zl-ink); border: 1px solid var(--zl-ink); }
 .zl-dsheet .zl-dseg button.is-on { background: var(--zl-ink); color: var(--zl-paper); }
@@ -1197,12 +1217,12 @@ body.zl-calm .zl-ch-in { animation: none; }
 .zl-ch-full .zl-ch-plot { flex: 1; min-height: 0; touch-action: none; }
 /* opened from a phone held upright: the layer is drawn sideways (turn the phone left to read it), the notch side on its left */
 .zl-fchart.is-turned { inset: auto; top: 0; left: 100vw; width: 100vh; height: 100vw; transform-origin: top left; transform: rotate(90deg); padding: env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left) env(safe-area-inset-top); }
-.zl-ch-vol { opacity: .7; }
+.zl-ch-vol { opacity: .9; }
 .zl-ch-vl { font: 10px var(--zl-ui); fill: var(--zl-ink); }
 .zl-ch-vk { font: 9px var(--zl-pixel); fill: var(--zl-mut); }
 .zl-ch-vk.is-5 { fill: var(--zl-ink); } .zl-ch-vk.is-10 { fill: var(--zl-loud); }
-.zl-ch-v5 { fill: none; stroke: var(--zl-ink); stroke-width: 1; }
-.zl-ch-v10 { fill: none; stroke: var(--zl-loud); stroke-width: 1; }
+.zl-ch-v5 { fill: none; stroke: var(--zl-ink); stroke-width: 1; opacity: .45; }   /* behind the bars, faint (owner, 2026-11-18) */
+.zl-ch-v10 { fill: none; stroke: var(--zl-loud); stroke-width: 1; opacity: .45; }
 .zl-ch-dl.is-ext { fill: var(--zl-ink); font-weight: 600; }
 /* the interval row as one segmented strip (portrait): TODAY 1 5 15 30 60 D W M */
 .zl-ch-ranges.is-seg { display: grid; grid-template-columns: repeat(8, 1fr) 1.6fr;   /* M W D 60 30 15 5 1 TODAY */ gap: 0; border: 1px solid var(--zl-ink); }
@@ -1215,9 +1235,6 @@ body.zl-calm .zl-ch-in { animation: none; }
 
 /* 法人 flows (mock Invest · L): 5 / 20 switch, held day line, stacked daily bars around zero */
 .zl-fl { display: flex; flex-direction: column; gap: 8px; }
-.zl-fl-seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--zl-ink); }
-.zl-app button.zl-fl-segb { all: unset; cursor: pointer; text-align: center; padding: 7px 0 6px; font: 11px var(--zl-pixel); color: var(--zl-mut); }
-.zl-app button.zl-fl-segb.is-on { background: var(--zl-ink); color: var(--zl-paper); }
 .zl-fl-legend { font: 11px var(--zl-ui); color: var(--zl-mut); min-height: 15px; line-height: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 .zl-fl-plot { position: relative; width: 100%; flex: 1 1 0; min-height: 120px; touch-action: none; user-select: none; -webkit-user-select: none; }
 .zl-page.zl-c-stack > .zl-c-fill.zl-fl { max-height: none; }
@@ -1234,19 +1251,25 @@ body.zl-calm .zl-fl-svg.is-light .zl-fl-bar { animation: none; }
 .zl-fl-hatch { stroke: var(--zl-ink); stroke-width: 1.5; }
 .zl-fl-hatch.is-mut { stroke: var(--zl-mut); }
 .zl-fl-pick { fill: var(--zl-dim); opacity: .5; }
-.zl-fl-seg.is-3 { grid-template-columns: 1fr 1fr 1fr; }
 .zl-c-group.is-wait { opacity: .45; }
 .zl-fl-src { white-space: normal; padding: 0 0 8px; }
 
 /* one-screen chart pages (2026-11-04): the chart takes the room left, a strip of what you hold, tiles to the rest */
-.zl-page.zl-c-stack > .zl-c-fill.zl-chartg { max-height: none; min-height: 300px; position: relative; }   /* relative: the thesis card floats over it */
+.zl-page.zl-c-stack > .zl-c-fill.zl-chartg { max-height: none; min-height: auto; position: relative; }   /* relative: the thesis card floats over it */
 .zl-page.zl-c-stack > .zl-lastp { flex-shrink: 0; }   /* the price block never gives up its lines (the chart takes what is left) */
-.zl-app .zl-thline button.zl-th-strip { height: 32px; }   /* the thesis strip under the chart (chart page, mock B 2026-11-18) */
+/* the chart page's THESIS › at the end of the readout line (owner picked Vellum C1, 2026-11-18): small, outlined; a loud dot when
+   the check is due or near; WRITE › loud with no thesis yet */
+.zl-app button.zl-th-btn { all: unset; position: relative; flex: none; box-sizing: border-box; height: 22px; padding: 0 9px; border: 2px solid var(--zl-text); font: 400 10px var(--zl-pixel); letter-spacing: .06em; color: var(--zl-text); line-height: 18px; cursor: pointer; }
+.zl-app button.zl-th-btn.is-loud { border-color: var(--zl-loud); color: var(--zl-loud); }
+.zl-th-dot { position: absolute; top: 2px; right: 2px; width: 4px; height: 4px; background: var(--zl-loud); }
+.zl-app button.zl-th-btn::after { content: ""; position: absolute; inset: -11px -4px; }   /* a 44 px tap target */
 .zl-c-group.zl-hold.is-4 .zl-sum-items { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .zl-hold.is-4 .zl-sum-k { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .zl-hold-go { cursor: pointer; }
 .zl-hold-go.is-dim .zl-sum-v { color: var(--zl-muted); }
-.zl-chartg > .zl-ch.is-fill { flex: 1 1 0; min-height: 0; }
+/* the chart never spills out of its group (owner, 2026-11-18: FULL CHART sat on the thesis strip on a short phone): the group is
+   at least as tall as the chart's controls, plot and foot, so a page that runs out of room tightens (view.ts fit) instead */
+.zl-chartg > .zl-ch.is-fill { flex: 1 1 auto; min-height: auto; }
 .zl-ch.is-fill .zl-ch-plot { flex: 1 1 0; min-height: 160px; }
 .zl-c-group.zl-hold .zl-sum-items { margin-top: 0; padding-top: 0; border-top: 0; }
 .zl-tgrid.is-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -1440,7 +1463,7 @@ body.zl-calm .zl-live.is-on::before, body.zl-calm .zl-tickc { animation: none; }
     .is-phone .modal.zl-sheet { top: 50%; bottom: auto; left: 50%; right: auto; width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 16px); border-width: 2px; transform: translate(-50%, calc(-50% - var(--zl-lift, 0px))); }
     .is-phone .modal.zl-sheet::before { display: none; }
 }
-.zl-fl-seg.zl-wmkt { margin: 2px 0 8px; }
+.zl-fmode.zl-wmkt { margin: 2px 0 8px; }
 .zl-page.zl-c-list > .zl-wtop { margin-bottom: -10px; }   /* the sort sits on the rows, as when they were one group */   /* the watchlist's market tabs (Taiwan / US) */
 /* its sort under them: a line of words, not a second bar; the chosen one in ink, underlined, with its order arrow */
 .zl-wsort { display: flex; align-items: center; justify-content: flex-end; gap: 14px; margin: 0 0 10px; font: 11px var(--zl-pixel); }
@@ -1490,8 +1513,8 @@ body.zl-calm .zl-lastp.is-loading .zl-flap .t, body.zl-calm .zl-lastp.is-loading
 .zl-down { color: var(--zl-down); }
 .zl-flap.is-up .t i { color: var(--zl-tile-up); }
 .zl-flap.is-down .t i { color: var(--zl-tile-down); }
-.zl-flap.is-up .t.sg i { color: var(--zl-tile-up); }
-.zl-flap.is-down .t.sg i { color: var(--zl-tile-down); }
+.zl-flap.is-up .t i.sg { color: var(--zl-tile-up); }
+.zl-flap.is-down .t i.sg { color: var(--zl-tile-down); }
 .zl-read-kk { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .zl-read-s { font: 400 12px var(--zl-ui); color: var(--zl-muted); }
 /* the market card: index tabs, the index and today's %, then the ticker chart (no tools, no volume) taking the room left */
@@ -1552,6 +1575,10 @@ body.zl-calm .zl-lastp.is-loading .zl-flap .t, body.zl-calm .zl-lastp.is-loading
 :is(.zl-invest, .zl-fchart) rect.zl-ch-up, :is(.zl-invest, .zl-fchart) rect.zl-ch-down { stroke: none; }
 :is(.zl-invest, .zl-fchart) .zl-ch-bl-m.is-up, .zl-invest :is(.zl-hrow-d, .zl-sum-v, .zl-lastp-s).is-up { color: var(--zl-up); }
 :is(.zl-invest, .zl-fchart) .zl-ch-bl-m.is-hot, .zl-invest :is(.zl-hrow-d, .zl-sum-v, .zl-lastp-s).is-hot { color: var(--zl-down); }
+/* pages where every red-ish number is a move (flows, brokers, revenue: page class zl-tone): sold / fell = down, bought / rose = up,
+   in the summary, the tiles and the rows alike (review 2026-11: the summary was down, the rows loud) */
+.zl-tone :is(.zl-fig-v, .zl-sum-v).is-hot, .zl-tone .zl-tg.is-hot .zl-tg-v { color: var(--zl-down); }
+.zl-tone .zl-tg.is-up .zl-tg-v { color: var(--zl-up); }
 .zl-invest .zl-chg.is-up .zl-flap .t i, .zl-invest .zl-chg.is-ret.is-up .zl-flap .t i { color: var(--zl-tile-up); }
 .zl-invest .zl-chg.is-hot .zl-flap .t i, .zl-invest .zl-chg.is-ret.is-hot .zl-flap .t i, .zl-invest .zl-sum-flap.is-hot .zl-flap .t i { color: var(--zl-tile-down); }
 .zl-tg.is-mkt.is-up .zl-tg-v { color: var(--zl-up); } .zl-tg.is-mkt.is-hot .zl-tg-v { color: var(--zl-down); }   /* 法人 tile: market colours, not loud */
@@ -1582,6 +1609,12 @@ body.zl-calm .zl-lastp.is-loading .zl-flap .t, body.zl-calm .zl-lastp.is-loading
 .zl-orders-plot { position: relative; height: 58px; margin-top: 6px; }
 .zl-flow-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 4px; }
 .zl-fmode.is-sm .zl-fmode-b { padding: 2px 6px; font-size: 9px; }
+/* the wide segment fills its row in equal parts, 32 px drawn and a 44 px target (::after) */
+.zl-fmode.is-wide { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border-width: 2px; }
+.zl-app .zl-fmode.is-wide button.zl-fmode-b { position: relative; min-height: 32px; display: flex; align-items: center; justify-content: center; font-size: 11px; padding: 0 6px; }
+.zl-app .zl-fmode.is-wide button.zl-fmode-b + button.zl-fmode-b { border-left-width: 2px; }
+.zl-app .zl-fmode.is-wide button.zl-fmode-b::after { content: ""; position: absolute; left: 0; right: 0; top: -6px; bottom: -6px; }
+.zl-al-top .zl-fmode.is-wide { flex: 1; }
 .zl-app button.zl-flow-latest { all: unset; cursor: pointer; font: 400 10px var(--zl-pixel); letter-spacing: .06em; color: var(--zl-loud); visibility: hidden; }
 .zl-app button.zl-flow-latest.is-on { visibility: visible; }
 .zl-flow-plot { touch-action: none; user-select: none; -webkit-user-select: none; }
@@ -1595,6 +1628,63 @@ body.zl-calm .zl-lastp.is-loading .zl-flap .t, body.zl-calm .zl-lastp.is-loading
 .zl-fade-in { animation: zl-flow-in .3s ease both; }
 @keyframes zl-flow-in { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .zl-flow-load::before, .zl-fade-in { animation: none; } .zl-flow-plot > canvas { transition: none; } }
+/* the chart page's top, Vellum top A (owner picked 2026-11-18): the price row, then the market in one row of three cells between
+   thin rules (label left, value right), then the hold strip with each label and value against its column's right edge */
+.zl-lastp.is-a { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+.zl-lastp-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.zl-lastp.is-a .zl-lastp-k { font: 400 10px var(--zl-pixel); letter-spacing: .06em; text-transform: uppercase; color: var(--zl-mut); min-height: 0; line-height: 14px; }
+.zl-lastp.is-a .zl-lastp-s { font: 600 15px var(--zl-ui); line-height: 20px; min-height: 20px; }
+.zl-ctx { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--zl-dim); border-bottom: 1px solid var(--zl-dim); }
+.zl-ctx-c { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; min-width: 0; padding: 6px 8px; line-height: 15px; }
+.zl-ctx-c:first-child { padding-left: 0; } .zl-ctx-c:last-child { padding-right: 0; }
+.zl-ctx-c + .zl-ctx-c { border-left: 1px solid var(--zl-dim); }
+.zl-ctx-k { font: 400 10px var(--zl-pixel); letter-spacing: .06em; color: var(--zl-mut); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.zl-ctx-v { flex: none; font: 600 12px var(--zl-ui); font-variant-numeric: tabular-nums; color: var(--zl-mut); }
+.zl-ctx-v.is-up { color: var(--zl-up); } .zl-ctx-v.is-hot { color: var(--zl-down); }
+/* the hold row as ruled cells like the market row (owner, D2 2026-11-18): a thin line between cells, the label at each cell's upper
+   left, the value against its right edge */
+.zl-c-group.zl-hold.is-4 .zl-sum-items { gap: 0; border-bottom: 1px solid var(--zl-dim); }
+.zl-hold.is-4 .zl-sum-items > div { align-items: stretch; gap: 2px; padding: 4px 6px 6px; }
+.zl-hold.is-4 .zl-sum-items > div:first-child { padding-left: 0; } .zl-hold.is-4 .zl-sum-items > div:last-child { padding-right: 0; }
+.zl-hold.is-4 .zl-sum-items > div + div { border-left: 1px solid var(--zl-dim); }
+/* the chart page's tiles as a ruled strip (Vellum "2330 · tiles E4a framed", owner picked 2026-11-18): a rule over and under, thin
+   lines between, each cell centred: the label with a small ›, the big value, its small line; no boxes, no icons */
+.zl-tstrip .zl-tgrid { gap: 0; border-top: 1px solid var(--zl-dim); border-bottom: 1px solid var(--zl-dim); }
+.zl-app .zl-tstrip .zl-tg { border: 0; min-height: 0; padding: 7px 4px 6px; align-items: center; justify-content: flex-start; gap: 3px; text-align: center; background: none; }
+.zl-app .zl-tstrip .zl-tg + .zl-tg { border-left: 1px solid var(--zl-dim); }
+.zl-tstrip .zl-tg-ic { display: none; }
+.zl-tstrip .zl-tg-top { justify-content: center; }
+.zl-tstrip .zl-tg-k { color: var(--zl-muted); }
+.zl-tstrip .zl-tg-k::after { content: " \203A"; }
+.zl-tstrip .zl-tgrid:not(.is-span) .zl-tg-v { margin-top: 2px; font-size: 24px; }
+.zl-tstrip .zl-tgrid:not(.is-span) .zl-tg-v + .zl-tg-s { margin-top: 0; }
+.zl-hold.is-4 .zl-sum-k { text-align: left; letter-spacing: 0; font-size: 10px; }
+.zl-hold.is-4 .zl-sum-v { text-align: right; }
+/* the chart page's chart, D2: readout line, MA line, source, plot, then ranges and the kind / draw row under it */
+.zl-ch.is-d2 > .zl-ch-nrow { order: 1; } .zl-ch.is-d2 > .zl-ch-ind { order: 2; } .zl-ch.is-d2 > .zl-flow-top { order: 3; }
+.zl-ch.is-d2 > .zl-ch-plot { order: 4; } .zl-ch.is-d2 > .zl-ch-ranges { order: 5; } .zl-ch.is-d2 > .zl-ch-dock { order: 6; } .zl-ch.is-d2 > .zl-ch-foot { order: 7; }
+.zl-ch.is-d2 > .zl-flow-top { justify-content: flex-end; min-height: 0; margin-bottom: -6px; }
+.zl-ch.is-d2 > .zl-flow-top .zl-ch-src { font-size: 10px; }
+.zl-ch.zl-ch-dock { display: flex; flex-direction: row; align-items: stretch; justify-content: space-between; gap: 8px; }
+/* R4: the views and DRAW; while drawing, the tools and DONE take the row */
+.zl-app .zl-ch.zl-ch-dock:not(.is-drawing) > .zl-ch-tools, .zl-app .zl-ch.zl-ch-dock:not(.is-drawing) > button.zl-ch-doneb { display: none; }
+.zl-app .zl-ch.zl-ch-dock.is-drawing > .zl-fmode, .zl-app .zl-ch.zl-ch-dock.is-drawing > button.zl-ch-drawb { display: none; }
+.zl-app .zl-ch-dock.is-drawing > .zl-ch-tools { display: grid; flex: 1; }
+.zl-app .zl-ch-dock.is-drawing > button.zl-ch-doneb { display: flex; }
+.zl-app .zl-ch-dock > button.zl-ch-drawb, .zl-app .zl-ch-dock > button.zl-ch-doneb { all: unset; box-sizing: border-box; display: flex; align-items: center; justify-content: center; height: 28px; padding: 0 12px; border: 1.5px solid var(--zl-ink); font: 400 10px var(--zl-pixel); letter-spacing: .06em; color: var(--zl-ink); cursor: pointer; }
+.zl-app .zl-ch-dock > button.zl-ch-doneb { background: var(--zl-ink); color: var(--zl-paper); }
+.zl-chartg:has(> .zl-ch.zl-hide) > .zl-ch-dock > .zl-ch-drawb { opacity: .35; pointer-events: none; }   /* off the candles: faint, never gone, so the row keeps still */
+.zl-chartg > .zl-ch-dock { order: 9; flex: none; margin-top: 6px; }   /* under the candle chart or the tape, whichever shows */
+.zl-chartg > .zl-flow { order: 1; } .zl-chartg > .zl-ch { order: 1; }
+
+.zl-ch-dock > .zl-fmode { display: flex; }
+.zl-app .zl-ch-dock > .zl-fmode button.zl-fmode-b { display: flex; align-items: center; height: 28px; padding: 0 10px; }
+.zl-ch-dock > .zl-ch-tools button.zl-ch-tool { box-sizing: border-box; height: 28px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; }
+/* the MA readouts on one line: a swatch, the name, the value (tap to switch the line on or off) */
+.zl-ch.is-d2 > .zl-ch-ind { border: 0; }
+.zl-ch.is-d2 .zl-ch-ind button.zl-ch-lg { flex-direction: row; align-items: center; gap: 5px; padding: 0; border: 0; min-height: 22px; }
+.zl-ch.is-d2 .zl-ch-ind .zl-ch-lg-x { display: none; }
+.zl-ch.is-d2 .zl-ch-ind .zl-ch-lg-v { font-size: 10px; }
 .zl-lastp-x { display: flex; flex-wrap: nowrap; overflow: hidden; min-height: 1.4em; line-height: 1.4; gap: 2px 10px; font: 400 10px var(--zl-pixel); letter-spacing: .04em; color: var(--zl-mut); margin-top: 2px; }
 .zl-lastp-x > span { display: inline-flex; gap: 4px; white-space: nowrap; }
 .zl-lastp-x .is-up { color: var(--zl-up); } .zl-lastp-x .is-hot { color: var(--zl-down); }
@@ -1629,8 +1719,10 @@ body.zl-calm .zl-lastp.is-loading .zl-flap .t, body.zl-calm .zl-lastp.is-loading
 .zl-ch-indrow { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .zl-ch-indrow .zl-ch-ind { flex: none; }
 .zl-ch-line { flex: 1; min-width: 0; }
-.zl-app button.zl-th-strip { width: 100%; display: flex; align-items: center; gap: 10px; height: 24px; margin: 0; padding: 0 8px; border: 2px solid var(--zl-text); background: none; font: 400 11px var(--zl-ui); color: var(--zl-text); white-space: nowrap; overflow: hidden; }
-.zl-app button.zl-th-strip.is-loud { border-color: var(--zl-loud); color: var(--zl-loud); }
+:is(.zl-app, .zl-fchart) button.zl-th-strip { width: 100%; display: flex; align-items: center; gap: 10px; height: 24px; margin: 0; padding: 0 8px; border: 2px solid var(--zl-text); background: none; font: 400 11px var(--zl-ui); color: var(--zl-text); white-space: nowrap; overflow: hidden; }
+:is(.zl-app, .zl-fchart) button.zl-th-strip.is-loud { border-color: var(--zl-loud); color: var(--zl-loud); }
+.zl-fchart button.zl-th-strip.is-loud { display: none; }   /* sideways: no WRITE THE THESIS, only a written thesis shows (owner, 2026-11-18) */
+.zl-fchart button.zl-sec { background: none; box-shadow: none; height: auto; border-radius: 0; color: var(--zl-text); }   /* the thesis card's head in the full chart (Obsidian's button look off) */
 .zl-th-strip-k { flex: none; font: 400 10px var(--zl-pixel); letter-spacing: .06em; }
 .zl-th-strip-c { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: left; }
 .zl-th-strip-c.is-loud { color: var(--zl-loud); }
@@ -1665,6 +1757,9 @@ body.zl-calm .zl-lastp.is-loading .zl-flap .t, body.zl-calm .zl-lastp.is-loading
    invisible target (::after); the target grows into the room above a part rather than over the tappable rows under it */
 .zl-app button.zl-sec { position: relative; }
 .zl-app button.zl-sec::after { content: ""; position: absolute; left: 0; right: 0; top: -21px; bottom: -8px; }   /* ALL › / MORE ›: 15 + 21 + 8 */
+/* a link at the foot of a one-screen page (Goals' ACCOUNTS · MORE ›) grows up only: below it there is no room, and a target past
+   the page's foot made the page 3 px too tall, so it scrolled and lost rows to the trim */
+.zl-app .zl-c-stack > .zl-c-group:last-child button.zl-sec::after { top: -29px; bottom: 0; }
 .zl-ch button.zl-ch-link { position: relative; }
 .zl-ch button.zl-ch-link::after { content: ""; position: absolute; left: -4px; right: -4px; top: -16px; bottom: -15px; }   /* FULL CHART › */
 .zl-app .zl-acts .zl-btn.is-text { position: relative; }
@@ -1674,6 +1769,14 @@ body.zl-calm .zl-lastp.is-loading .zl-flap .t, body.zl-calm .zl-lastp.is-loading
 .zl-app .zl-tm-line { min-height: 44px; }   /* This month's lines */
 .zl-app button.zl-mlink { min-height: 44px; } .zl-mlinks { min-height: 47px; }   /* HOLDINGS / MAP / ALERTS / MIX */
 :is(.zl-app, .zl-sheet-host) .zl-drw-chip, .zl-sheet button.zl-chip { height: 44px; }   /* the pad's +50 / +100 / +200, a sheet's chips */
+
+/* the page scrolls under the masthead, split-flaps too: the scroll area is its own stacking layer (z 1) below the masthead (z 2).
+   Without it a flap card (absolute, z 2, a 3D flip layer on iOS) sat in the app's own layer and painted over the masthead's rule
+   when a page scrolled (phone test 2026-11-17, This month and a chart page). Fixed parts (bubble, search, text window) hang on
+   .zl-app, not here, so they still cover everything.
+   z 1, not 0: the copy of the page being left (.zl-ghost, view.ts move) is z 0 and comes after it, so at z 0 it painted over the
+   new page sliding in (owner, 2026-11-18: the page enter transition was bad). */
+.zl-app .zl-scroll { position: relative; z-index: 1; isolation: isolate; }
 
 /* ==== Obsidian in Ledgerline's look (Settings › Obsidian in Ledgerline's look, body.zl-skin; owner, 2026-11-04: the settings
    window looked nothing like the plugin). Only variables are set (no layout rules): Obsidian's own, Minimal's, and the vault's

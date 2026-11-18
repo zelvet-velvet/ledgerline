@@ -41,6 +41,7 @@ export const revenueTile = (x: X, tk: string) => {
 export const revenuePage = (x: X, tk: string): PageOut => {
     const title = t("rvTitle", { tk });
     const el = page(title);
+    el.addClass("zl-tone");   // a fall in revenue is a move down, not a warning
     el.addClass("zl-c-stack");
     const code = revCode(x, tk), rv = x.ctx.plugin.revenue;
     if (code) rv.ensure(code);

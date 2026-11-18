@@ -1,5 +1,6 @@
 // Numbers and dates. Dates are the device's local calendar date ("YYYY-MM-DD"), never UTC.
-export const num = (n: unknown): string => Math.round(Number(n) || 0).toLocaleString();
+// whole numbers with a thousands comma whatever the phone's language, and a true minus (U+2212) like the split-flaps and Invest
+export const num = (n: unknown): string => Math.round(Number(n) || 0).toLocaleString("en-US").replace("-", "\u2212");
 export const pct = (n: number, digits = 1): string => `${(Number(n) || 0).toFixed(digits)}%`;
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -27,4 +28,4 @@ export const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "
 export const monthLong = (d: Date): string => d.toLocaleString("en", { month: "long" }) + " " + d.getFullYear();
 
 // "1,234" / " 1234 " → 1234; anything else → NaN
-export const parseNum = (v: unknown): number => { const s = String(v ?? "").replace(/,/g, "").trim(); return s === "" ? NaN : Number(s); };
+export const parseNum = (v: unknown): number => { const s = String(v ?? "").replace(/,/g, "").replace(/\u2212/g, "-").trim(); return s === "" ? NaN : Number(s); };

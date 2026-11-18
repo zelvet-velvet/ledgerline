@@ -122,14 +122,28 @@ export const thesisLine = (x: X, tk: string) => (parent: HTMLElement): void => {
     else h(b, "span", "zl-th-strip-c", th.why);
     const d = th.since ? vs0050(x, tk, th.since) : null;
     if (d) h(b, "span", "zl-th-strip-n" + (d.diff > 0 ? " is-up" : d.diff < 0 ? " is-hot" : ""), `${t("thVsShort", { b: BENCH })} ${pctS(d.diff)}`);
-    b.addEventListener("click", (e) => {
-        e.preventDefault();
-        const layer = b.closest(".zl-fchart") ?? b.closest(".zl-page")?.querySelector(".zl-chartg") ?? document.body;
-        const pane = h(layer as HTMLElement, "div", "zl-th-float");
-        thesisCard(x, pane, tk);
-        const off = (ev: Event) => { if (!pane.contains(ev.target as Node) || (ev.target as HTMLElement).closest("button")) { pane.remove(); document.removeEventListener("pointerdown", off, true); } };
-        window.setTimeout(() => document.addEventListener("pointerdown", off, true), 0);
-    });
+    b.addEventListener("click", (e) => { e.preventDefault(); floatCard(x, tk, b); });
+};
+
+// the card floating over the chart (the full chart's, else the chart page's chart group); a tap outside it or on its buttons closes it
+const floatCard = (x: X, tk: string, from: HTMLElement): void => {
+    const layer = from.closest(".zl-fchart") ?? from.closest(".zl-page")?.querySelector(".zl-chartg") ?? document.body;
+    const pane = h(layer as HTMLElement, "div", "zl-th-float");
+    thesisCard(x, pane, tk);
+    const off = (ev: Event) => { if (!pane.contains(ev.target as Node) || (ev.target as HTMLElement).closest("button")) { pane.remove(); document.removeEventListener("pointerdown", off, true); } };
+    window.setTimeout(() => document.addEventListener("pointerdown", off, true), 0);
+};
+
+// the chart page's THESIS › button at the end of the chart's readout line (owner picked C1, 2026-11-18): opens the card over the
+// chart; a loud dot when the check is due or near; WRITE › with no thesis yet, opening the sheet
+export const thesisButton = (x: X, tk: string) => (parent: HTMLElement): void => {
+    const th = thesisOf(x, tk);
+    const b = h(parent, "button", "zl-th-btn");
+    if (!th) { b.addClass("is-loud"); b.setText(t("thWriteShort").toUpperCase() + " ›"); b.addEventListener("click", (e) => { e.preventDefault(); editThesis(x, tk); }); return; }
+    b.setText(t("thHead").toUpperCase() + " ›");
+    const st = checkState(th.check, today());
+    if (st === "due" || st === "soon") h(b, "i", "zl-th-dot");
+    b.addEventListener("click", (e) => { e.preventDefault(); floatCard(x, tk, b); });
 };
 
 // ---------- the rules check before a buy ----------

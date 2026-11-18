@@ -522,3 +522,20 @@ export const beam = (parent: HTMLElement, list: { k: string; v: number; onTap: (
     h(l, "span", "", t("cOwedShort"));
     return box;
 };
+
+// The boxed segment (Rules - Controls › Switches): a choice of two or three as words in one ink box split by rules, the chosen
+// one inverted. `wide` fills the row in equal parts (Watchlist's TW | US, flows' 5 | 20 DAYS, Alerts' filter); `sm` is the small
+// one over a plot. A tap calls `pick` and marks the word at once (the page may redraw after). The one segment of the app.
+export interface Segment<K> { el: HTMLElement; set: (k: K) => void }
+export const segment = <K extends string | number>(parent: HTMLElement, items: [K, string][], on: K | null, pick: (k: K) => void, o: { wide?: boolean; sm?: boolean } = {}): Segment<K> => {
+    const el = h(parent, "div", "zl-fmode" + (o.wide ? " is-wide" : "") + (o.sm ? " is-sm" : ""));
+    el.setAttribute("role", "group");
+    const bs = items.map(([k, label]) => {
+        const b = h(el, "button", "zl-fmode-b", label);
+        b.addEventListener("click", (e) => { e.preventDefault(); set(k); pick(k); });
+        return [k, b] as const;
+    });
+    const set = (k: K | null) => bs.forEach(([q, b]) => { b.toggleClass("is-on", q === k); b.setAttribute("aria-pressed", String(q === k)); });
+    set(on);
+    return { el, set };
+};

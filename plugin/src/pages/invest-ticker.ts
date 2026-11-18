@@ -12,7 +12,7 @@ import { flowModes, sectorLine } from "./invest-flow";
 import { flowCodes, flowsTile } from "./flows";
 import type { PageOut } from "./index";
 import { signed, pctS, qty, X, todayOf, atNow, flowTickers, guessCur, tickerBadge } from "./invest-shared";
-import { thesisLine } from "./invest-thesis";
+import { thesisButton, thesisLine } from "./invest-thesis";
 import { revenueTile } from "./invest-revenue";
 
 // TRADE on a chart page: the rules check first (a buy), then the trade sheet (x.buy, the same from every page)
@@ -28,18 +28,19 @@ export const asOfText = (ms: number | null): string => {
     return t("iAsOf", { t: day === today() ? hm : `${shortDate(day)} ${hm}` });
 };
 
-// One-screen chart page (owner, 2026-11-04: nothing much below the fold): last price, the chart taking the room left, one
-// strip with what you hold, then tiles to the rest (法人 flows, trades, plan, journal)
+// One-screen chart page (owner, 2026-11-04: nothing much below the fold): last price, one strip with what you hold, the chart
+// taking the room left, then tiles to the rest (法人 flows, trades, plan, journal)
 export const assetPage = (x: X, p: Position): PageOut => {
     const { ctx } = x;
     const el = page(p.ticker);
     el.addClass("zl-c-stack");
     const costP = p.q > 0 ? p.avgP : null;   // cost per share in the asset's own currency, from its trades (calc/invest.ts: today's FX never moves it)
-    chartBlock(x, el, p.ticker, p.currency, costP);
-    thesisStrip(x, el, p.ticker);
+    chartBlock(x, el, p.ticker, p.currency, costP);   // the thesis: THESIS › on the chart's readout line (C1, 2026-11-18)
     // the hold strip, four across (owner picked mock B, 2026-11-18): PLAN joined it from the tiles; a tap on it opens the plan sheet
     const next = nextDca(p.dca, today()), thoughts = x.journal(p.ticker);
     const hold = h(el, "div", "zl-c-group zl-hold is-4");
+    // right under the last price, above the chart (owner's edit of Vellum C1, 2026-11-18): the price, then what you hold at it
+    el.insertBefore(hold, el.querySelector(":scope > .zl-chartg"));
     // a quarter of the row: whole percents from 10 % up (+111%, not +110.78%), one decimal under it
     const valueK = (pl: number, cost: number) => { const v = cost > 0 ? (pl / cost) * 100 : 0, a = Math.abs(v); return `${t("iValueShort")} ${v > 0 ? "+" : v < 0 ? "\u2212" : ""}${a.toFixed(a >= 10 ? 0 : 1)}%`; };
     const items: [string, string, boolean][] = [
@@ -73,7 +74,7 @@ export const assetPage = (x: X, p: Position): PageOut => {
         { k: t("iTrades"), icon: "list", v: String(p.trades.length), hot: off, onTap: () => ctx.push({ key: "trades:" + p.ticker, title: t("iTrades") }) },
         { k: t("iJournal"), icon: "receipt", v: String(thoughts.length), dim: !thoughts.length, onTap: () => ctx.push({ key: "journal:" + p.ticker, title: t("iJournal") }) },
     ].filter((v): v is NonNullable<typeof v> => !!v);
-    tileGrid(h(el, "div", "zl-c-group"), tiles);
+    tileGrid(h(el, "div", "zl-c-group zl-tstrip"), tiles);   // a ruled strip, not boxes (Vellum tiles E4a, owner 2026-11-18)
     return { title: p.ticker, el, still: true, actions: [drawAct(x, p.ticker)], fab: tradeFab(x, p.ticker), badge: tickerBadge(x, p.ticker) };
 };
 
@@ -104,8 +105,11 @@ export const chartBlock = (x: X, el: HTMLElement, tk: string, currency: string, 
     prices.refreshSeries(tk, "D");
     const lastP = live?.price ?? bars?.c[bars.c.length - 1] ?? null;
     const td = todayOf(prices, tk), ch = td?.ch ?? null;
-    const top = h(el, "div", "zl-c-group zl-c-top zl-lastp");
-    const lt = h(top, "div", "zl-lastp-l");
+    // the top as Vellum "2330 · top A ruled rows" (owner picked 2026-11-18): the price row (label, today's change a size up,
+    // the split-flap), then the market around it in one ruled row of three cells
+    const top = h(el, "div", "zl-c-group zl-c-top zl-lastp is-a");
+    const row = h(top, "div", "zl-lastp-row");
+    const lt = h(row, "div", "zl-lastp-l");
     // CURRENT PRICE while its market trades (prices.isOpen: clock + market calendar; before the open TWSE's fresh quote is
     // only yesterday's close), else LAST PRICE
     const isOpen = () => prices.isOpen(tk);
@@ -117,13 +121,13 @@ export const chartBlock = (x: X, el: HTMLElement, tk: string, currency: string, 
     h(lt, "div", "zl-lastp-s" + (ch !== null && ch < 0 ? " is-hot" : ch !== null && ch > 0 ? " is-up" : ""), !td ? asOfText(q?.asOf ?? null) : t("iToday", { n: `${td.ch > 0 ? "+" : td.ch < 0 ? "\u2212" : ""}${price2(Math.abs(td.ch))}`, p: pctS(td.pct) }));
     let f = LAST.get(tk);
     if (!f) { f = new Flap("md"); LAST.set(tk, f); }
-    top.appendChild(f.el);
+    row.appendChild(f.el);
     // no price yet (a first look at a ticker; owner, 2026-11-05: the top sat empty while it loaded): dark blank tiles with a
     // light running across them, the lines under the label dim bars; the first quote flips the tiles to the price
     let loading = lastP === null;
     f.set(lastP !== null ? price2(lastP) : "\u00a0".repeat(6));
     const flap = f, todayEl = lt.lastElementChild as HTMLElement;
-    sectorLine(x, lt, tk);   // 半導體 +1.20% · TAIEX +0.85% · REL +0.35% (Taiwan stocks)
+    sectorLine(x, top, tk);   // 半導體 +1.20% | TAIEX +0.85% | REL +0.35% (Taiwan stocks)
     const loaded = (text: string) => { if (!loading) return; loading = false; top.removeClass("is-loading"); flap.set(text); };
     if (loading) {
         top.addClass("is-loading");
@@ -157,12 +161,34 @@ export const chartBlock = (x: X, el: HTMLElement, tk: string, currency: string, 
     const srcEl = h(srcRow, "div", "zl-ch-src", srcText());
     const memo = DRAWN.get(ctx.frame) ?? [];
     DRAWN.set(ctx.frame, memo);
-    const cv = holdingChart(cg, { ticker: tk, currency, prices, prefs: readPrefs(ctx.plugin.store.fm(journalPath(tk))), cost, memo, height: 0, onLeave: () => ctx.pop(), fullLine: thesisLine(x, tk) });
+    const cv = holdingChart(cg, { ticker: tk, currency, prices, prefs: readPrefs(ctx.plugin.store.fm(journalPath(tk))), cost, memo, height: 0, onLeave: () => ctx.pop(), fullLine: thesisLine(x, tk), noteEnd: thesisButton(x, tk) });
     flowModes(x, srcRow, cg, tk, cv.el);   // Taiwan stocks: CANDLE · FOOTPRINT · VOLUME HEAT
+    // Vellum "2330 · page D2 controls under the chart" (owner picked 2026-11-18): the readout line, the MA line, the source over
+    // the plot, the plot, then by the thumb the ranges and one row of CANDLE · FOOTPRINT · HEAT and FIB · LINE · LEVEL. The chart
+    // only refills these rows, never replaces them, so they can move (css .zl-ch.is-d2 orders them)
+    // the kind / draw row hangs on the chart group, not the chart: FOOTPRINT and HEAT hide the candle chart, and the switch must
+    // stay to come back (owner, 2026-11-18: no way back to the chart); the draw tools hide while it is not the candles
+    const box = cv.el, dock = h(cg, "div", "zl-ch zl-ch-dock");   // zl-ch: the tool buttons keep their look
+    const fm = srcRow.querySelector(":scope > .zl-fmode"), tools = box.querySelector(":scope > .zl-ch-tools");
+    // Vellum "Chart · view and draw row" R4 (owner picked 2026-11-18): the views as a compact switch, one DRAW button; DRAW swaps
+    // the row for FIB · LINE · LEVEL and DONE while drawing (DONE also puts down a tool still armed)
+    if (fm) dock.appendChild(fm);
+    const drawB = h(dock, "button", "zl-ch-drawb", `\u270e ${t("dDraw").toUpperCase()} \u25be`);
+    if (tools) dock.appendChild(tools);
+    const doneB = h(dock, "button", "zl-ch-doneb", t("done").toUpperCase());
+    drawB.addEventListener("click", (e) => { e.preventDefault(); dock.addClass("is-drawing"); });
+    doneB.addEventListener("click", (e) => {
+        e.preventDefault();
+        (tools?.querySelector("button.zl-ch-tool.is-on") as HTMLElement | null)?.click();
+        dock.removeClass("is-drawing");
+    });
+    // leaving the candles (FOOTPRINT, HEAT) closes the tools
+    fm?.addEventListener("click", () => dock.removeClass("is-drawing"));
+    box.insertBefore(srcRow, box.querySelector(":scope > .zl-ch-plot"));
+    box.addClass("is-d2");
 };
 // the thesis on a chart page (owner picked mock B, 2026-11-18: the chart takes the room): the full chart's one line (next check,
 // what must hold, vs 0050); a tap floats the whole card over the chart
-const thesisStrip = (x: X, el: HTMLElement, tk: string): void => thesisLine(x, tk)(h(el, "div", "zl-c-group zl-thline"));
 // CHART (masthead): the settings sheet (Fib levels, snap, cost line, MA), kept in the ticker's note
 export const drawAct = (x: X, tk: string) => ({ text: t("iChartSet"), label: t("dTitle", { tk }), onTap: () => new DrawingsSheet(x.ctx.app, x.ctx.plugin.store, tk, () => x.addThought(tk)).open() });
 
@@ -175,7 +201,6 @@ export const tickerPage = (x: X, tk: string): PageOut => {
     el.addClass("zl-c-stack");
     const watched = P.watch.includes(tk);
     chartBlock(x, el, tk, guessCur(prices.symbol(tk)), null);
-    thesisStrip(x, el, tk);
     const tiles = [
         watched
             ? { k: "", icon: "eye", v: t("iWatching").toUpperCase(), onTap: () => { void x.dropWatch(tk); } }
@@ -183,7 +208,7 @@ export const tickerPage = (x: X, tk: string): PageOut => {
         flowsTile(ctx, tk, flowCodes(ctx, flowTickers(P))),
         revenueTile(x, tk),
     ].filter((v): v is NonNullable<typeof v> => !!v);
-    tileGrid(h(el, "div", "zl-c-group"), tiles);
+    tileGrid(h(el, "div", "zl-c-group zl-tstrip"), tiles);   // a ruled strip, not boxes (Vellum tiles E4a, owner 2026-11-18)
     return { title: tk, el, still: true, actions: [drawAct(x, tk)], fab: tradeFab(x, tk), badge: tickerBadge(x, tk) };
 };
 

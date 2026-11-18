@@ -248,26 +248,27 @@ export const mapPage = (x: X): PageOut => {
     return { title, el, still: true };
 };
 
-// the sector line under a Taiwan stock's price (owner, 2026-11-10): its sector index and TAIEX today, and the stock against its
-// sector (REL: the stock's % − the sector's %), so a move reads at once as the stock's own or the whole group's; REL has its own
-// line under the sector / TAIEX one (2026-11-10: beside a full price it was cut off), kept even while empty so nothing jumps
+// the market around a Taiwan stock's price (owner, 2026-11-10; one ruled row of three cells since Vellum top A, 2026-11-18): its
+// sector index and TAIEX today and the stock against its sector (REL: the stock's % − the sector's %), so a move reads at once
+// as the stock's own or the whole group's; a stock with no sector (an ETF like 0050) shows TAIEX and VS TAIEX instead. The row
+// keeps its cells while they are empty, so nothing jumps
 export const sectorLine = (x: X, parent: HTMLElement, tk: string): void => {
     const prices = x.ctx.plugin.prices, flow = x.ctx.plugin.flow, sym = prices.symbol(tk);
     if (!fugleCode(sym)) return;
-    const line = h(parent, "div", "zl-lastp-x"), rel = h(parent, "div", "zl-lastp-x");
+    const line = h(parent, "div", "zl-ctx");
+    const cells = [0, 1, 2].map(() => { const c = h(line, "span", "zl-ctx-c"); return [h(c, "span", "zl-ctx-k"), h(c, "span", "zl-ctx-v")]; });
     const pc = (n: number, d = 2) => `${n > 0 ? "+" : n < 0 ? "\u2212" : ""}${Math.abs(n).toFixed(d)}%`;
-    const part = (k: string, v: number | null, into = line) => {
-        const s = h(into, "span");
-        h(s, "span", "zl-lastp-xk", k);
-        h(s, "span", v === null ? "" : v > 0 ? "is-up" : v < 0 ? "is-hot" : "", v === null ? "-" : pc(v));
+    const put = (i: number, k: string, v: number | null) => {
+        const [ke, ve] = cells[i];
+        ke.setText(k); ve.setText(k ? (v === null ? "-" : pc(v)) : "");
+        ve.className = "zl-ctx-v" + (v === null ? "" : v > 0 ? " is-up" : v < 0 ? " is-hot" : "");
     };
-    const paint = () => {
-        if (!line.isConnected) return false;
-        line.empty(); rel.empty();
+    // the first paint runs before the page is on screen (labels and dashes while the indices load); later ones stop with the page
+    const paint = (first = false) => {
+        if (!first && !line.isConnected) return false;
         const sec = flow.sectorOf(sym), sp = sec ? flow.idx.get(sec.code) ?? null : null, ix = flow.idx.get("t00") ?? null, me = todayOf(prices, tk)?.pct ?? null;
-        if (sec) part(sec.name, sp);
-        part("TAIEX", ix);
-        if (sec && sp !== null && me !== null) part("REL", me - sp, rel);
+        if (sec) { put(0, sec.name, sp); put(1, "TAIEX", ix); put(2, "REL", sp !== null && me !== null ? me - sp : null); }
+        else { put(0, "TAIEX", ix); put(1, "VS TAIEX", ix !== null && me !== null ? me - ix : null); put(2, "", null); }
         return true;
     };
     let stop: (() => void) | null = null, codes = "";
@@ -277,6 +278,6 @@ export const sectorLine = (x: X, parent: HTMLElement, tk: string): void => {
         stop?.(); codes = want.join();
         stop = flow.follow(want, () => { if (!line.isConnected) { stop?.(); return false; } start(); return paint(); });
     };
-    start(); paint();
+    start(); paint(true);
     prices.onQuote((s) => { if (!line.isConnected) return false; if (s === sym) paint(); return true; });
 };

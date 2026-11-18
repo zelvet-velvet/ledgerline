@@ -53,15 +53,20 @@ export class Flap {
         const dr = document.createElement("b"); dr.className = "dr";
         const lf = document.createElement("span"); lf.className = "lf";
         lf.append(fr, bk);
-        const tx = document.createElement("b"); tx.className = "tx";   // the card's surface: a matte grain over the face (css/c.css)
-        t.append(st, sb, dr, lf, tx);
+        t.append(st, sb, dr, lf);   // no grain layer: matte grain was tried and dropped, flips stayed laggy on the phone (owner, 2026-11-18)
         const x: Tile = { el: t, st, sb, fr, bk, lf, frSh: fr.lastChild as HTMLElement, bkSh: bk.lastChild as HTMLElement, dr, shown: BLANK, target: BLANK, rolling: false, deadline: 0, wait: 0, gen: 0 };
         TILES.set(t, x);
         this.show(x, BLANK);
         return t;
     }
     // % is drawn smaller than the digits (owner, 2026-11-06: too big on the big cards), on every face it shows on
-    private txt(i: HTMLElement, ch: string): void { const u = (i.firstChild as HTMLElement).firstChild as HTMLElement; u.textContent = ch; u.classList.toggle("sym", ch === "%"); }
+    // a leading + / − is painted on each face it shows on (class sg / is-plus on the face, css/c.css), so the turning leaf carries
+    // it too and a sign turns in like a card (owner, 2026-11-18: the +/− did not flip to show)
+    private txt(i: HTMLElement, ch: string, t?: HTMLElement): void {
+        const u = (i.firstChild as HTMLElement).firstChild as HTMLElement; u.textContent = ch; u.classList.toggle("sym", ch === "%");
+        const sg = isSign(ch) && !!t && t.parentElement?.firstElementChild === t;   // only a leading sign; a dash inside stays a tile
+        i.classList.toggle("sg", sg); i.classList.toggle("is-plus", sg && ch === "+");
+    }
     private stop(x: Tile): void { [x.lf, x.frSh, x.bkSh, x.dr].forEach((e) => e.getAnimations().forEach((a) => a.cancel())); }
 
     // at rest: both halves the same character, the leaf put away
@@ -71,12 +76,9 @@ export class Flap {
         t.dataset.ch = ch;
         t.classList.toggle("sp", ch === " ");
         t.classList.toggle("bl", ch === BLANK);
-        const sg = isSign(ch) && t.parentElement?.firstElementChild === t;   // only a leading sign; a dash inside stays a tile
-        t.classList.toggle("sg", sg);
-        t.classList.toggle("is-plus", sg && ch === "+");
         t.classList.remove("c");   // , . are tiles like the digits
         this.stop(x);
-        this.txt(x.st, ch); this.txt(x.sb, ch);
+        this.txt(x.st, ch, t); this.txt(x.sb, ch, t);
         x.lf.style.visibility = "hidden";
     }
 
@@ -91,11 +93,11 @@ export class Flap {
     private turn(x: Tile, a: string, b: string, ms: number, last: boolean): Promise<void> {
         return new Promise((done) => {
             const t = x.el;
-            t.classList.remove("bl", "sp", "sg", "is-plus");
-            this.txt(x.st, b);    // behind the falling card: the new top
-            this.txt(x.sb, a);    // under it: the old bottom, until the card lands
-            this.txt(x.fr, a);    // the card's front: the old top half
-            this.txt(x.bk, b);    // the card's back: the new bottom half
+            t.classList.remove("bl", "sp");
+            this.txt(x.st, b, t);    // behind the falling card: the new top
+            this.txt(x.sb, a, t);    // under it: the old bottom, until the card lands
+            this.txt(x.fr, a, t);    // the card's front: the old top half
+            this.txt(x.bk, b, t);    // the card's back: the new bottom half
             x.lf.style.visibility = "visible";
             // the landing card eases onto the stop (no bounce: a target that moves mid-turn must not hiccup)
             const anim = x.lf.animate([{ transform: "rotateX(0deg)" }, { transform: "rotateX(-180deg)" }],
@@ -130,15 +132,6 @@ export class Flap {
         if (x.gen === g) x.rolling = false;
     }
 
-    // the side the number leans on: right when it sits against its box's right edge (readouts, the pad), else left; before
-    // layout, a fixed row of tiles (pad > 0) is a right-aligned readout
-    private leansRight(): boolean {
-        const p = this.el.parentElement, r = this.el.getBoundingClientRect();
-        if (!p || !r.width) return this.pad > 0 || p?.classList.contains("zl-read") === true;
-        const q = p.getBoundingClientRect();
-        return q.right - r.right < r.left - q.left;
-    }
-
     // the appear again: every tile back to a blank card, then the value (owner, 2026-11-06: each time a page opens)
     replay(): void {
         if (!this.cur || calm()) return;
@@ -147,7 +140,7 @@ export class Flap {
             const x = TILES.get(t);
             if (!x) continue;
             window.clearTimeout(x.wait); x.gen++; x.rolling = false;
-            const keep = isSign(x.shown) || x.shown === " ";
+            const keep = x.shown === " ";   // a sign turns in again like the digits
             this.show(x, keep ? x.shown : BLANK); x.target = x.shown;
         }
         this.cur = "";
@@ -155,7 +148,7 @@ export class Flap {
     }
 
     // dir "del": a delete runs from the leftmost tile (its digits move right, the left finishes first); anything else starts
-    // from the side the number leans on
+    // from the rightmost tile
     set(text: string, dir?: "del"): void {
         text = text.toUpperCase();
         // a fixed row (pad) keeps its tiles like a real board: a shorter number turns the spare ones blank, and a sign always
@@ -170,14 +163,16 @@ export class Flap {
         while (this.el.children.length > text.length) this.el.firstChild?.remove();
         while (this.el.children.length < text.length) this.el.insertBefore(this.mk(), this.el.firstChild);   // new tiles: blank cards
         const tiles = (Array.from(this.el.children) as HTMLElement[]).map((t) => TILES.get(t)!);
-        const n = text.length, fromLeft = dir === "del" || !this.leansRight();
-        const still = calm(), punct = (c: string) => c === " " || isSign(c);
+        // every field starts from its rightmost digit, like an odometer (owner, 2026-11-18: lg / xl, then the marquee's change lines
+        // that started from the left because they sit left in their cell)
+        const n = text.length, fromLeft = dir === "del";
+        const still = calm();
         const now = performance.now();
         let order = 0;
         for (let k = 0; k < n; k++) {
             const i = fromLeft ? k : n - 1 - k, x = tiles[i], ch = text[i];
-            // spaces and signs just show (a sign is painted, not a card face that can turn)
-            if (still || punct(ch) || punct(x.shown)) { window.clearTimeout(x.wait); x.gen++; x.rolling = false; x.target = ch; this.show(x, ch); continue; }
+            // spaces just show; a sign turns like a symbol (one card)
+            if (still || ch === " " || x.shown === " ") { window.clearTimeout(x.wait); x.gen++; x.rolling = false; x.target = ch; this.show(x, ch); continue; }
             if (x.target === ch && (x.rolling || x.shown === ch)) continue;
             x.target = ch;
             if (x.shown === ch && !x.rolling) continue;

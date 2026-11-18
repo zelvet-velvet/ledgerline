@@ -1,10 +1,10 @@
-import { Notice } from "obsidian";
+import { toast } from "../ui/toast";
 import { dayExtras, slug } from "../calc/log";
 import { FILES, FM } from "../data/store";
 import { localDate, num, parseNum, shortDate, today, ymd } from "../format";
 import { t } from "../i18n";
-import { C, colorFor, empty, group, h, monthBar, page, row } from "../ui";
-import { bigLabel, sec, tileGrid } from "../ui/c";
+import { empty, h, monthBar, page } from "../ui";
+import { bigLabel, Fig, figures, sec, summary, tileGrid } from "../ui/c";
 import { confirmSheet, FormSheet, openText } from "../ui/sheet";
 import type { PageCtx, PageOut } from "./index";
 import { openPad } from "./amount";
@@ -29,8 +29,8 @@ const editDayAmount = (ctx: PageCtx, date: string, prop: string, isCustom: boole
     const write = (fn: (f: FM) => void) => store.update(note.path, fn);
     openPad(ctx, {
         title: name, sub: date === today() ? t("today") : shortDate(date), current: val, cur,
-        save: async (n) => { await write((f) => { f[prop] = n; }); new Notice(t("savedX", { name, amount: num(n), cur })); },
-        remove: isCustom && val ? { text: t("remove"), run: async () => { await write((f) => { delete f[prop]; }); new Notice(t("removedX", { name })); } } : undefined,
+        save: async (n) => { await write((f) => { f[prop] = n; }); toast(t("savedX", { name, amount: num(n), cur })); },
+        remove: isCustom && val ? { text: t("remove"), run: async () => { await write((f) => { delete f[prop]; }); toast(t("removedX", { name })); } } : undefined,
     });
 };
 
@@ -51,7 +51,7 @@ export const expenseSheet = (ctx: PageCtx, date0 = today()): void => {
         const note = store.day(d);
         if (!note) return;
         await store.update(note.path, (f) => { f[k] = n; });
-        new Notice(t("savedX", { name: cap(k), amount: num(n), cur }));
+        toast(t("savedX", { name: cap(k), amount: num(n), cur }));
     };
     const pad = (d: string, k: string, close: () => void, host: HTMLElement) => openPad(ctx, {
         title: cap(k), sub: when(d), current: Number(fmOf(d)[k]) || 0, cur, host,
@@ -73,7 +73,7 @@ export const expenseSheet = (ctx: PageCtx, date0 = today()): void => {
                     if (k !== OTHER) { pad(d, k, sh.close, sh.host); return; }
                     openText(sh.host, { title: t("addOneTime"), sub: when(d), value: "", placeholder: t("whatHint"), save: (name) => {
                         const key = itemKey(name);
-                        if (!slug(name) || !key) { new Notice(t("needName")); return; }
+                        if (!slug(name) || !key) { toast(t("needName"), true); return; }
                         void countOneTime(ctx, key);
                         pad(d, key, sh.close, sh.host);
                     } });
@@ -107,7 +107,7 @@ export const dayPage = (ctx: PageCtx, date: string, notePath?: string): PageOut 
     const note = own && notePath ? { name: date, path: notePath, fm: own } : store.day(date);
     if (!note) {
         empty(el, { icon: "calendar-plus", title: t("noDay"), text: t("noDaySub"), button: t("startDay"), onTap: () => {
-            void store.createDay(date).then(() => new Notice(t("dayStarted", { date: title })), (e) => new Notice(String(e instanceof Error ? e.message : e)));
+            void store.createDay(date).then(() => toast(t("dayStarted", { date: title })), (e) => toast(String(e instanceof Error ? e.message : e), true));
         } });
         return { title: dayFrame(date).title, el };
     }
@@ -135,8 +135,10 @@ export const dayPage = (ctx: PageCtx, date: string, notePath?: string): PageOut 
     const drag = (prop: string) => (): ScrubOpts => ({
         value: Number(fm[prop]) || 0, step, label: cap(prop), fmt: num,
         live: (n) => { const d = n - (Number(fm[prop]) || 0); big.textContent = num(total + d); big.toggleClass("is-dim", total + d <= 0); },
-        done: (n) => { void write((f) => { f[prop] = n; }).then(() => new Notice(t("savedX", { name: cap(prop), amount: num(n), cur }))); },
+        done: (n) => { void write((f) => { f[prop] = n; }).then(() => toast(t("savedX", { name: cap(prop), amount: num(n), cur }))); },
     });
+    // every tile on the day page is one width, three across, whatever the group's size (review 2026-11: one or two tiles came half wide)
+    const same = (g: HTMLElement) => g.removeClass("is-2", "is-4");
     // every daily item is a tile, grouped under its budget group (what is left this month on the right)
     daily.forEach((bg, i) => {
         const left = M.budget[i];
@@ -144,20 +146,20 @@ export const dayPage = (ctx: PageCtx, date: string, notePath?: string): PageOut 
         const head = sec(g, (bg.name || t("groupN", { n: i + 1 })).toUpperCase());
         if (left) { const r = h(head, "span", "zl-sec-go" + (left.remain < 0 ? " is-hot" : ""), `${num(left.remain)} ${t("cLeft").toUpperCase()}`); r.setAttribute("aria-label", t("leftMonthN", { left: num(left.remain) })); }
         if (!bg.spending.length) { h(g, "div", "zl-gf", t("noItems")); return; }
-        tileGrid(g, bg.spending.map((p) => { const v = Number(fm[p]) || 0; return { k: cap(p).toUpperCase(), v: num(v), dim: !v, onTap: () => edit(p, false), scrub: drag(p) }; }));
+        same(tileGrid(g, bg.spending.map((p) => { const v = Number(fm[p]) || 0; return { k: cap(p).toUpperCase(), v: num(v), dim: !v, onTap: () => edit(p, false), scrub: drag(p) }; })));
     });
     if (custom.length) {
         const g = h(el, "div", "zl-c-group");
         sec(g, t("oneTime").toUpperCase());
-        tileGrid(g, custom.map((p) => ({ k: cap(p).toUpperCase(), v: num(fm[p]), hot: true, onTap: () => edit(p, true), scrub: drag(p) })));
+        same(tileGrid(g, custom.map((p) => ({ k: cap(p).toUpperCase(), v: num(fm[p]), hot: true, onTap: () => edit(p, true), scrub: drag(p) }))));
     }
     // numbers in the note that are not spending (a rating, another plugin's count): shown, never added; a tap counts one
     if (skipped.length) {
         const g = h(el, "div", "zl-c-group");
         sec(g, t("notCounted").toUpperCase());
-        tileGrid(g, skipped.map((p) => ({ k: cap(p).toUpperCase(), v: num(fm[p]), dim: true, onTap: async () => {
-            if (await confirmSheet(ctx.app, t("countQ", { name: cap(p) }), t("countSub"), t("count"))) { await countOneTime(ctx, p); new Notice(t("countedX", { name: cap(p) })); }
-        } })));
+        same(tileGrid(g, skipped.map((p) => ({ k: cap(p).toUpperCase(), v: num(fm[p]), dim: true, onTap: async () => {
+            if (await confirmSheet(ctx.app, t("countQ", { name: cap(p) }), t("countSub"), t("count"))) { await countOneTime(ctx, p); toast(t("countedX", { name: cap(p) })); }
+        } }))));
     }
     if (daily.length || custom.length) h(el, "div", "zl-c-note zl-scrub-hint", t("cScrubHint"));
     if (!daily.length && !custom.length) empty(el, { icon: "list", title: t("noItems"), button: t("dailyItems"), onTap: () => ctx.push({ key: "items", title: t("dailyItems") }) });
@@ -202,20 +204,24 @@ const groupSheet = (ctx: PageCtx, gs: Raw[], i: number) => {
         onSubmit: async (v) => {
             const quota = v.pct === "" ? 0 : parseNum(v.pct), name = v.name.trim();
             await saveGroups(ctx, (all) => { if (all[i]) Object.assign(all[i], { name, quota }); else all.push({ name, quota, daily: true, spending: [] }); });
-            new Notice(t("itemsSaved"));
+            toast(t("itemsSaved"));
         },
     }).open();
 };
 
 export const itemsPage = (ctx: PageCtx): PageOut => {
     const gs = rawGroups(ctx);
+    // C list: how much of the money to live on the groups share (loud past 100 %) → one row per group, its items under its name
     const el = page(t("dailyItems"));
+    el.addClass("zl-c-list");
     const total = pctTotal(gs);
+    summary(el, { key: "items", label: t("cShared").toUpperCase(), value: `${total}%`, hot: total > 100, items: [[t("cGroups"), String(gs.length)], [t("items"), String(gs.reduce((n, x) => n + items(x).length, 0))]] });
     if (!gs.length) empty(el, { icon: "list", title: t("noGroups") });
     else {
-        const g = group(el, undefined, t("pctTotal", { n: total }) + (total > 100 ? " · " + t("over100", { n: total }) : ""));
-        gs.forEach((x, i) => row(g, { icon: "circle", tint: colorFor(i), title: x.name || t("groupN", { n: i + 1 }), sub: items(x).map(cap).join(", ") || t("noItems"),
-            value: `${Number(x.quota) || 0}%`, chevron: true, onTap: () => ctx.push({ key: "items:" + i, title: x.name || t("groupN", { n: i + 1 }) }) }));
+        const g = h(el, "div", "zl-c-group");
+        sec(g, t("cGroups").toUpperCase());
+        figures(g, gs.map((x, i): Fig => ({ icon: "list", k: x.name || t("groupN", { n: i + 1 }), s: items(x).map(cap).join(", ") || t("noItems"), v: `${Number(x.quota) || 0}%`, onTap: () => ctx.push({ key: "items:" + i, title: x.name || t("groupN", { n: i + 1 }) }) })));
+        if (total > 100) h(el, "p", "zl-c-note is-hot", t("over100", { n: total }));
     }
     return { title: t("dailyItems"), el, fab: { icon: "plus", text: t("newGroup").toUpperCase(), label: t("newGroup"), onTap: () => groupSheet(ctx, gs, gs.length) } };
 };
@@ -225,28 +231,32 @@ export const itemGroupPage = (ctx: PageCtx, i: number): PageOut => {
     const g = gs[i];
     if (!g) return itemsPage(ctx);
     const name = g.name || t("groupN", { n: i + 1 });
+    // C list: the group's share → name and share (a tap changes them) → its items (a tap removes one) → delete the group.
+    // + ADD ITEM is the page's action in the bottom bar
     const el = page(name);
-    const head = group(el);
-    row(head, { icon: "pencil", tint: C.accent, title: t("nameAndShare"), sub: t("shareHint"), value: `${Number(g.quota) || 0}%`, chevron: true, onTap: () => groupSheet(ctx, gs, i) });
-
-    const list = group(el, t("items"), t("itemsHint"));
-    for (const it of items(g)) row(list, { icon: "circle-small,dot", tint: colorFor(i), title: cap(it), onTap: async () => {
+    el.addClass("zl-c-list");
+    summary(el, { key: "items-" + i, label: t("cShareOf").toUpperCase(), value: `${Number(g.quota) || 0}%`, items: [[t("items"), String(items(g).length)]] });
+    figures(h(el, "div", "zl-c-group"), [{ icon: "pencil", k: t("nameAndShare"), s: t("shareHint"), v: `${Number(g.quota) || 0}%`, onTap: () => groupSheet(ctx, gs, i) }]);
+    const list = h(el, "div", "zl-c-group");
+    sec(list, t("items").toUpperCase());
+    if (items(g).length) figures(list, items(g).map((it): Fig => ({ k: cap(it), v: "", onTap: async () => {
         if (!(await confirmSheet(ctx.app, t("removeItem", { name: cap(it) }), t("removeItemSub"), t("remove")))) return;
         await saveGroups(ctx, (all) => { all[i].spending = items(all[i]).filter((x) => x !== it); });
-        new Notice(t("removedX", { name: cap(it) }));
-    } });
-    row(list, { icon: "plus", tint: C.accent, title: t("addItem"), titleColor: C.accent, onTap: () => new FormSheet(ctx.app, {
+        toast(t("removedX", { name: cap(it) }));
+    } })));
+    else figures(list, [{ k: t("noItems"), v: "-", dim: true }]);
+    h(list, "p", "zl-c-note", t("itemsHint"));
+    figures(h(el, "div", "zl-c-group"), [{ icon: "close", k: t("deleteGroup"), v: "", onTap: async () => {
+        if (!(await confirmSheet(ctx.app, t("deleteGroup"), t("deleteGroupSub", { name }), t("delete")))) return;
+        await saveGroups(ctx, (all) => { all.splice(i, 1); });
+        toast(t("removedX", { name }));
+        ctx.pop();
+    } }]);
+    const add = () => new FormSheet(ctx.app, {
         title: t("addItem"), subtitle: name, submitText: t("add"),
         fields: [{ key: "name", label: t("name"), type: "text", required: true }],
         validate: (v) => { const k = itemKey(v.name); return !k ? t("needName") : gs.some((x) => items(x).includes(k)) ? t("itemExists", { name: cap(k) }) : null; },
-        onSubmit: async (v) => { const k = itemKey(v.name); await saveGroups(ctx, (all) => { all[i].spending = [...items(all[i]), k]; }); new Notice(t("itemsSaved")); },
-    }).open() });
-
-    row(group(el), { icon: "trash-2", tint: C.neg, title: t("deleteGroup"), titleColor: C.neg, onTap: async () => {
-        if (!(await confirmSheet(ctx.app, t("deleteGroup"), t("deleteGroupSub", { name }), t("delete")))) return;
-        await saveGroups(ctx, (all) => { all.splice(i, 1); });
-        new Notice(t("removedX", { name }));
-        ctx.pop();
-    } });
-    return { title: name, el };
+        onSubmit: async (v) => { const k = itemKey(v.name); await saveGroups(ctx, (all) => { all[i].spending = [...items(all[i]), k]; }); toast(t("itemsSaved")); },
+    }).open();
+    return { title: name, el, fab: { icon: "plus", text: t("addItem").toUpperCase(), label: t("addItem"), onTap: add } };
 };

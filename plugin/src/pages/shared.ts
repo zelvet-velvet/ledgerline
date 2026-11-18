@@ -1,4 +1,4 @@
-import { Notice } from "obsidian";
+import { toast } from "../ui/toast";
 import { monthLong, num, parseNum } from "../format";
 import { t } from "../i18n";
 import { ChoiceSheet, FormSheet } from "../ui/sheet";
@@ -22,7 +22,7 @@ export const editAllocation = (ctx: PageCtx, key: string, what: string): void =>
             choices.push({ value: "onward", label: t("fromMonth", { month }), hint: t("fromMonthHint") });
             new ChoiceSheet(ctx.app, `${num(info.amount)} → ${num(next)} ${cur}`, choices, async (mode) => {
                 const frozen = await store.setAllocation(key, next, mode as "once" | "onward");
-                new Notice(mode === "once" ? t("allocOnce", { what, amount: num(next), cur, month })
+                toast(mode === "once" ? t("allocOnce", { what, amount: num(next), cur, month })
                     : t("allocOnward", { what, amount: num(next), cur, month }) + (frozen ? t("allocFrozen", { n: frozen }) : ""));
             }).open();
         },

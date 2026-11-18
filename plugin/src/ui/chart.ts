@@ -37,6 +37,9 @@ export interface ChartOpts {
     ladder?: Range[]; chips?: true; swipe?: (dir: 1 | -1) => void;
     // the full chart: a line beside the MA chips (the thesis, Vellum screen "Invest · chart page with thesis", landscape)
     fullLine?: (parent: HTMLElement) => void;
+    // a small button at the right end of the bar's readout line (the chart page's THESIS ›: Vellum "2330 · C1 thesis on the readout
+    // line", owner picked 2026-11-18)
+    noteEnd?: (parent: HTMLElement) => void;
 }
 type Tool = DrawType | "measure";
 // the armed tool and a first point waiting, per ticker (a page redraw from a price refresh keeps them); a measure is not saved
@@ -91,11 +94,13 @@ export const holdingChart = (parent: HTMLElement, o: ChartOpts): ChartView => {
         ranges = o.ladder ? document.createElement("div") : h(box, "div", "zl-ch-ranges is-seg");
         tools = o.tools === false ? document.createElement("div") : h(box, "div", "zl-ch-tools");
         if (o.chips) { const r = h(box, "div", "zl-ch-nrow"); note = h(r, "div", "zl-ch-note"); ind = h(r, "div", "zl-ch-ind is-chips"); }
+        else if (o.noteEnd) { ind = h(box, "div", "zl-ch-ind"); const r = h(box, "div", "zl-ch-nrow"); note = h(r, "div", "zl-ch-note"); o.noteEnd(r); }
         else { ind = h(box, "div", "zl-ch-ind"); note = h(box, "div", "zl-ch-note"); }   // note: the bar's O H L C Vol, or what to tap next
         plot = h(box, "div", "zl-ch-plot");
         if (o.height === 0) box.addClass("is-fill");   // 0: the chart takes the room the page leaves (one-screen chart pages)
         else plot.style.height = `${o.height ?? 340}px`;
-        if (o.fullChart !== false) {
+        // FULL CHART ›: desktop only; a phone opens the full chart by turning sideways (owner, 2026-11-18: no button needed)
+        if (o.fullChart !== false && !Platform.isMobile) {
             const foot = h(box, "div", "zl-ch-foot");
             const link = h(foot, "button", "zl-ch-link", "FULL CHART ›");
             link.addEventListener("click", (e) => { e.preventDefault(); openFull(box, o); });
@@ -523,7 +528,9 @@ const drawBars = (plot: HTMLElement, full: Bars, win: number, off: number, range
     if (cost && !isMinutes(range) && cost > lo * 0.7 && cost < hi * 1.3) { lo = Math.min(lo, cost); hi = Math.max(hi, cost); }   // a far-off cost stays off the chart
     const pad = (hi - lo) * 0.06 || hi * 0.02;
     const vol = o.volume !== false && B.v.some((v) => v > 0);   // no volume known (index, live ticks only): no pane of zeros
-    const yb = H - BOTTOM, y1 = vol ? Math.round(TOP + (yb - TOP) * 0.74) : yb;   // the price pane's bottom; volume below it
+    // the price pane's bottom; volume below it: a third of the plot and at least 48 px, so its bars read on a short phone chart
+    // (owner, 2026-11-18: VOL too short, bars about 14 px)
+    const yb = H - BOTTOM, y1 = vol ? Math.round(Math.min(TOP + (yb - TOP) * 0.66, yb - 48)) : yb;
     // TODAY: room for the whole session (Taiwan 09:00–13:30 = 270 minutes, else 6.5 hours), the bars so far from the left
     // (zoomed into TODAY: just the bars on screen, like any interval)
     const tw = isTwSym(o.prices.symbol(o.ticker)), slots = range === "I" && win >= windowOf(full, "I") ? Math.max(n, tw ? 55 : 79) : n;
@@ -543,18 +550,30 @@ const drawBars = (plot: HTMLElement, full: Bars, win: number, off: number, range
 
     // price grid + the axis on the left, labels inside the plot right of it (a tick label too close to the last price tag gives way to it)
     const yLast = Math.max(G.y0, Math.min(G.y1, G.y(B.c[n - 1])));
-    for (const t of niceTicks(G.lo, G.hi)) {
+    // tick labels carry only the decimals their step needs: 24,200 not 24,200.00 (owner, 2026-11-18); prices themselves keep two
+    const yt = niceTicks(G.lo, G.hi), yd = yt.every((t) => t % 100 === 0) ? 0 : yt.every((t) => t % 10 === 0) ? 1 : 2;
+    const tickL = (t: number) => (t / 100).toLocaleString(undefined, { minimumFractionDigits: yd, maximumFractionDigits: yd });
+    for (const t of yt) {
         const y = G.y(t);
         if (y < G.y0 - 1 || y > G.y1 + 1) continue;
         svgEl(svg, "line", { x1: G.x0, x2: G.x1, y1: y, y2: y }, "zl-ch-grid");
         svgEl(svg, "line", { x1: G.x0, x2: G.x0 + 4, y1: y, y2: y }, "zl-ch-axis");
-        if (Math.abs(y - yLast) >= 14 && y >= 24) text(svg, G.x0 + 7, y + 4, price2(t), "zl-ch-yl");
+        if (Math.abs(y - yLast) >= 14 && y >= 24) text(svg, G.x0 + 7, y + 4, tickL(t), "zl-ch-yl");
     }
     text(svg, G.x0 + 7, 10, o.currency, "zl-ch-cur");
     // time ticks: tick, faint grid line, label clear of both edges
     let right = -Infinity;   // where the last drawn label ends: a label that would touch it is left out
     const sym = o.prices.symbol(o.ticker);
-    for (const t of xTicks(B.d.map((d) => shownD(sym, d, range)), range)) {
+    // TODAY with the session still ahead: the hours to come are labelled too (owner, 2026-11-18: at 09:30 the time row was empty,
+    // a blank band under the chart), stepping on from the last bar by the bars' own interval
+    const dd = B.d.slice();
+    if (range === "I" && sl > n && n > 0) {
+        const at0 = (x: string) => Date.UTC(+x.slice(0, 4), +x.slice(5, 7) - 1, +x.slice(8, 10), +x.slice(11, 13), +x.slice(14, 16));
+        const stepMs = 300000;   // TODAY's slots are 5-minute bars (09:00–13:30 = 55), and the labels stop at the session's end
+        const pad2 = (v: number) => String(v).padStart(2, "0");
+        for (let t = at0(B.d[n - 1]) + stepMs; dd.length < Math.min(sl, slots); t += stepMs) { const q = new Date(t); dd.push(`${q.getUTCFullYear()}-${pad2(q.getUTCMonth() + 1)}-${pad2(q.getUTCDate())} ${pad2(q.getUTCHours())}:${pad2(q.getUTCMinutes())}`); }
+    }
+    for (const t of xTicks(dd.map((d) => shownD(sym, d, range)), range)) {
         const x = G.x(t.i), w = t.label.length * 6.6;
         svgEl(svg, "line", { x1: x, x2: x, y1: G.y0, y2: yb }, "zl-ch-grid zl-ch-vgrid");
         svgEl(svg, "line", { x1: x, x2: x, y1: yb, y2: yb + 4 }, "zl-ch-axis");
@@ -572,12 +591,13 @@ const drawBars = (plot: HTMLElement, full: Bars, win: number, off: number, range
             const a = svgEl(vl, "tspan", { dx: k2 === "VOL" ? 0 : 8 }, "zl-ch-vk " + cls); a.textContent = k2 + " ";
             const b = svgEl(vl, "tspan", {}); b.textContent = vn(v);
         }
-        const vw = Math.max(1, Math.min(18, G.step * 0.64));
-        for (let i = 0; i < n; i++) { const ht = yb - vy(B.v[i]); if (ht > 0) svgEl(svg, "rect", { x: G.x(i) - vw / 2, y: yb - ht, width: vw, height: ht }, B.c[i] >= B.o[i] ? "zl-ch-up zl-ch-vol" : "zl-ch-down zl-ch-vol"); }
+        // the 5 and 10 bar averages first, faint, so the bars stay readable over them (owner, 2026-11-18: the lines hid the bars)
         for (const [a, cls] of [[v5, "zl-ch-v5"], [v10, "zl-ch-v10"]] as [(number | null)[], string][]) {
             const pts = a.map((m, i) => (m === null ? "" : `${G.x(i)},${vy(m)}`)).filter(Boolean);
             if (pts.length > 1) svgEl(svg, "polyline", { points: pts.join(" ") }, cls);
         }
+        const vw = Math.max(1, Math.min(18, G.step * 0.64));
+        for (let i = 0; i < n; i++) { const ht = yb - vy(B.v[i]); if (ht > 0) svgEl(svg, "rect", { x: G.x(i) - vw / 2, y: yb - ht, width: vw, height: ht }, B.c[i] >= B.o[i] ? "zl-ch-up zl-ch-vol" : "zl-ch-down zl-ch-vol"); }
     }
 
     // Bollinger: a faint fill between UB and LB, both edges muted (BB 2σ); MB its own line (MB 20), drawn with MA60 over the candles

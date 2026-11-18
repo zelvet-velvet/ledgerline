@@ -40,7 +40,7 @@ export const DEFAULTS: LedgerSettings = {
     debugLog: false,
     debugPath: ".ledgerline/debug.log",
     bigNumber: "dots",
-    pageMove: "slide",
+    pageMove: "fade",   // owner, 2026-11-18: fade in / out instead of the slide
     calm: false,
     tabOrder: [...TAB_ORDER],
     theme: "auto",
@@ -91,7 +91,7 @@ export class LedgerSettingTab extends PluginSettingTab {
             .addDropdown((x) => {
                 const names = { slide: "sMoveSlide", push: "sMovePush", wipe: "sMoveWipe", fade: "sMoveFade", cascade: "sMoveCascade" } as const;
                 PAGE_MOVES.forEach((k) => x.addOption(k, t(names[k])));
-                x.setValue(s.pageMove).onChange(async (v) => { s.pageMove = PAGE_MOVES.includes(v as PageMove) ? v as PageMove : "slide"; await save(); });
+                x.setValue(s.pageMove).onChange(async (v) => { s.pageMove = PAGE_MOVES.includes(v as PageMove) ? v as PageMove : "fade"; await save(); });
             });
         new Setting(c).setName(t("sCalm")).setDesc(t("sCalmDesc"))
             .addToggle((x) => x.setValue(s.calm).onChange(async (v) => { s.calm = v; await save(); }));

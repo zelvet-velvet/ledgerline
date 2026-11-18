@@ -13,14 +13,11 @@
     "invest",
     "invest-holdings",
     "invest-asset",
-    "invest-asset-mock-b",
+    "invest-asset-0050",
     "invest-revenue",
     "invest-watch",
     "invest-map",
     "invest-alerts",
-    "invest-mix",
-    "ref-flaps",
-    "ref-flaps-surface",
-    "ref-flaps-pins"
+    "invest-mix"
   ]
 }
