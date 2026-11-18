@@ -95,7 +95,8 @@ export const holdingChart = (parent: HTMLElement, o: ChartOpts): ChartView => {
         plot = h(box, "div", "zl-ch-plot");
         if (o.height === 0) box.addClass("is-fill");   // 0: the chart takes the room the page leaves (one-screen chart pages)
         else plot.style.height = `${o.height ?? 340}px`;
-        if (o.fullChart !== false) {
+        // FULL CHART ›: desktop only; a phone opens the full chart by turning sideways (owner, 2026-11-18: no button needed)
+        if (o.fullChart !== false && !Platform.isMobile) {
             const foot = h(box, "div", "zl-ch-foot");
             const link = h(foot, "button", "zl-ch-link", "FULL CHART ›");
             link.addEventListener("click", (e) => { e.preventDefault(); openFull(box, o); });

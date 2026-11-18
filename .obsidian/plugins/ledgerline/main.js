@@ -4554,7 +4554,7 @@ var holdingChart = (parent, o) => {
     plot = h(box, "div", "zl-ch-plot");
     if (o.height === 0) box.addClass("is-fill");
     else plot.style.height = `${o.height ?? 340}px`;
-    if (o.fullChart !== false) {
+    if (o.fullChart !== false && !import_obsidian12.Platform.isMobile) {
       const foot = h(box, "div", "zl-ch-foot");
       const link = h(foot, "button", "zl-ch-link", "FULL CHART \u203A");
       link.addEventListener("click", (e) => {
