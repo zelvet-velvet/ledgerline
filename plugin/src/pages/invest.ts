@@ -1,6 +1,6 @@
 import { toast } from "../ui/toast";
 import { buildAccounts } from "../calc/accounts";
-import { guessCategory, findTrade, addTradingDays, autoFee, autoTax, grossOf, isTwBondEtf, isTwEtf, legacyFields, tickOf, tradeTotal, toP, toQ, buildPortfolio, capOf, checkRules, investCash, newWarnings, journalPath, minorOf, newTradeId, nextDca, readJournal, Position, syncEntries, tickerOf, Trade, tradeLinks, unbooked } from "../calc/invest";
+import { guessCategory, findTrade, addTradingDays, autoFee, autoTax, grossOf, isTwBondEtf, isTwEtf, legacyFields, tickOf, tradeTotal, toP, toQ, buildPortfolio, capRule, stockBase, checkRules, investCash, newWarnings, journalPath, minorOf, newTradeId, nextDca, readJournal, Position, syncEntries, tickerOf, Trade, tradeLinks, unbooked } from "../calc/invest";
 import { ACCOUNTS_FILE } from "./accounts";
 import { FILES, FM } from "../data/store";
 import { num, parseNum, shortDate, today } from "../format";
@@ -219,7 +219,7 @@ export const investPage: PageDef = {
         }).open();
 
         // S5: rules (warnings only)
-        const cap = capOf(fm);
+        const base = stockBase(P, A.list), capR = capRule(fm, base.cash, base.cost), cap = capR.amount;   // a flat amount or a share of the stock bucket
         // a reason = a line in the journal or a written thesis (the thesis is the reason, kept in the same note)
         const warns = checkRules(P, cap, (tk) => { const f = store.fm(journalPath(tk)); return readJournal(f).length > 0 || !!readThesis(f)?.why; });
 
@@ -293,7 +293,7 @@ export const investPage: PageDef = {
             const check = (k: string) => buyCheck(xs, k, (o) => trade(k, o));
             if (tk) check(tk); else if (from) search(from, check, t("sTradeWhat")); else trade();
         };
-        const x: X = { ctx, P, cur, cash, links, warns, cap, fx: (c: string) => prices.fx(c, cur, fb), trade, buy, editThesis: (tk: string) => editThesis(x, tk), editTrade, editPlan, addThought, journal, addWatch, dropWatch, moveWatch, search, watchOn };
+        const x: X = { ctx, P, cur, cash, links, warns, cap, capShare: capR.share, capBase: base, fx: (c: string) => prices.fx(c, cur, fb), trade, buy, editThesis: (tk: string) => editThesis(x, tk), editTrade, editPlan, addThought, journal, addWatch, dropWatch, moveWatch, search, watchOn };
         xs = x;
         const pageFor = (key: string): PageOut => {
             if (key === "holdings") return holdingsPage(x);

@@ -1,7 +1,7 @@
 ---
 monthly_plan: 22000
 rebalance_threshold: 5
-single_stock_cap: 15000
+single_stock_cap: 40%
 emergency_min: 20000
 fx_fallback:
   USD: 32
@@ -89,4 +89,4 @@ sticker: lucide//trending-up
 ---
 # Investment
 
-Holdings (`assets` with their trades), the target mix (`allocation`), the watchlist and your rules: `single_stock_cap` (most cost in one single stock), `emergency_min` (the emergency fund to keep before a buy).
+Holdings (`assets` with their trades), the target mix (`allocation`), the watchlist and your rules: `single_stock_cap` (most cost in one single stock: a share of the stock bucket, `40%` = 40 % of the cash in the `bucket: stock` accounts plus the cost of the single stocks held, or a flat amount such as `15000`), `emergency_min` (the emergency fund to keep before a buy).

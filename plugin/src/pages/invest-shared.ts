@@ -18,7 +18,7 @@ export const pctS = (n: number) => { const r = Math.round(n * 100) / 100; return
 export const qty = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 4 }).replace("-", MINUS);
 
 export interface X {
-    ctx: PageCtx; P: Portfolio; cur: string; cash: number; warns: Warning[]; cap: number; fx(c: string): number; links: Map<string, { booked: number; diff: number }>;
+    ctx: PageCtx; P: Portfolio; cur: string; cash: number; warns: Warning[]; cap: number; capShare: number | null; capBase: { cash: number; cost: number }; fx(c: string): number; links: Map<string, { booked: number; diff: number }>;
     trade(preset?: string, o?: { price?: number; type?: "BUY" | "SELL" }): void; buy(tk?: string, from?: HTMLElement): void; editThesis(tk: string): void; editTrade(p: Position, tr: Trade): void; editPlan(p: Position): void; addThought(tk: string): void; journal(tk: string): Thought[]; addWatch(from: HTMLElement): void; dropWatch(tk: string): Promise<void>; moveWatch(order: string[]): Promise<void>; search(from: HTMLElement, pick?: (tk: string) => void, ask?: string): void; watchOn(tk: string): Promise<void>;
 }
 

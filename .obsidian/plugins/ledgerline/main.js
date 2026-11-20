@@ -616,10 +616,19 @@ var investCash = (accounts, keys) => {
 var journalPath = (ticker) => `Invest/${ticker}.md`;
 var readJournal = (fm) => arr(fm?.journal).map((j, index) => ({ date: dateStr(j.date, ""), trade: String(j.trade ?? ""), why: String(j.why ?? "").trim(), index })).filter((j) => j.why).sort((a, b) => b.date.localeCompare(a.date) || b.index - a.index);
 var DEFAULT_CAP = 15e3;
-var capOf = (fm) => {
-  const n = Math.round(num2(fm?.single_stock_cap));
-  return n > 0 ? n : DEFAULT_CAP;
+var capRule = (fm, stockCash, stockCost) => {
+  const raw = fm?.single_stock_cap, m = typeof raw === "string" ? /^\s*(\d+(?:\.\d+)?)\s*%\s*$/.exec(raw) : null;
+  if (m && Number(m[1]) > 0) {
+    const share = Math.min(100, Number(m[1]));
+    return { amount: Math.round(Math.max(0, stockCash + stockCost) * share / 100), share };
+  }
+  const n = Math.round(num2(raw));
+  return { amount: n > 0 ? n : DEFAULT_CAP, share: null };
 };
+var stockBase = (P, accounts) => ({
+  cash: accounts.filter((a) => a.bucket.trim().toLowerCase() === "stock").reduce((s2, a) => s2 + a.balance, 0),
+  cost: P.positions.filter((p) => p.q > 0 && p.category === "stock").reduce((s2, p) => s2 + p.cost, 0)
+});
 var checkRules = (P, cap3, hasReason) => [
   ...P.positions.filter((p) => p.q > 0 && p.category === "stock" && p.cost > cap3).map((p) => ({ rule: "cap", key: p.ticker, over: p.cost - cap3 })),
   ...P.value > 0 ? P.buckets.filter((b) => Math.abs(b.drift) > P.threshold).map((b) => ({ rule: "mix", key: b.label, over: Math.round(b.drift) })) : [],
@@ -3142,6 +3151,16 @@ var en = {
   iWarnReason: "{tk}: no reason in its journal",
   iRuleCap: "Single-stock cap",
   iRuleCapS: "most cost held in one stock (single_stock_cap)",
+  iRuleCapShare: "{p}% of stock cash + stock cost (single_stock_cap)",
+  iCapSub: "Rules \xB7 single_stock_cap in Investment Config",
+  iCapMode: "Cap",
+  iCapShareOpt: "Share of stock",
+  iCapFlatOpt: "Flat amount",
+  iCapShareL: "Share \xB7 %",
+  iCapAmountL: "Amount \xB7 {cur}",
+  iCapNow: "= {n} now: {p}% of stock cash {c} + stock cost {k}",
+  iCapFlatNote: "The same cap whatever your stock bucket holds.",
+  iCapSaved: "Single-stock cap: {v}",
   iRuleMix: "Mix",
   iRuleMixS: "a bucket this far from its target (rebalance_threshold)",
   iRuleReason: "A reason for each holding",
@@ -8780,11 +8799,42 @@ var rulesPage = (x) => {
   const r = h(el2, "div", "zl-c-group");
   sec(r, t("iRulesT").toUpperCase());
   figures(r, [
-    { k: t("iRuleCap").toUpperCase(), s: t("iRuleCapS"), v: num(x.cap), dim: true },
+    { k: t("iRuleCap").toUpperCase(), s: x.capShare !== null ? t("iRuleCapShare", { p: x.capShare }) : t("iRuleCapS"), v: num(x.cap), dim: true, onTap: () => editCap(x) },
     { k: t("iRuleMix").toUpperCase(), s: t("iRuleMixS"), v: `${P.threshold}%`, dim: true },
     { k: t("iRuleReason").toUpperCase(), s: t("iRuleReasonS"), v: "", dim: true }
   ]);
   return { title, el: el2 };
+};
+var editCap = (x) => {
+  const { store } = x.ctx.plugin, base2 = x.capBase, bucket2 = base2.cash + base2.cost;
+  const share = x.capShare ?? 40, flat = x.capShare === null ? x.cap : 15e3;
+  const pctOf = (v) => Math.min(100, parseNum(v.share));
+  new FormSheet(x.ctx.app, {
+    title: t("iRuleCap"),
+    subtitle: t("iCapSub"),
+    submitText: (v) => `${t("save").toUpperCase()} ${v.mode === "share" ? `${pctOf(v) || 0}%` : num(parseNum(v.amount) || 0)} \u2192`,
+    fields: [
+      { key: "mode", label: t("iCapMode"), type: "select", value: x.capShare === null ? "flat" : "share", options: [["share", t("iCapShareOpt")], ["flat", t("iCapFlatOpt")]] },
+      {
+        key: "share",
+        label: t("iCapShareL"),
+        type: "number",
+        value: Math.round(share),
+        required: true,
+        showIf: (v) => v.mode === "share",
+        note: (v) => t("iCapNow", { n: num(Math.round(bucket2 * pctOf(v) / 100)), p: pctOf(v) || 0, c: num(base2.cash), k: num(base2.cost) })
+      },
+      { key: "amount", label: t("iCapAmountL", { cur: x.cur }), type: "number", value: flat, required: true, showIf: (v) => v.mode === "flat", note: () => t("iCapFlatNote") }
+    ],
+    validate: (v) => v.mode === "share" ? parseNum(v.share) > 0 && parseNum(v.share) <= 100 ? null : t("invalidNumber") : parseNum(v.amount) > 0 ? null : t("invalidAmount"),
+    onSubmit: async (v) => {
+      const next = v.mode === "share" ? `${pctOf(v)}%` : Math.round(parseNum(v.amount));
+      await store.update(store.path(FILES.invest), (f) => {
+        f.single_stock_cap = next;
+      });
+      toast(t("iCapSaved", { v: typeof next === "string" ? next : num(next) }));
+    }
+  }).open();
 };
 
 // src/pages/drawings.ts
@@ -10885,7 +10935,7 @@ var investPage = {
         return true;
       } }
     }).open();
-    const cap3 = capOf(fm);
+    const base2 = stockBase(P, A.list), capR = capRule(fm, base2.cash, base2.cost), cap3 = capR.amount;
     const warns = checkRules(P, cap3, (tk) => {
       const f = store.fm(journalPath(tk));
       return readJournal(f).length > 0 || !!readThesis(f)?.why;
@@ -10981,7 +11031,7 @@ var investPage = {
       else if (from) search(from, check, t("sTradeWhat"));
       else trade();
     };
-    const x = { ctx, P, cur, cash, links, warns, cap: cap3, fx: (c) => prices.fx(c, cur, fb), trade, buy, editThesis: (tk) => editThesis(x, tk), editTrade, editPlan, addThought, journal, addWatch, dropWatch, moveWatch, search, watchOn };
+    const x = { ctx, P, cur, cash, links, warns, cap: cap3, capShare: capR.share, capBase: base2, fx: (c) => prices.fx(c, cur, fb), trade, buy, editThesis: (tk) => editThesis(x, tk), editTrade, editPlan, addThought, journal, addWatch, dropWatch, moveWatch, search, watchOn };
     xs = x;
     const pageFor = (key) => {
       if (key === "holdings") return holdingsPage(x);

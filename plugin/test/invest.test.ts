@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildAccounts } from "../src/calc/accounts";
-import { addTradingDays, autoFee, autoTax, buildPortfolio, legacyFields, tradeTotal, tickOf, capOf, checkRules, grossOf, investCash, newWarnings, readJournal, newTradeId, nextDca, syncEntries, toBase, toP, toQ, tradeLinks, unbooked, cashAccountOf, guessCategory } from "../src/calc/invest";
+import { addTradingDays, autoFee, autoTax, buildPortfolio, legacyFields, tradeTotal, tickOf, capOf, checkRules, grossOf, investCash, newWarnings, readJournal, newTradeId, nextDca, syncEntries, toBase, toP, toQ, tradeLinks, unbooked, cashAccountOf, guessCategory, capRule, stockBase } from "../src/calc/invest";
 
 const noPrice = () => null;
 const usd = (c: string) => (c === "USD" ? 32 : 1);
@@ -348,4 +348,26 @@ test("a new ticker's category is guessed from the ticker or the search, never ot
     assert.equal(guessCategory("00679B", true, false, ["etf", "stock"]).key, "stock");
     assert.equal(guessCategory("00679B", true, false, ["core", "satellite"]).key, "core");
     assert.equal(guessCategory("3515", true, false, []).key, "stock");
+});
+
+test("the single-stock cap: a flat amount, or a share of stock cash plus stock cost", () => {
+    assert.deepEqual(capRule({ single_stock_cap: 15000 }, 50000, 30000), { amount: 15000, share: null });
+    assert.deepEqual(capRule({ single_stock_cap: "40%" }, 50000, 30000), { amount: 32000, share: 40 });
+    assert.deepEqual(capRule({ single_stock_cap: " 12.5 % " }, 10000, 6000), { amount: 2000, share: 12.5 });
+    assert.equal(capRule({ single_stock_cap: "40%" }, 0, 0).amount, 0);
+    assert.deepEqual(capRule({}, 50000, 30000), { amount: 15000, share: null });              // none: the default, flat
+    assert.deepEqual(capRule({ single_stock_cap: "abc" }, 1, 1), { amount: 15000, share: null });
+    assert.equal(capRule({ single_stock_cap: "150%" }, 1000, 0).share, 100);                 // never more than the bucket
+});
+
+test("a share cap stays put through a buy: the money moves from stock cash to stock cost", () => {
+    const accts = [{ bucket: "stock", balance: 50000 }, { bucket: "etf", balance: 99999 }, { bucket: "", balance: 7 }];
+    const P0 = one([{ ticker: "2395", category: "stock", transactions: [{ type: "BUY", shares: 10, price: 300, date: "2026-11-01" }] }]);
+    const b0 = stockBase(P0, accts);
+    assert.deepEqual(b0, { cash: 50000, cost: 3000 });
+    const P1 = one([{ ticker: "2395", category: "stock", transactions: [{ type: "BUY", shares: 10, price: 300, date: "2026-11-01" }, { type: "BUY", shares: 10, price: 300, date: "2026-11-20" }] }]);
+    const b1 = stockBase(P1, [{ bucket: "stock", balance: 47000 }]);
+    assert.equal(capRule({ single_stock_cap: "40%" }, b0.cash, b0.cost).amount, capRule({ single_stock_cap: "40%" }, b1.cash, b1.cost).amount);
+    // ETFs are not in the stock bucket's cost
+    assert.equal(stockBase(one([{ ticker: "0050", category: "etf", transactions: [{ type: "BUY", shares: 1, price: 100, date: "2026-11-01" }] }]), []).cost, 0);
 });
