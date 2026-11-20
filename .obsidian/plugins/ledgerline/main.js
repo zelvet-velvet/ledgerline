@@ -13675,17 +13675,22 @@ var named = (pal, p) => {
   }
   return d <= 12 && (p[3] ?? 1) >= 0.98 ? best : hex(p);
 };
-function block(el2, name, kind, origin, k, pal, view, shallow = false) {
+function block(el2, name, kind, origin, k, pal, view, shallow = false, under) {
   const br = el2.getBoundingClientRect();
   if (br.width < 2 || br.height < 2 || br.bottom < view.top || br.top > view.bottom) return null;
   const bx = br.left, by = Math.max(br.top, view.top), items2 = [], shapes = [];
   const at = (r) => ({ g: "tl", dx: Math.round((r.left - bx) * k), dy: Math.round((r.top - by) * k) });
+  const addText = (t2) => {
+    if (!items2.some((o) => o.type === "text" && o.v === t2.v && Math.abs(Number(o.dx) - Number(t2.dx)) < 3 && Math.abs(Number(o.dy) - Number(t2.dy)) < 3)) items2.push(t2);
+  };
   const walk = (n) => {
     const cs = getComputedStyle(n);
     if (cs.display === "none" || cs.visibility === "hidden" || Number(cs.opacity) < 0.05) return;
     const r = n.getBoundingClientRect();
     if (r.width < 1 || r.height < 1 || r.bottom < view.top || r.top > view.bottom) return;
+    if (n !== el2 && (r.top < view.top - 1 && r.bottom > view.top || under !== void 0 && r.top >= under)) return;
     if (n.classList.contains("zl-tab")) return;
+    if (shallow && n !== el2) return;
     const side = (s2) => {
       const w = parseFloat(cs.getPropertyValue(`border-${s2.toLowerCase()}-width`)) || 0;
       const c = w ? rgb(cs.getPropertyValue(`border-${s2.toLowerCase()}-color`)) : null;
@@ -13731,7 +13736,7 @@ function block(el2, name, kind, origin, k, pal, view, shallow = false) {
       const rad = parseFloat(cs.borderTopLeftRadius) || 0;
       if (rad) s2.r = Math.round(Math.min(rad, r.height / 2, r.width / 2) * k);
       shapes.push(s2);
-      if (drawn && big) items2.push({ type: "text", v: what.toUpperCase(), g: "tl", dx: Math.round((r.left - bx + r.width / 2) * k) - 24, dy: Math.round((r.top - by + r.height / 2) * k) - 8, size: 12, wt: 600, ls: 0.1, color: "dim" });
+      if (drawn && big) addText({ type: "text", v: what.toUpperCase(), g: "tl", dx: Math.round((r.left - bx + r.width / 2) * k) - 24, dy: Math.round((r.top - by + r.height / 2) * k) - 8, size: 12, wt: 600, ls: 0.1, color: "dim" });
     }
     if (drawn) return;
     if (n instanceof HTMLInputElement || n instanceof HTMLTextAreaElement) {
@@ -13745,14 +13750,14 @@ function block(el2, name, kind, origin, k, pal, view, shallow = false) {
           const c = named(pal, col);
           if (c !== "text") t2.color = c;
         }
-        items2.push(t2);
+        addText(t2);
       }
       return;
     }
-    if (shallow && n !== el2) return;
     const own = Array.from(n.childNodes).filter((c) => c.nodeType === 3).map((c) => c.textContent ?? "").join("").replace(/\s+/g, " ").trim();
     if (own) {
-      const size = parseFloat(cs.fontSize) * k, col = rgb(cs.color);
+      const shown2 = n.offsetHeight > 0 && r.height > 0 ? r.height / n.offsetHeight : 1, sc = Math.abs(shown2 - 1) > 0.05 ? shown2 : 1;
+      const size = parseFloat(cs.fontSize) * sc * k, col = rgb(cs.color);
       let tr = r;
       const tn = Array.from(n.childNodes).filter((c) => c.nodeType === 3 && (c.textContent ?? "").trim());
       if (tn.length) {
@@ -13762,7 +13767,8 @@ function block(el2, name, kind, origin, k, pal, view, shallow = false) {
         const gr = rg.getBoundingClientRect(), left = r.left + (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.borderLeftWidth) || 0);
         if (gr.width > 0 && Math.abs(gr.left - left) > 2) tr = gr;
       }
-      const words = cs.textTransform === "uppercase" ? own.toUpperCase() : own;
+      let words = cs.textTransform === "uppercase" ? own.toUpperCase() : own;
+      if (cs.textOverflow === "ellipsis" && n.scrollWidth > n.clientWidth + 1 && n.clientWidth > 0) words = words.slice(0, Math.max(1, Math.floor(words.length * n.clientWidth / n.scrollWidth) - 1)).trimEnd() + "\u2026";
       const t2 = { type: "text", v: n.closest(".zl-drw-pad, .zl-pad") ? words : mask(words), ...at(tr), size: r1(size) };
       const wt = Number(cs.fontWeight);
       if (wt && wt !== 400) t2.wt = wt;
@@ -13775,7 +13781,7 @@ function block(el2, name, kind, origin, k, pal, view, shallow = false) {
       if (ls) t2.ls = r1(ls / parseFloat(cs.fontSize) * 100) / 100;
       const lh = parseFloat(cs.lineHeight);
       if (lh) t2.lh = r1(lh / parseFloat(cs.fontSize));
-      items2.push(t2);
+      addText(t2);
     }
     for (const c of Array.from(n.children)) walk(c);
   };
@@ -13842,7 +13848,9 @@ async function capture(app, shot) {
   const origin = !import_obsidian18.Platform.isMobile ? { x: ar.left, y: ar.top - TOP3 / k } : emu ? land ? { x: ar.left - TOP3, y: ar.top } : { x: 0, y: ar.top - TOP3 } : { x: 0, y: Math.max(0, ar.top - safe) };
   const view = new DOMRect(ar.left, ar.top, ar.width, import_obsidian18.Platform.isMobile ? Math.min(ar.height, H) : Math.min(ar.height, (H - TOP3) / k));
   const pal = palette(app, shot.appEl);
-  const blocks2 = shot.parts.map(([name, kind, el2, shallow]) => block(el2, name, kind, origin, k, pal, view, shallow)).filter((b) => !!b);
+  const dockEl = shot.parts.find(([nm]) => nm === "Dock")?.[2], dockTop = dockEl && dockEl.offsetHeight ? dockEl.getBoundingClientRect().top : void 0;
+  const dimAt = shot.parts.findIndex(([nm]) => nm === "Dim");
+  const blocks2 = shot.parts.map(([name, kind, el2, shallow], i) => block(el2, name, kind, origin, k, pal, view, shallow, name === "Dock" || name === "Tab bar" || dimAt >= 0 && i >= dimAt ? void 0 : dockTop)).filter((b) => !!b);
   const page3 = { id: shot.id, name: mask(shot.name), ...shot.parent ? { parent: shot.parent } : {}, ...shot.link ? { link: mask(shot.link) } : {}, note: `Captured from the app ${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}${import_obsidian18.Platform.isMobile ? " on the phone" : ""}.`, blocks: blocks2 };
   const v = app.vault;
   if (!(v.getAbstractFileByPath(SCREENS) instanceof import_obsidian18.TFolder)) await v.createFolder(SCREENS);

@@ -37,17 +37,23 @@ const named = (pal: [string, number[]][], p: number[]) => {
     return d <= 12 && (p[3] ?? 1) >= 0.98 ? best : hex(p);
 };
 
-function block(el: HTMLElement, name: string, kind: string, origin: { x: number; y: number }, k: number, pal: [string, number[]][], view: DOMRect, shallow = false): Record<string, unknown> | null {
+function block(el: HTMLElement, name: string, kind: string, origin: { x: number; y: number }, k: number, pal: [string, number[]][], view: DOMRect, shallow = false, under?: number): Record<string, unknown> | null {
     const br = el.getBoundingClientRect();
     if (br.width < 2 || br.height < 2 || br.bottom < view.top || br.top > view.bottom) return null;
     const bx = br.left, by = Math.max(br.top, view.top), items: Item[] = [], shapes: Item[] = [];
     const at = (r: DOMRect) => ({ g: "tl", dx: Math.round((r.left - bx) * k), dy: Math.round((r.top - by) * k) });
+    // a text at the same place with the same words goes in once (a split-flap card holds its digit in each half and on the
+    // turning leaf; a chart is two canvases on top of each other; a field and its placeholder layer)
+    const addText = (t: Item) => { if (!items.some((o) => o.type === "text" && o.v === t.v && Math.abs(Number(o.dx) - Number(t.dx)) < 3 && Math.abs(Number(o.dy) - Number(t.dy)) < 3)) items.push(t); };
     const walk = (n: HTMLElement) => {
         const cs = getComputedStyle(n);
         if (cs.display === "none" || cs.visibility === "hidden" || Number(cs.opacity) < 0.05) return;
         const r = n.getBoundingClientRect();
         if (r.width < 1 || r.height < 1 || r.bottom < view.top || r.top > view.bottom) return;
+        // a row scrolled under the masthead, or a page row under the dock floating over it: not on screen, not drawn
+        if (n !== el && ((r.top < view.top - 1 && r.bottom > view.top) || (under !== undefined && r.top >= under))) return;
         if (n.classList.contains("zl-tab")) return;   // the tab bar's buttons: one row of centred columns, below
+        if (shallow && n !== el) return;   // a panel: its own look only, its rows (boxes, fields, words) are parts of their own
         // a box: a fill, an outline, or an icon / chart drawing
         // borders side by side: four equal sides are the box's outline, single sides are rule lines of their own
         const side = (s: "Top" | "Right" | "Bottom" | "Left") => { const w = parseFloat(cs.getPropertyValue(`border-${s.toLowerCase()}-width`)) || 0; const c = w ? rgb(cs.getPropertyValue(`border-${s.toLowerCase()}-color`)) : null; return c ? { w, c } : null; };
@@ -79,21 +85,22 @@ function block(el: HTMLElement, name: string, kind: string, origin: { x: number;
             const rad = parseFloat(cs.borderTopLeftRadius) || 0; if (rad) s.r = Math.round(Math.min(rad, r.height / 2, r.width / 2) * k);
             shapes.push(s);
             // a drawing Vellum cannot hold (the flip-dot board, a chart): a box with its name in the middle
-            if (drawn && big) items.push({ type: "text", v: what.toUpperCase(), g: "tl", dx: Math.round((r.left - bx + r.width / 2) * k) - 24, dy: Math.round((r.top - by + r.height / 2) * k) - 8, size: 12, wt: 600, ls: 0.1, color: "dim" });
+            if (drawn && big) addText({ type: "text", v: what.toUpperCase(), g: "tl", dx: Math.round((r.left - bx + r.width / 2) * k) - 24, dy: Math.round((r.top - by + r.height / 2) * k) - 8, size: 12, wt: 600, ls: 0.1, color: "dim" });
         }
         if (drawn) return;
         // a field: what is typed in it, else its placeholder, dim (a text input window, the search bar)
         if (n instanceof HTMLInputElement || n instanceof HTMLTextAreaElement) {
             if (n instanceof HTMLInputElement && ["checkbox", "radio", "range", "hidden"].includes(n.type)) return;
             const typed = n.value.trim(), v = typed || n.placeholder.trim();
-            if (v) { const col = rgb(cs.color); const t: Item = { type: "text", v: mask(v), g: "tl", dx: Math.round((r.left - bx + (parseFloat(cs.paddingLeft) || 0)) * k), dy: Math.round((r.top - by + (parseFloat(cs.paddingTop) || 0)) * k), size: r1(parseFloat(cs.fontSize) * k) }; if (!typed) t.color = "dim"; else if (col) { const c = named(pal, col); if (c !== "text") t.color = c; } items.push(t); }
+            if (v) { const col = rgb(cs.color); const t: Item = { type: "text", v: mask(v), g: "tl", dx: Math.round((r.left - bx + (parseFloat(cs.paddingLeft) || 0)) * k), dy: Math.round((r.top - by + (parseFloat(cs.paddingTop) || 0)) * k), size: r1(parseFloat(cs.fontSize) * k) }; if (!typed) t.color = "dim"; else if (col) { const c = named(pal, col); if (c !== "text") t.color = c; } addText(t); }
             return;
         }
-        if (shallow && n !== el) return;   // a panel: its own look only, its rows are parts of their own
         // its own words (not its children's): one text item
         const own = Array.from(n.childNodes).filter((c) => c.nodeType === 3).map((c) => c.textContent ?? "").join("").replace(/\s+/g, " ").trim();
         if (own) {
-            const size = parseFloat(cs.fontSize) * k, col = rgb(cs.color);
+            // a scaled part (the pad's split-flap row is drawn at half size by a transform): its text at the size it shows
+            const shown = n.offsetHeight > 0 && r.height > 0 ? r.height / n.offsetHeight : 1, sc = Math.abs(shown - 1) > 0.05 ? shown : 1;
+            const size = parseFloat(cs.fontSize) * sc * k, col = rgb(cs.color);
             // where the words really sit: centred or right-aligned text (a button's label, a total) is placed by its glyphs,
             // not at the box's corner; text that starts at the box's content edge keeps the box's position
             let tr = r;
@@ -103,7 +110,9 @@ function block(el: HTMLElement, name: string, kind: string, origin: { x: number;
                 const gr = rg.getBoundingClientRect(), left = r.left + (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.borderLeftWidth) || 0);
                 if (gr.width > 0 && Math.abs(gr.left - left) > 2) tr = gr;
             }
-            const words = cs.textTransform === "uppercase" ? own.toUpperCase() : own;
+            let words = cs.textTransform === "uppercase" ? own.toUpperCase() : own;
+            // a line cut with "…" (text-overflow) is drawn as cut: only what fits, so it never runs under its neighbour
+            if (cs.textOverflow === "ellipsis" && n.scrollWidth > n.clientWidth + 1 && n.clientWidth > 0) words = words.slice(0, Math.max(1, Math.floor(words.length * n.clientWidth / n.scrollWidth) - 1)).trimEnd() + "…";
             // a number pad's keys are labels, not your numbers: they keep their digits
             const t: Item = { type: "text", v: n.closest(".zl-drw-pad, .zl-pad") ? words : mask(words), ...at(tr), size: r1(size) };
             const wt = Number(cs.fontWeight); if (wt && wt !== 400) t.wt = wt;
@@ -111,7 +120,7 @@ function block(el: HTMLElement, name: string, kind: string, origin: { x: number;
             if (col) { const c = named(pal, col); if (c !== "text") t.color = c; }
             const ls = parseFloat(cs.letterSpacing); if (ls) t.ls = r1(ls / parseFloat(cs.fontSize) * 100) / 100;
             const lh = parseFloat(cs.lineHeight); if (lh) t.lh = r1(lh / parseFloat(cs.fontSize));
-            items.push(t);
+            addText(t);
         }
         for (const c of Array.from(n.children)) walk(c as HTMLElement);
     };
@@ -177,7 +186,11 @@ export async function capture(app: App, shot: Shot): Promise<string | null> {
     const origin = !Platform.isMobile ? { x: ar.left, y: ar.top - TOP / k } : emu ? (land ? { x: ar.left - TOP, y: ar.top } : { x: 0, y: ar.top - TOP }) : { x: 0, y: Math.max(0, ar.top - safe) };
     const view = new DOMRect(ar.left, ar.top, ar.width, Platform.isMobile ? Math.min(ar.height, H) : Math.min(ar.height, (H - TOP) / k));
     const pal = palette(app, shot.appEl);
-    const blocks = shot.parts.map(([name, kind, el, shallow]) => block(el, name, kind, origin, k, pal, view, shallow)).filter((b): b is Record<string, unknown> => !!b);
+    // the page's parts stop at the dock's top (the dock floats over the page's last rows); the dock, the tab bar and
+    // anything over the page (a sheet: from its Dim on) are drawn whole
+    const dockEl = shot.parts.find(([nm]) => nm === "Dock")?.[2], dockTop = dockEl && dockEl.offsetHeight ? dockEl.getBoundingClientRect().top : undefined;
+    const dimAt = shot.parts.findIndex(([nm]) => nm === "Dim");
+    const blocks = shot.parts.map(([name, kind, el, shallow], i) => block(el, name, kind, origin, k, pal, view, shallow, name === "Dock" || name === "Tab bar" || (dimAt >= 0 && i >= dimAt) ? undefined : dockTop)).filter((b): b is Record<string, unknown> => !!b);
     const page: Record<string, unknown> & { blocks: unknown[]; land?: unknown[] } = { id: shot.id, name: mask(shot.name), ...(shot.parent ? { parent: shot.parent } : {}), ...(shot.link ? { link: mask(shot.link) } : {}), note: `Captured from the app ${new Date().toISOString().slice(0, 10)}${Platform.isMobile ? " on the phone" : ""}.`, blocks };
     // the file: this screen's own (by its id), else a new one by its name; _doc.json keeps the device and the order
     const v = app.vault;
