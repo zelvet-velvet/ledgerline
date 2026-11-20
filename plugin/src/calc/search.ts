@@ -1,6 +1,6 @@
 // Ticker search (the magnifier, 2026-11-04): what you hold or watch first, then TWSE listings by code or Chinese name, then
 // Yahoo's search for the rest of the world. A hit is a ticker as the app keeps it (Taiwan listings without ".TW").
-export interface Hit { tk: string; name: string; ex: string; mine?: "held" | "watch" }
+export interface Hit { tk: string; name: string; ex: string; mine?: "held" | "watch"; etf?: boolean }   // etf: Yahoo says it is one
 
 // the app's ticker for a provider symbol: "2330.TW" → "2330" when Taiwan tickers are typed bare
 export const appTicker = (sym: string, taiwan: boolean): string => { const s = sym.trim().toUpperCase(); return taiwan ? s.replace(/^(\d{4,6}[A-Z]?)\.TW$/, "$1") : s; };
@@ -22,7 +22,7 @@ export const matchListed = (list: [string, string][], q: string, n = 8): [string
 export const fromYahooSearch = (json: unknown, taiwan: boolean): Hit[] => {
     const qs = (json as { quotes?: { symbol?: string; shortname?: string; longname?: string; exchDisp?: string; quoteType?: string }[] })?.quotes ?? [];
     return qs.filter((q) => q.symbol && /^(EQUITY|ETF|MUTUALFUND|INDEX)$/.test(q.quoteType ?? ""))
-        .map((q) => ({ tk: appTicker(q.symbol!, taiwan), name: q.shortname ?? q.longname ?? "", ex: q.exchDisp ?? "" }));
+        .map((q) => ({ tk: appTicker(q.symbol!, taiwan), name: q.shortname ?? q.longname ?? "", ex: q.exchDisp ?? "", ...(q.quoteType === "ETF" ? { etf: true } : {}) }));
 };
 
 // one list, each ticker once, in the order given

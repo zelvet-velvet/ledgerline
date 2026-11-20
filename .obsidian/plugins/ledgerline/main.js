@@ -629,6 +629,11 @@ var newWarnings = (before, after) => after.filter((w) => !before.some((b) => b.r
 var isTwEtf = (ticker) => /^00\d/.test(ticker);
 var autoFee = (gross, currency) => currency === "TWD" && gross > 0 ? Math.max(20, Math.floor(gross * 1425e-6)) : 0;
 var isTwBondEtf = (ticker) => /^00\d+B$/.test(ticker);
+var guessCategory = (ticker, tw, etf, keys) => {
+  const why = tw ? isTwBondEtf(ticker) ? "tw-bond" : isTwEtf(ticker) ? "tw-etf" : "tw-stock" : etf ? "etf" : "stock";
+  const want = why === "tw-bond" ? "bond" : why === "tw-etf" || why === "etf" ? "etf" : "stock";
+  return { key: !keys.length || keys.includes(want) ? want : keys.includes("stock") ? "stock" : keys[0], why };
+};
 var autoTax = (gross, currency, ticker) => currency === "TWD" && gross > 0 && !isTwBondEtf(ticker) ? Math.floor(gross * (isTwEtf(ticker) ? 1e-3 : 3e-3)) : 0;
 var tradeTotal = (type, gross, fee, tax) => String(type).toUpperCase() === "SELL" ? gross - fee - tax : gross + fee;
 var legacyFields = (rows) => {
@@ -3087,6 +3092,13 @@ var en = {
   iTicker: "Ticker",
   iCurrency: "Currency",
   iBucket: "Bucket",
+  iCategory: "Category",
+  iGuessed: "{what} \xB7 guessed",
+  iGuessTwBond: "TW bond ETF",
+  iGuessTwEtf: "TW ETF",
+  iGuessTwStock: "TWSE stock",
+  iGuessEtf: "ETF",
+  iGuessStock: "stock",
   iType: "Buy or sell",
   iBuy: "Buy",
   iSell: "Sell",
@@ -4094,7 +4106,7 @@ var matchListed = (list5, q, n = 8) => {
 };
 var fromYahooSearch = (json, taiwan) => {
   const qs = json?.quotes ?? [];
-  return qs.filter((q) => q.symbol && /^(EQUITY|ETF|MUTUALFUND|INDEX)$/.test(q.quoteType ?? "")).map((q) => ({ tk: appTicker(q.symbol, taiwan), name: q.shortname ?? q.longname ?? "", ex: q.exchDisp ?? "" }));
+  return qs.filter((q) => q.symbol && /^(EQUITY|ETF|MUTUALFUND|INDEX)$/.test(q.quoteType ?? "")).map((q) => ({ tk: appTicker(q.symbol, taiwan), name: q.shortname ?? q.longname ?? "", ex: q.exchDisp ?? "", ...q.quoteType === "ETF" ? { etf: true } : {} }));
 };
 var mergeHits = (...lists) => {
   const seen2 = /* @__PURE__ */ new Set(), out = [];
@@ -4130,11 +4142,16 @@ var TickerSearch = class {
   recent() {
     return this.st.recent;
   }
-  remember(tk, name = "") {
+  remember(tk, name = "", etf = false) {
     this.st.recent = pushHistory(this.st.recent, tk);
     if (name) this.st.names = { ...this.st.names, [tk]: name };
+    if (etf && !this.st.etfs?.includes(tk)) this.st.etfs = [...this.st.etfs ?? [], tk];
     this.keep();
   }
+  isEtf(tk) {
+    return !!this.st.etfs?.includes(tk);
+  }
+  // a picked ticker Yahoo called an ETF
   forget() {
     this.st.recent = [];
     this.keep();
@@ -7209,16 +7226,20 @@ var FormSheet = class extends import_obsidian13.Modal {
       if (f.type === "select") {
         const opts = f.options ?? [];
         const r2 = rowFor(f, "zl-pick");
+        const tg = f.tag ? h(r2.querySelector(".zl-field-l"), "span", "zl-field-tag") : null;
         const box = h(r2, "div", opts.length <= 3 ? "zl-words" : "zl-chips");
         let cur2 = val || (opts[0]?.[0] ?? "");
         const a = f.ask;
-        const paint2 = () => box.querySelectorAll("button").forEach((x) => {
-          x.toggleClass("is-on", x.dataset.v === cur2);
-          if (a && x.dataset.v === a.value) {
-            const nm = ctl[a.into]?.get();
-            x.textContent = nm || (opts.find((o) => o[0] === a.value)?.[1] ?? "");
-          }
-        });
+        const paint2 = () => {
+          if (tg) tg.textContent = f.tag?.({ ...values(), [f.key]: cur2 }) ?? "";
+          box.querySelectorAll("button").forEach((x) => {
+            x.toggleClass("is-on", x.dataset.v === cur2);
+            if (a && x.dataset.v === a.value) {
+              const nm = ctl[a.into]?.get();
+              x.textContent = nm || (opts.find((o) => o[0] === a.value)?.[1] ?? "");
+            }
+          });
+        };
         for (const [v, lab] of opts) {
           const b = h(box, "button", "zl-chip", lab);
           b.dataset.v = v;
@@ -7867,10 +7888,10 @@ var openSearch = (from, src, o) => {
       fn();
     });
   };
-  const go = (tk, name = "") => {
+  const go = (tk, name = "", etf = false) => {
     const k = tk.trim().toUpperCase();
     if (!k) return;
-    src.remember(k, name);
+    src.remember(k, name, etf);
     input.blur();
     close();
     o.pick(k);
@@ -7900,7 +7921,7 @@ var openSearch = (from, src, o) => {
       h(r, "span", "zl-slist-tk", x.tk);
       h(r, "span", "zl-slist-n", x.name);
       h(r, "span", "zl-slist-ex", x.mine === "held" ? o.texts.held : x.mine === "watch" ? o.texts.watch : x.ex);
-      tap(r, list5, () => go(x.tk, x.name));
+      tap(r, list5, () => go(x.tk, x.name, !!x.etf));
     }
   };
   const recent = () => {
@@ -10627,6 +10648,9 @@ var investPage = {
       const tickers = P.positions.map((p) => p.ticker);
       const buckets = list3(fm?.allocation).map((b) => [String(b.key), String(b.label ?? b.key)]);
       const presetCur = preset && !P.positions.some((p) => p.ticker === preset) ? guessCur(prices.symbol(preset)) : null;
+      const keys = buckets.map(([k]) => k);
+      const guess = presetCur ? guessCategory(preset, presetCur === "TWD", ctx.plugin.search?.isEtf(preset) ?? false, keys) : guessCategory("", false, false, keys);
+      const whyText = t("iGuessed", { what: t({ "tw-bond": "iGuessTwBond", "tw-etf": "iGuessTwEtf", "tw-stock": "iGuessTwStock", etf: "iGuessEtf", stock: "iGuessStock" }[guess.why]) });
       const tkOf = (v) => preset ?? (v.asset === NEW ? (v.ticker ?? "").trim().toUpperCase() : v.asset ?? tickers[0] ?? "");
       const posOf = (v) => P.positions.find((p) => p.ticker === tkOf(v));
       const curOf = (v) => !preset && v.asset === NEW ? v.currency || cur : posOf(v)?.currency ?? presetCur ?? cur;
@@ -10660,6 +10684,7 @@ var investPage = {
         },
         fields: [
           { key: "type", label: t("iType"), type: "select", value: pre.type ?? "BUY", options: [["BUY", t("iBuy")], ["SELL", t("iSell")]] },
+          ...presetCur && buckets.length ? [{ key: "bucket", label: t("iCategory"), type: "select", value: guess.key, options: buckets, tag: (v) => v.bucket === guess.key ? whyText : "" }] : [],
           ...preset ? [] : [
             { key: "asset", label: t("iAsset"), type: "select", value: tickers[0] ?? NEW, options: [...tickers.map((x2) => [x2, x2]), [NEW, t("iNewAsset")]] },
             { key: "ticker", label: t("iTicker"), type: "text", required: true, showIf: (v) => v.asset === NEW },
@@ -10673,7 +10698,7 @@ var investPage = {
               // a new ticker's currency from its market, until picked by hand
               showIf: (v) => v.asset === NEW
             },
-            { key: "bucket", label: t("iBucket"), type: "select", value: buckets[0]?.[0] ?? "other", options: buckets.length ? buckets : [["other", "Other"]], showIf: (v) => v.asset === NEW }
+            { key: "bucket", label: t("iCategory"), type: "select", value: buckets.length ? guess.key : "stock", options: buckets.length ? buckets : [["stock", "Stock"]], showIf: (v) => v.asset === NEW }
           ],
           {
             key: "shares",
@@ -10786,7 +10811,7 @@ var investPage = {
             let a = assets.find((x2) => tickerOf(x2) === tk);
             const nc = preset ? presetCur : v.currency;
             if (!a) {
-              a = { name: tk, ticker: tk, category: v.bucket || "other", ...nc && nc !== cur ? { currency: nc } : {}, shares: 0, avg_cost: 0, transactions: [] };
+              a = { name: tk, ticker: tk, category: v.bucket || guess.key, ...nc && nc !== cur ? { currency: nc } : {}, shares: 0, avg_cost: 0, transactions: [] };
               assets.push(a);
             }
             const P2 = buildPortfolio({ assets: [a] }, () => null, () => 1, "", cur);

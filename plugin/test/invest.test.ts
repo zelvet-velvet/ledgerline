@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildAccounts } from "../src/calc/accounts";
-import { addTradingDays, autoFee, autoTax, buildPortfolio, legacyFields, tradeTotal, tickOf, capOf, checkRules, grossOf, investCash, newWarnings, readJournal, newTradeId, nextDca, syncEntries, toBase, toP, toQ, tradeLinks, unbooked, cashAccountOf } from "../src/calc/invest";
+import { addTradingDays, autoFee, autoTax, buildPortfolio, legacyFields, tradeTotal, tickOf, capOf, checkRules, grossOf, investCash, newWarnings, readJournal, newTradeId, nextDca, syncEntries, toBase, toP, toQ, tradeLinks, unbooked, cashAccountOf, guessCategory } from "../src/calc/invest";
 
 const noPrice = () => null;
 const usd = (c: string) => (c === "USD" ? 32 : 1);
@@ -335,4 +335,17 @@ test("legacyFields: shares and the average buy price in integers, fees left out"
     assert.deepEqual(legacyFields([{ type: "BUY", shares: 3, price: 10 }, { type: "SELL", shares: 3, price: 12 }]), { shares: 0, avg_cost: 0 });
     assert.deepEqual(legacyFields([{ type: "SELL", shares: 3, price: 12 }]), { shares: 0, avg_cost: 0 });
     assert.deepEqual(legacyFields(undefined), { shares: 0, avg_cost: 0 });
+});
+
+test("a new ticker's category is guessed from the ticker or the search, never other", () => {
+    const keys = ["etf", "stock", "bond"];
+    assert.deepEqual(guessCategory("2395", true, false, keys), { key: "stock", why: "tw-stock" });
+    assert.deepEqual(guessCategory("0050", true, false, keys), { key: "etf", why: "tw-etf" });
+    assert.deepEqual(guessCategory("00679B", true, false, keys), { key: "bond", why: "tw-bond" });
+    assert.deepEqual(guessCategory("VOO", false, true, keys), { key: "etf", why: "etf" });
+    assert.deepEqual(guessCategory("NVDA", false, false, keys), { key: "stock", why: "stock" });
+    // a mix without that bucket: stock when it has one, else its first; no mix: the guess itself
+    assert.equal(guessCategory("00679B", true, false, ["etf", "stock"]).key, "stock");
+    assert.equal(guessCategory("00679B", true, false, ["core", "satellite"]).key, "core");
+    assert.equal(guessCategory("3515", true, false, []).key, "stock");
 });

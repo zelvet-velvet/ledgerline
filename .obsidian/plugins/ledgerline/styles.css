@@ -745,6 +745,9 @@ body.zl-calm .zl-in, body.zl-calm .zl-grow rect { animation: none; }
 /* sheets (text, dates, several fields): the label sits above a full-width input on a 2 px rule, like the mock's note field */
 .zl-sheet .zl-field { flex-direction: column; align-items: stretch; gap: 6px; padding: 12px 0; }
 .zl-sheet .zl-field-l { width: auto; font: 400 11px var(--zl-pixel); letter-spacing: .04em; text-transform: uppercase; color: var(--zl-muted); }
+/* a short word on a choice's label line, at the right (Category: "TWSE stock · guessed") */
+.zl-sheet .zl-pick > .zl-field-l:has(.zl-field-tag) { display: flex; justify-content: space-between; gap: 12px; align-self: stretch; }
+.zl-sheet .zl-field-tag { font: 400 11px var(--zl-ui); letter-spacing: 0; text-transform: none; color: var(--zl-muted); white-space: nowrap; }
 .zl-sheet .zl-field-x { font: inherit; }
 .zl-sheet input.zl-field-in, .zl-sheet select.zl-field-in { width: 100%; text-align: left; font: 400 17px var(--zl-ui); padding: 6px 0; border: 0; border-bottom: 2px solid var(--zl-text); border-radius: 0; background: none; color: var(--zl-text); }
 /* focused: the rule stays (app.css clears the border on focus), loud */
