@@ -4,12 +4,16 @@ import { Notice, normalizePath, Platform, TFile, TFolder, type App } from "obsid
 // what is on screen, measured from the page itself: the top bar, each section of the page, the dock and the tab bar become
 // blocks; inside them every text (its size, weight, colour, font) and every box with a fill or an outline. Run it on the
 // phone for the real device; on a computer the app pane must be about a phone's width. Digits are swapped for others (the
-// layout, not your numbers); names stay (the vault is private).
+// layout, not your numbers; a number pad's keys keep theirs); names stay (the vault is private). With a sheet open (the search,
+// a sheet, its number pad or text window: view.ts overlays()) only those are captured, one screen each, drawn over the page.
 export const SCREENS = "Docs/Design/Screens";
 const DEVICES: [string, number, number][] = [["iphone-12-pro-max", 428, 926], ["iphone-16-pro-max", 440, 956], ["iphone-16-pro", 402, 874], ["iphone-16", 393, 852], ["iphone-14", 390, 844], ["iphone-12-mini", 375, 812], ["iphone-se", 375, 667]];
 const TOP = 47;   // the iPhone 12 Pro Max status bar: on a computer the app starts under it
 
-export interface Shot { appEl: HTMLElement; parts: [string, string, HTMLElement][]; id: string; name: string; parent?: string; link?: string }
+// a part: [name, Vellum kind, element, shallow?] (shallow = the element's own fill and rules only, its children are parts of
+// their own: a sheet's panel under its rows)
+export type Part = [string, string, HTMLElement, boolean?];
+export interface Shot { appEl: HTMLElement; parts: Part[]; id: string; name: string; parent?: string; link?: string; layers?: HTMLElement[] }
 type Item = Record<string, unknown>;
 
 const mask = (s: string) => { let i = 0; return s.replace(/\b20\d\d\b|\d/g, (d) => d.length > 1 ? d : String((Number(d) * 7 + 3 + i++) % 10)); };   // years stay
@@ -33,7 +37,7 @@ const named = (pal: [string, number[]][], p: number[]) => {
     return d <= 12 && (p[3] ?? 1) >= 0.98 ? best : hex(p);
 };
 
-function block(el: HTMLElement, name: string, kind: string, origin: { x: number; y: number }, k: number, pal: [string, number[]][], view: DOMRect): Record<string, unknown> | null {
+function block(el: HTMLElement, name: string, kind: string, origin: { x: number; y: number }, k: number, pal: [string, number[]][], view: DOMRect, shallow = false): Record<string, unknown> | null {
     const br = el.getBoundingClientRect();
     if (br.width < 2 || br.height < 2 || br.bottom < view.top || br.top > view.bottom) return null;
     const bx = br.left, by = Math.max(br.top, view.top), items: Item[] = [], shapes: Item[] = [];
@@ -78,11 +82,30 @@ function block(el: HTMLElement, name: string, kind: string, origin: { x: number;
             if (drawn && big) items.push({ type: "text", v: what.toUpperCase(), g: "tl", dx: Math.round((r.left - bx + r.width / 2) * k) - 24, dy: Math.round((r.top - by + r.height / 2) * k) - 8, size: 12, wt: 600, ls: 0.1, color: "dim" });
         }
         if (drawn) return;
+        // a field: what is typed in it, else its placeholder, dim (a text input window, the search bar)
+        if (n instanceof HTMLInputElement || n instanceof HTMLTextAreaElement) {
+            if (n instanceof HTMLInputElement && ["checkbox", "radio", "range", "hidden"].includes(n.type)) return;
+            const typed = n.value.trim(), v = typed || n.placeholder.trim();
+            if (v) { const col = rgb(cs.color); const t: Item = { type: "text", v: mask(v), g: "tl", dx: Math.round((r.left - bx + (parseFloat(cs.paddingLeft) || 0)) * k), dy: Math.round((r.top - by + (parseFloat(cs.paddingTop) || 0)) * k), size: r1(parseFloat(cs.fontSize) * k) }; if (!typed) t.color = "dim"; else if (col) { const c = named(pal, col); if (c !== "text") t.color = c; } items.push(t); }
+            return;
+        }
+        if (shallow && n !== el) return;   // a panel: its own look only, its rows are parts of their own
         // its own words (not its children's): one text item
         const own = Array.from(n.childNodes).filter((c) => c.nodeType === 3).map((c) => c.textContent ?? "").join("").replace(/\s+/g, " ").trim();
         if (own) {
             const size = parseFloat(cs.fontSize) * k, col = rgb(cs.color);
-            const t: Item = { type: "text", v: mask(cs.textTransform === "uppercase" ? own.toUpperCase() : own), ...at(r), size: r1(size) };
+            // where the words really sit: centred or right-aligned text (a button's label, a total) is placed by its glyphs,
+            // not at the box's corner; text that starts at the box's content edge keeps the box's position
+            let tr = r;
+            const tn = Array.from(n.childNodes).filter((c) => c.nodeType === 3 && (c.textContent ?? "").trim());
+            if (tn.length) {
+                const rg = document.createRange(); rg.setStart(tn[0], 0); rg.setEnd(tn[tn.length - 1], (tn[tn.length - 1].textContent ?? "").length);
+                const gr = rg.getBoundingClientRect(), left = r.left + (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.borderLeftWidth) || 0);
+                if (gr.width > 0 && Math.abs(gr.left - left) > 2) tr = gr;
+            }
+            const words = cs.textTransform === "uppercase" ? own.toUpperCase() : own;
+            // a number pad's keys are labels, not your numbers: they keep their digits
+            const t: Item = { type: "text", v: n.closest(".zl-drw-pad, .zl-pad") ? words : mask(words), ...at(tr), size: r1(size) };
             const wt = Number(cs.fontWeight); if (wt && wt !== 400) t.wt = wt;
             if (/anton/i.test(cs.fontFamily)) t.font = "display";
             if (col) { const c = named(pal, col); if (c !== "text") t.color = c; }
@@ -113,7 +136,8 @@ function block(el: HTMLElement, name: string, kind: string, origin: { x: number;
     const all = [...shapes, ...items].slice(0, 160);
     all.forEach((it, i) => { it.id = `${(name.toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 6) || "b")}${i}`; });
     if (row) all.push(row);
-    const ef = rgb(getComputedStyle(el).backgroundColor);
+    const ecs = getComputedStyle(el), ef = rgb(ecs.backgroundColor);
+    if (ef && Number(ecs.opacity) < 1) ef[3] = (ef[3] ?? 1) * Number(ecs.opacity);   // a dim drawn faint by its opacity
     if (ef) all.unshift({ id: "bg" + Math.round(by), type: "rect", g: "tl", dx: 0, dy: 0, w: "fill", h: "fill", fill: named(pal, ef) });
     return { id: (name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "b") + "-" + Math.round(by), name, kind, x: Math.round((bx - origin.x) * k), y: Math.round((by - origin.y) * k), w: Math.round(br.width * k), h: Math.round((Math.min(br.bottom, view.bottom) - by) * k), items: all };
 }
@@ -130,7 +154,7 @@ const fileName = (name: string) => name.replace(/[\\/:*?"<>|#^[\]]/g, "-").repla
 export async function capture(app: App, shot: Shot): Promise<string | null> {
     // a page still coming in (its groups rise and fade in) is measured as it ends: in a window in the background the
     // moves never run, so the groups would be caught at opacity 0 (a loop, e.g. a loading light, cannot finish: skipped)
-    for (const a of shot.appEl.getAnimations({ subtree: true })) { try { a.finish(); } catch { /* endless */ } }
+    for (const l of [shot.appEl, ...(shot.layers ?? [])]) for (const a of l.getAnimations({ subtree: true })) { try { a.finish(); } catch { /* endless */ } }
     const ar = shot.appEl.getBoundingClientRect();
     if (ar.width < 1) { new Notice("Capture: the Ledgerline pane is not on screen."); return null; }
     if (!Platform.isMobile && (ar.width < 340 || ar.width > 480)) { new Notice(`Capture: make the Ledgerline pane about a phone's width (it is ${Math.round(ar.width)} px; 360–470), or capture on the phone.`); return null; }
@@ -153,7 +177,7 @@ export async function capture(app: App, shot: Shot): Promise<string | null> {
     const origin = !Platform.isMobile ? { x: ar.left, y: ar.top - TOP / k } : emu ? (land ? { x: ar.left - TOP, y: ar.top } : { x: 0, y: ar.top - TOP }) : { x: 0, y: Math.max(0, ar.top - safe) };
     const view = new DOMRect(ar.left, ar.top, ar.width, Platform.isMobile ? Math.min(ar.height, H) : Math.min(ar.height, (H - TOP) / k));
     const pal = palette(app, shot.appEl);
-    const blocks = shot.parts.map(([name, kind, el]) => block(el, name, kind, origin, k, pal, view)).filter((b): b is Record<string, unknown> => !!b);
+    const blocks = shot.parts.map(([name, kind, el, shallow]) => block(el, name, kind, origin, k, pal, view, shallow)).filter((b): b is Record<string, unknown> => !!b);
     const page: Record<string, unknown> & { blocks: unknown[]; land?: unknown[] } = { id: shot.id, name: mask(shot.name), ...(shot.parent ? { parent: shot.parent } : {}), ...(shot.link ? { link: mask(shot.link) } : {}), note: `Captured from the app ${new Date().toISOString().slice(0, 10)}${Platform.isMobile ? " on the phone" : ""}.`, blocks };
     // the file: this screen's own (by its id), else a new one by its name; _doc.json keeps the device and the order
     const v = app.vault;

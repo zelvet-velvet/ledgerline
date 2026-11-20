@@ -75,7 +75,9 @@ export default class LedgerlinePlugin extends Plugin {
         const shoot = async (all: boolean) => {
             const v = this.views().find((x) => x.contentEl.offsetWidth > 0); if (!v) { toast(t("capNoApp")); return; }   // the pane on screen
             const done: string[] = [];
-            const one = async () => { const p = await capture(this.app, v.shot()); if (p) done.push(p); };
+            // the page, or with layers open over it (the search, a sheet, its pad or text window) only those, one screen each:
+            // the page under a sheet is drawn inside the sheet's screen, its own screen (maybe edited in Vellum) is left alone
+            const one = async () => { const up = v.overlays(); for (const s of up.length ? up : [v.shot()]) { const p = await capture(this.app, s); if (p) done.push(p); } };
             if (all) await v.eachTab(one); else await one();
             if (done.length) toast(t("capDone", { n: done.length, dir: SCREENS }));
         };
