@@ -3,7 +3,7 @@ import { fromTwseAll, fromYahooSearch, Hit, matchListed, pushHistory } from "../
 
 // Where the magnifier looks: TWSE's list of listed codes and names (fetched once a week, kept in local storage, so Chinese
 // names work offline) and Yahoo's search (the rest of the world, asked while typing). Recent searches kept too.
-interface Store { v: 1; time: number; list: [string, string][]; recent: string[]; names?: Record<string, string> }   // names: of tickers picked from search
+interface Store { v: 1; time: number; list: [string, string][]; recent: string[]; names?: Record<string, string>; etfs?: string[] }   // names: of tickers picked from search; etfs: those Yahoo calls ETFs
 const WEEK = 7 * 24 * 60 * 60 * 1000;
 
 export class TickerSearch {
@@ -15,7 +15,8 @@ export class TickerSearch {
     }
     private keep(): void { try { this.save(this.st); } catch { /* full storage */ } }
     recent(): string[] { return this.st.recent; }
-    remember(tk: string, name = ""): void { this.st.recent = pushHistory(this.st.recent, tk); if (name) this.st.names = { ...this.st.names, [tk]: name }; this.keep(); }
+    remember(tk: string, name = "", etf = false): void { this.st.recent = pushHistory(this.st.recent, tk); if (name) this.st.names = { ...this.st.names, [tk]: name }; if (etf && !this.st.etfs?.includes(tk)) this.st.etfs = [...(this.st.etfs ?? []), tk]; this.keep(); }
+    isEtf(tk: string): boolean { return !!this.st.etfs?.includes(tk); }   // a picked ticker Yahoo called an ETF
     forget(): void { this.st.recent = []; this.keep(); }
     nameOf(tk: string): string { return this.st.list.find(([c]) => c === tk)?.[1] ?? this.st.names?.[tk] ?? ""; }
     // the TWSE list, when a week old (in the background)

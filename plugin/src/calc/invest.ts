@@ -232,6 +232,14 @@ export const newWarnings = (before: Warning[], after: Warning[]): Warning[] => a
 export const isTwEtf = (ticker: string): boolean => /^00\d/.test(ticker);
 export const autoFee = (gross: number, currency: string): number => (currency === "TWD" && gross > 0 ? Math.max(20, Math.floor(gross * 0.001425)) : 0);
 export const isTwBondEtf = (ticker: string): boolean => /^00\d+B$/.test(ticker);
+// A new ticker's category (owner, 2026-11-20: never "other" by default): Taiwan from the ticker (00…B a bond ETF, 00… an ETF,
+// else a stock), elsewhere from what the search said (an ETF) else a stock; the bucket of that name when the mix has one,
+// else "stock" when it has that, else the mix's first. why: where the guess came from, for the sheet.
+export const guessCategory = (ticker: string, tw: boolean, etf: boolean, keys: string[]): { key: string; why: "tw-bond" | "tw-etf" | "tw-stock" | "etf" | "stock" } => {
+    const why = tw ? (isTwBondEtf(ticker) ? "tw-bond" : isTwEtf(ticker) ? "tw-etf" : "tw-stock") : etf ? "etf" : "stock";
+    const want = why === "tw-bond" ? "bond" : why === "tw-etf" || why === "etf" ? "etf" : "stock";
+    return { key: !keys.length || keys.includes(want) ? want : keys.includes("stock") ? "stock" : keys[0], why };
+};
 export const autoTax = (gross: number, currency: string, ticker: string): number => (currency === "TWD" && gross > 0 && !isTwBondEtf(ticker) ? Math.floor(gross * (isTwEtf(ticker) ? 0.001 : 0.003)) : 0);
 // what a trade moves in its own currency's minor units: a buy costs gross + fee, a sale brings gross − fee − tax
 export const tradeTotal = (type: string, gross: number, fee: number, tax: number): number => (String(type).toUpperCase() === "SELL" ? gross - fee - tax : gross + fee);

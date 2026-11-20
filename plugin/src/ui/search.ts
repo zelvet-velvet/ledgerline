@@ -106,7 +106,7 @@ export const openSearch = (from: HTMLElement, src: TickerSearch, o: SearchOpts):
         el.addEventListener("pointerleave", () => { armed = false; });
         el.addEventListener("pointerup", (e) => { if (!armed) return; armed = false; if (Math.abs(box.scrollTop - s0) > 2) return; e.preventDefault(); fn(); });
     };
-    const go = (tk: string, name = "") => { const k = tk.trim().toUpperCase(); if (!k) return; src.remember(k, name); input.blur(); close(); o.pick(k); };
+    const go = (tk: string, name = "", etf = false) => { const k = tk.trim().toUpperCase(); if (!k) return; src.remember(k, name, etf); input.blur(); close(); o.pick(k); };
     const headOf = (hd: HTMLElement, head: string, act?: () => void, label = o.texts.clear) => {
         hd.empty();
         hd.toggleClass("is-hidden", !head);
@@ -123,7 +123,7 @@ export const openSearch = (from: HTMLElement, src: TickerSearch, o: SearchOpts):
             h(r, "span", "zl-slist-tk", x.tk);
             h(r, "span", "zl-slist-n", x.name);
             h(r, "span", "zl-slist-ex", x.mine === "held" ? o.texts.held : x.mine === "watch" ? o.texts.watch : x.ex);
-            tap(r, list, () => go(x.tk, x.name));
+            tap(r, list, () => go(x.tk, x.name, !!x.etf));
         }
     };
     // nothing typed: the recent searches; none yet, your holdings and watchlist (tagged HELD / WATCHING) rather than a blank

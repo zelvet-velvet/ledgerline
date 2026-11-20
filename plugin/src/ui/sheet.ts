@@ -332,13 +332,15 @@ export class FormSheet extends Modal {
             if (f.type === "select") {   // words (up to 3) or chips: every choice in sight, one tap
                 const opts = f.options ?? [];
                 const r = rowFor(f, "zl-pick");
+                // a short word on the label's line, right (Category: "TWSE stock · guessed" while the guess is on)
+                const tg = f.tag ? h(r.querySelector<HTMLElement>(".zl-field-l")!, "span", "zl-field-tag") : null;
                 const box = h(r, "div", opts.length <= 3 ? "zl-words" : "zl-chips");
                 let cur = val || (opts[0]?.[0] ?? "");
                 const a = f.ask;   // a chip that asks for a name in the writing window (+ New fund): it then shows the name
-                const paint = () => box.querySelectorAll<HTMLElement>("button").forEach((x) => {
+                const paint = () => { if (tg) tg.textContent = f.tag?.({ ...values(), [f.key]: cur }) ?? ""; box.querySelectorAll<HTMLElement>("button").forEach((x) => {
                     x.toggleClass("is-on", x.dataset.v === cur);
                     if (a && x.dataset.v === a.value) { const nm = ctl[a.into]?.get(); x.textContent = nm || (opts.find((o) => o[0] === a.value)?.[1] ?? ""); }
-                });
+                }); };
                 for (const [v, lab] of opts) {
                     const b = h(box, "button", "zl-chip", lab);
                     b.dataset.v = v;

@@ -20,6 +20,7 @@
     "invest-alerts",
     "invest-mix",
     "sheet-invest-trade",
+    "sheet-invest-trade-new",
     "sheet-invest-trade-pad",
     "sheet-debt-record-payment",
     "sheet-debt-initial-principal",
@@ -39,8 +40,6 @@
     "sheet-invest-thesis",
     "sheet-invest-before-you-buy",
     "sheet-invest-delete-trade",
-    "sheet-invest-add-thought",
-    "mock-trade-category-a",
-    "mock-trade-category-b"
+    "sheet-invest-add-thought"
   ]
 }

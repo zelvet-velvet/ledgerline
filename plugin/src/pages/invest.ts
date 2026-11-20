@@ -1,6 +1,6 @@
 import { toast } from "../ui/toast";
 import { buildAccounts } from "../calc/accounts";
-import { findTrade, addTradingDays, autoFee, autoTax, grossOf, isTwBondEtf, isTwEtf, legacyFields, tickOf, tradeTotal, toP, toQ, buildPortfolio, capOf, checkRules, investCash, newWarnings, journalPath, minorOf, newTradeId, nextDca, readJournal, Position, syncEntries, tickerOf, Trade, tradeLinks, unbooked } from "../calc/invest";
+import { guessCategory, findTrade, addTradingDays, autoFee, autoTax, grossOf, isTwBondEtf, isTwEtf, legacyFields, tickOf, tradeTotal, toP, toQ, buildPortfolio, capOf, checkRules, investCash, newWarnings, journalPath, minorOf, newTradeId, nextDca, readJournal, Position, syncEntries, tickerOf, Trade, tradeLinks, unbooked } from "../calc/invest";
 import { ACCOUNTS_FILE } from "./accounts";
 import { FILES, FM } from "../data/store";
 import { num, parseNum, shortDate, today } from "../format";
@@ -82,6 +82,11 @@ export const investPage: PageDef = {
             // trade), date chips, fee / tax / settles / FX folded and filled in (calc/invest: autoFee, autoTax, addTradingDays), a live total
             // a ticker not held yet, traded from its chart page: its currency from its market (a US listing is USD)
             const presetCur = preset && !P.positions.some((p) => p.ticker === preset) ? guessCur(prices.symbol(preset)) : null;
+            // a ticker not held yet, from its chart page or the search: its category guessed (never "other" by default; owner,
+            // 2026-11-20, Vellum "Trade · category A"): the boxed segment of the mix's buckets with the guess on, why beside it
+            const keys = buckets.map(([k]) => k);
+            const guess = presetCur ? guessCategory(preset!, presetCur === "TWD", ctx.plugin.search?.isEtf(preset!) ?? false, keys) : guessCategory("", false, false, keys);
+            const whyText = t("iGuessed", { what: t(({ "tw-bond": "iGuessTwBond", "tw-etf": "iGuessTwEtf", "tw-stock": "iGuessTwStock", etf: "iGuessEtf", stock: "iGuessStock" } as const)[guess.why]) });
             const tkOf = (v: Record<string, string>) => preset ?? (v.asset === NEW ? (v.ticker ?? "").trim().toUpperCase() : v.asset ?? tickers[0] ?? "");
             const posOf = (v: Record<string, string>) => P.positions.find((p) => p.ticker === tkOf(v));
             const curOf = (v: Record<string, string>) => (!preset && v.asset === NEW ? v.currency || cur : posOf(v)?.currency ?? presetCur ?? cur);
@@ -105,13 +110,14 @@ export const investPage: PageDef = {
                 },
                 fields: [
                     { key: "type", label: t("iType"), type: "select", value: pre.type ?? "BUY", options: [["BUY", t("iBuy")], ["SELL", t("iSell")]] },
+                    ...(presetCur && buckets.length ? [{ key: "bucket", label: t("iCategory"), type: "select" as const, value: guess.key, options: buckets, tag: (v: Record<string, string>) => (v.bucket === guess.key ? whyText : "") }] : []),
                     ...(preset ? [] : ([
                         { key: "asset", label: t("iAsset"), type: "select" as const, value: tickers[0] ?? NEW, options: [...tickers.map((x): [string, string] => [x, x]), [NEW, t("iNewAsset")] as [string, string]] },
                         { key: "ticker", label: t("iTicker"), type: "text" as const, required: true, showIf: (v: Record<string, string>) => v.asset === NEW },
                         { key: "currency", label: t("iCurrency"), type: "select" as const, value: cur, options: [[cur, cur], ...["USD", "TWD", "EUR", "JPY"].filter((c) => c !== cur).map((c): [string, string] => [c, c])],
                             auto: (v: Record<string, string>) => ((v.ticker ?? "").trim() ? guessCur(prices.symbol(v.ticker.trim().toUpperCase())) : cur),   // a new ticker's currency from its market, until picked by hand
                             showIf: (v: Record<string, string>) => v.asset === NEW },
-                        { key: "bucket", label: t("iBucket"), type: "select" as const, value: buckets[0]?.[0] ?? "other", options: buckets.length ? buckets : [["other", "Other"] as [string, string]], showIf: (v: Record<string, string>) => v.asset === NEW },
+                        { key: "bucket", label: t("iCategory"), type: "select" as const, value: buckets.length ? guess.key : "stock", options: buckets.length ? buckets : [["stock", "Stock"] as [string, string]], showIf: (v: Record<string, string>) => v.asset === NEW },
                     ] as Field[])),
                     { key: "shares", label: t("iShares"), type: "number", required: true, dec: 4,
                         step: (v) => (curOf(v) === "TWD" && parseNum(v.shares) >= 1000 ? 1000 : 1),
@@ -159,7 +165,7 @@ export const investPage: PageDef = {
                         const assets = list(f.assets);
                         let a = assets.find((x) => tickerOf(x) === tk);
                         const nc = preset ? presetCur : v.currency;
-                        if (!a) { a = { name: tk, ticker: tk, category: v.bucket || "other", ...(nc && nc !== cur ? { currency: nc } : {}), shares: 0, avg_cost: 0, transactions: [] }; assets.push(a); }
+                        if (!a) { a = { name: tk, ticker: tk, category: v.bucket || guess.key, ...(nc && nc !== cur ? { currency: nc } : {}), shares: 0, avg_cost: 0, transactions: [] }; assets.push(a); }
                         const P2 = buildPortfolio({ assets: [a] }, () => null, () => 1, "", cur);
                         id = tr.id = newTradeId(tk, String(tr.date), P2.positions[0]?.trades.map((x) => x.id) ?? []);
                         a.transactions = [...list(a.transactions), tr];
