@@ -217,7 +217,22 @@ export const readJournal = (fm: FM | null): Thought[] =>
 // mix = a bucket further from its target than the threshold; reason = a holding with nothing in its journal.
 export interface Warning { rule: "cap" | "mix" | "reason"; key: string; over: number }   // key = ticker or bucket; over = by how much
 export const DEFAULT_CAP = 15000;
-export const capOf = (fm: FM | null): number => { const n = Math.round(num(fm?.single_stock_cap)); return n > 0 ? n : DEFAULT_CAP; };
+// single_stock_cap: a flat amount (15000), or a share of the stock bucket ("40%": that much of the cash waiting in the stock
+// accounts plus the cost of the single stocks held; owner, 2026-11-20). A buy moves money from stock cash to stock cost, so a
+// share cap stays the same through it. share = the percent when it is one (null: flat). Nothing usable: DEFAULT_CAP, flat.
+export interface Cap { amount: number; share: number | null }
+export const capRule = (fm: FM | null, stockCash: number, stockCost: number): Cap => {
+    const raw = fm?.single_stock_cap, m = typeof raw === "string" ? /^\s*(\d+(?:\.\d+)?)\s*%\s*$/.exec(raw) : null;
+    if (m && Number(m[1]) > 0) { const share = Math.min(100, Number(m[1])); return { amount: Math.round(Math.max(0, stockCash + stockCost) * share / 100), share }; }
+    const n = Math.round(num(raw));
+    return { amount: n > 0 ? n : DEFAULT_CAP, share: null };
+};
+// the stock bucket the share is of: the cash of the accounts whose bucket is "stock", and the cost of the single stocks held
+export const stockBase = (P: Portfolio, accounts: { bucket: string; balance: number }[]): { cash: number; cost: number } => ({
+    cash: accounts.filter((a) => a.bucket.trim().toLowerCase() === "stock").reduce((s, a) => s + a.balance, 0),
+    cost: P.positions.filter((p) => p.q > 0 && p.category === "stock").reduce((s, p) => s + p.cost, 0),
+});
+export const capOf = (fm: FM | null, stockCash = 0, stockCost = 0): number => capRule(fm, stockCash, stockCost).amount;
 export const checkRules = (P: Portfolio, cap: number, hasReason: (ticker: string) => boolean): Warning[] => [
     ...P.positions.filter((p) => p.q > 0 && p.category === "stock" && p.cost > cap).map((p) => ({ rule: "cap" as const, key: p.ticker, over: p.cost - cap })),
     ...(P.value > 0 ? P.buckets.filter((b) => Math.abs(b.drift) > P.threshold).map((b) => ({ rule: "mix" as const, key: b.label, over: Math.round(b.drift) })) : []),

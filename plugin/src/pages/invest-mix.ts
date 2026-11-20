@@ -1,7 +1,9 @@
 // Invest MIX and RULES pages
 import { FILES } from "../data/store";
 import { investBuckets } from "../calc/log";
-import { num } from "../format";
+import { num, parseNum } from "../format";
+import { FormSheet } from "../ui/sheet";
+import { toast } from "../ui/toast";
 import { t } from "../i18n";
 import { empty, h, page } from "../ui";
 import { bline, figures, sec, summary } from "../ui/c";
@@ -54,9 +56,34 @@ export const rulesPage = (x: X): PageOut => {
     const r = h(el, "div", "zl-c-group");
     sec(r, t("iRulesT").toUpperCase());
     figures(r, [
-        { k: t("iRuleCap").toUpperCase(), s: t("iRuleCapS"), v: num(x.cap), dim: true },
+        { k: t("iRuleCap").toUpperCase(), s: x.capShare !== null ? t("iRuleCapShare", { p: x.capShare }) : t("iRuleCapS"), v: num(x.cap), dim: true, onTap: () => editCap(x) },
         { k: t("iRuleMix").toUpperCase(), s: t("iRuleMixS"), v: `${P.threshold}%`, dim: true },
         { k: t("iRuleReason").toUpperCase(), s: t("iRuleReasonS"), v: "", dim: true },
     ]);
     return { title, el };
+};
+
+// the single-stock cap, edited in the app (owner picked the Vellum mock "Single-stock cap · share", 2026-11-20): Share of
+// stock | Flat amount, one number (a whole % with the pad, or whole TWD; a decimal share can be typed into the config), what it comes to now under it; SAVE writes
+// single_stock_cap ("40%" or 15000) into Investment Config. The maths: capRule in calc/invest.ts.
+const editCap = (x: X): void => {
+    const { store } = x.ctx.plugin, base = x.capBase, bucket = base.cash + base.cost;
+    const share = x.capShare ?? 40, flat = x.capShare === null ? x.cap : 15000;
+    const pctOf = (v: Record<string, string>) => Math.min(100, parseNum(v.share));
+    new FormSheet(x.ctx.app, {
+        title: t("iRuleCap"), subtitle: t("iCapSub"),
+        submitText: (v) => `${t("save").toUpperCase()} ${v.mode === "share" ? `${pctOf(v) || 0}%` : num(parseNum(v.amount) || 0)} →`,
+        fields: [
+            { key: "mode", label: t("iCapMode"), type: "select", value: x.capShare === null ? "flat" : "share", options: [["share", t("iCapShareOpt")], ["flat", t("iCapFlatOpt")]] },
+            { key: "share", label: t("iCapShareL"), type: "number", value: Math.round(share), required: true, showIf: (v) => v.mode === "share",
+                note: (v) => t("iCapNow", { n: num(Math.round(bucket * pctOf(v) / 100)), p: pctOf(v) || 0, c: num(base.cash), k: num(base.cost) }) },
+            { key: "amount", label: t("iCapAmountL", { cur: x.cur }), type: "number", value: flat, required: true, showIf: (v) => v.mode === "flat", note: () => t("iCapFlatNote") },
+        ],
+        validate: (v) => (v.mode === "share" ? (parseNum(v.share) > 0 && parseNum(v.share) <= 100 ? null : t("invalidNumber")) : parseNum(v.amount) > 0 ? null : t("invalidAmount")),
+        onSubmit: async (v) => {
+            const next: string | number = v.mode === "share" ? `${pctOf(v)}%` : Math.round(parseNum(v.amount));
+            await store.update(store.path(FILES.invest), (f) => { f.single_stock_cap = next; });
+            toast(t("iCapSaved", { v: typeof next === "string" ? next : num(next) }));
+        },
+    }).open();
 };
