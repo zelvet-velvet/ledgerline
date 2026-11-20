@@ -6700,14 +6700,17 @@ var openPad = (_ctx, o) => {
   const totalV = h(totalRow, "strong");
   const chips = h(d, "div", "zl-drw-chips");
   const dec = o.dec ?? 0;
-  const W = MAX + Math.floor((MAX - 1) / 3) + (dec ? dec + 1 : 0);
+  const W = MAX + Math.floor((MAX - 1) / 3);
   if (o.chips && !o.chips.length) chips.remove();
   for (const n of o.chips ?? [50, 100, 200]) {
     const c = h(chips, "button", "zl-drw-chip", `+${n}`);
     c.addEventListener("click", (e) => {
       e.preventDefault();
-      st.s = String(Math.min(10 ** MAX - 1, value() + n));
-      paint();
+      const next = String(Math.min(10 ** MAX - 1, value() + n));
+      if (shown(next).length <= W) {
+        st.s = next;
+        paint();
+      }
     });
   }
   const pad2 = h(d, "div", "zl-drw-pad");
@@ -6749,25 +6752,27 @@ var openPad = (_ctx, o) => {
   const total = () => st.mode === "add" ? o.current + value() : value();
   function paint(dir) {
     const body = st.s ? dec ? shown(st.s) : num(value()) : "0";
-    const lead = o.current > 0 && !o.setOnly ? st.mode === "add" ? "+" : BLANK2 : "";
+    const lead = o.current > 0 && !o.setOnly && st.mode === "add" ? "+" : BLANK2;
     flap.set(lead + body.padStart(W, BLANK2), dir);
     flap.el.style.transform = "";
     const room = fb.clientWidth, w = flap.el.scrollWidth;
     if (room && w > room) flap.el.style.transform = `scale(${room / w})`;
     totalRow.toggleClass("is-off", !(o.current > 0));
     totalK.textContent = o.sub.toLowerCase() === t("today").toLowerCase() ? t("cNewTotalToday") : t("cNewTotal");
-    totalV.textContent = num(total());
+    totalV.textContent = dec ? shown(String(total())) : num(total());
     save.textContent = st.s ? `${t("save").toUpperCase()} ${dec ? shown(st.s) : num(total())} \u2192` : t("save").toUpperCase();
   }
   function press(k) {
     if (k === "C") st.s = "";
     else if (k === "<") st.s = st.s.slice(0, -1);
     else if (k === ".") {
-      if (!st.s.includes(".")) st.s = (st.s || "0") + ".";
+      if (!st.s.includes(".") && shown((st.s || "0") + ".").length < W) st.s = (st.s || "0") + ".";
     } else {
       const [a, b] = st.s.split(".");
       if (b !== void 0 ? b.length >= dec : a.length >= MAX) return;
-      st.s = (st.s + k).replace(/^0+(?=\d)/, "");
+      const next = (st.s + k).replace(/^0+(?=\d)/, "");
+      if (shown(next).length > W) return;
+      st.s = next;
     }
     paint(k === "<" ? "del" : void 0);
   }
