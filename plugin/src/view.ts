@@ -4,7 +4,7 @@ import { t } from "./i18n";
 import { Action, PAGES, PageCtx, PageOut } from "./pages";
 import { padPage } from "./pages/amount";
 import type { Frame } from "./router";
-import type { Shot } from "./capture";
+import type { Part, Shot } from "./capture";
 import type { TabId } from "./settings";
 import { h, icon, skeleton, titleText } from "./ui";
 import { calm, hasSprite, sprite } from "./ui/pixel";
@@ -118,6 +118,58 @@ export class LedgerView extends ItemView {
         parts.push(["Dock", "action", this.fabEl], ["Tab bar", "nav", this.tabsEl]);
         const below = stack.length > 1 ? stack[stack.length - 2] : undefined;
         return { appEl: this.appEl, parts, id: idOf(f), name: f.key === "root" ? t(PAGES[tab].label) : f.title || f.key, parent: f.key === "root" ? undefined : idOf(below) };
+    }
+    // the layers open over the page, bottom to top, each one screen drawn over the ones below it (Vellum shows every sheet):
+    // the ticker search, a sheet (Obsidian modal: its dim, its panel, the title and each row), the pad or the text window
+    // over a sheet or straight over the page. A sheet's screen is one per tab and title ("sheet-invest-trade"), whatever ticker opened it; the page it was opened
+    // from is its parent, a pad's or text window's parent is its sheet.
+    overlays(): Shot[] {
+        const base = this.shot(), out: Shot[] = [], parts: Part[] = [...base.parts], layers: HTMLElement[] = [];
+        const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "sheet";
+        const first = (s: string) => s.replace(/\s+/g, " ").trim().split(" · ")[0].replace(/ \(.*\)$/, "");
+        const kids = (el: HTMLElement | null) => (Array.from(el?.children ?? []) as HTMLElement[]).filter((c) => c.offsetWidth > 0 || c.offsetHeight > 0);
+        let parent = base.id;
+        const push = (id: string, name: string, own: Part[], layer: HTMLElement) => {
+            parts.push(...own); layers.push(layer);
+            out.push({ appEl: this.appEl, parts: [...parts], id, name, parent, layers: [...layers] });
+            parent = id;
+        };
+        // the number pad (zl-drw) or the text window (zl-txt) open in a host: over a sheet, or straight over the page
+        const layersIn = (host: HTMLElement, id: string, name: string) => {
+            for (const layer of Array.from(host.querySelectorAll<HTMLElement>(":scope > .zl-drw-wrap.is-in, :scope > .zl-txt"))) {
+                const pad = layer.classList.contains("zl-drw-wrap");
+                const scrim = layer.querySelector<HTMLElement>(":scope > .zl-drw-scrim, :scope > .zl-txt-scrim");
+                const card = layer.querySelector<HTMLElement>(":scope > .zl-drw, :scope > .zl-txt-card");
+                if (!card) continue;
+                const label = pad ? "Pad" : "Text";
+                const lp: Part[] = [...(scrim ? [["Dim", "float", scrim, true] as Part] : []), [label, "float", card, true]];
+                for (const c of kids(card)) lp.push([(c.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 24) || label, c.querySelector("button, textarea") || c.tagName === "TEXTAREA" ? "action" : "card", c]);
+                push(`${id}-${pad ? "pad" : "text"}`, `${name} · ${pad ? "Number pad" : "Text input"}`, lp, layer);
+            }
+        };
+        const search = this.appEl.querySelector<HTMLElement>(":scope > .zl-search.is-on");
+        if (search) push(`${base.id}-search`, `${base.name} · Search`, kids(search).map((c): Part => [c.classList.contains("zl-sbar") ? "Search bar" : "Results", c.classList.contains("zl-sbar") ? "action" : "list", c]), search);
+        // a pad or text window straight over the page (a daily item's amount): named by the kind of page, not its title (a
+        // day page's title is its date)
+        const kind = base.parent ? base.id.replace(/^[a-z]+-/, "").replace(/-/g, " ") : base.name;
+        layersIn(this.appEl, base.id, kind.charAt(0).toUpperCase() + kind.slice(1));
+        for (const host of Array.from(document.body.querySelectorAll<HTMLElement>(":scope > .modal-container"))) {
+            const modal = host.querySelector<HTMLElement>(":scope > .modal.zl-sheet, :scope > .modal");
+            if (!modal || !(host.classList.contains("zl-sheet-host") || modal.classList.contains("zl-sheet"))) continue;
+            const title = first(modal.querySelector(".modal-title")?.textContent ?? "") || "Sheet";
+            const bg = host.querySelector<HTMLElement>(":scope > .modal-bg"), head = modal.querySelector<HTMLElement>(":scope > .modal-header");
+            const own: Part[] = [...(bg ? [["Dim", "float", bg, true] as Part] : []), ["Sheet", "float", modal, true]];
+            if (head) own.push(["Title", "nav", head]);
+            for (const c of kids(modal.querySelector<HTMLElement>(":scope > .modal-content") ?? modal)) {
+                const words = (c.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 24);
+                own.push([words || ([...c.classList].find((x) => x.startsWith("zl-")) ?? "row").replace(/^zl-/, ""), c.querySelector("button, input, textarea") ? "action" : "list", c]);
+            }
+            // one screen per tab and title: Log's and Goals' "Add expense" are different sheets
+            const sid = `sheet-${base.id.split("-")[0]}-${slug(title)}`;
+            push(sid, title, own, host);
+            layersIn(host, sid, title);
+        }
+        return out;
     }
     // every enabled tab's first page in turn (for capture): calls back once each page has drawn and settled
     async eachTab(cb: () => Promise<void>): Promise<void> {

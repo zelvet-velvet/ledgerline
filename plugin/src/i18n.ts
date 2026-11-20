@@ -28,7 +28,7 @@ const en = {
     pageFailed: "This page could not be drawn",
     retry: "Retry",
     writeDebug: "Write the debug log now",
-    capPage: "Capture this page for Vellum",
+    capPage: "Capture this page, or the open sheet, for Vellum",
     capTabs: "Capture every tab's first page for Vellum",
     capNoApp: "Open Ledgerline first (on screen).",
     capDone: "Captured {n} screen(s) into {dir}.",

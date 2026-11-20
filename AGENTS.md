@@ -36,6 +36,6 @@ npm run install-vault       # copies the build into ../.obsidian/plugins/ledgerl
 | `plugin/src/calc/` | Pure maths (money, charts, rules), tested |
 | `plugin/src/prices/` | Market data (TWSE, Fugle, Yahoo, FinMind) |
 | `plugin/src/ui/` | Shared parts: C pages, flip-dot board, split-flaps, charts, sheets |
-| `plugin/src/capture.ts` | "Capture this page for Vellum": writes the page on screen to `Docs/Design/Screens/` |
+| `plugin/src/capture.ts` | "Capture this page, or the open sheet, for Vellum": writes the page on screen, or each sheet / pad / text window open over it, to `Docs/Design/Screens/` |
 | `plugin/css/` | Styles, concatenated into `styles.css` by the build |
 | `Config/`, `Log/`, `Invest/` | The demo data the plugin reads |

@@ -2436,7 +2436,7 @@ var en = {
   pageFailed: "This page could not be drawn",
   retry: "Retry",
   writeDebug: "Write the debug log now",
-  capPage: "Capture this page for Vellum",
+  capPage: "Capture this page, or the open sheet, for Vellum",
   capTabs: "Capture every tab's first page for Vellum",
   capNoApp: "Open Ledgerline first (on screen).",
   capDone: "Captured {n} screen(s) into {dir}.",
@@ -13201,6 +13201,55 @@ var LedgerView = class extends import_obsidian17.ItemView {
     const below = stack.length > 1 ? stack[stack.length - 2] : void 0;
     return { appEl: this.appEl, parts, id: idOf(f), name: f.key === "root" ? t(PAGES[tab].label) : f.title || f.key, parent: f.key === "root" ? void 0 : idOf(below) };
   }
+  // the layers open over the page, bottom to top, each one screen drawn over the ones below it (Vellum shows every sheet):
+  // the ticker search, a sheet (Obsidian modal: its dim, its panel, the title and each row), the pad or the text window
+  // over a sheet or straight over the page. A sheet's screen is one per tab and title ("sheet-invest-trade"), whatever ticker opened it; the page it was opened
+  // from is its parent, a pad's or text window's parent is its sheet.
+  overlays() {
+    const base2 = this.shot(), out = [], parts = [...base2.parts], layers = [];
+    const slug2 = (s2) => s2.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "sheet";
+    const first2 = (s2) => s2.replace(/\s+/g, " ").trim().split(" \xB7 ")[0].replace(/ \(.*\)$/, "");
+    const kids = (el2) => Array.from(el2?.children ?? []).filter((c) => c.offsetWidth > 0 || c.offsetHeight > 0);
+    let parent = base2.id;
+    const push = (id, name, own, layer) => {
+      parts.push(...own);
+      layers.push(layer);
+      out.push({ appEl: this.appEl, parts: [...parts], id, name, parent, layers: [...layers] });
+      parent = id;
+    };
+    const layersIn = (host, id, name) => {
+      for (const layer of Array.from(host.querySelectorAll(":scope > .zl-drw-wrap.is-in, :scope > .zl-txt"))) {
+        const pad2 = layer.classList.contains("zl-drw-wrap");
+        const scrim = layer.querySelector(":scope > .zl-drw-scrim, :scope > .zl-txt-scrim");
+        const card = layer.querySelector(":scope > .zl-drw, :scope > .zl-txt-card");
+        if (!card) continue;
+        const label = pad2 ? "Pad" : "Text";
+        const lp = [...scrim ? [["Dim", "float", scrim, true]] : [], [label, "float", card, true]];
+        for (const c of kids(card)) lp.push([(c.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 24) || label, c.querySelector("button, textarea") || c.tagName === "TEXTAREA" ? "action" : "card", c]);
+        push(`${id}-${pad2 ? "pad" : "text"}`, `${name} \xB7 ${pad2 ? "Number pad" : "Text input"}`, lp, layer);
+      }
+    };
+    const search = this.appEl.querySelector(":scope > .zl-search.is-on");
+    if (search) push(`${base2.id}-search`, `${base2.name} \xB7 Search`, kids(search).map((c) => [c.classList.contains("zl-sbar") ? "Search bar" : "Results", c.classList.contains("zl-sbar") ? "action" : "list", c]), search);
+    const kind = base2.parent ? base2.id.replace(/^[a-z]+-/, "").replace(/-/g, " ") : base2.name;
+    layersIn(this.appEl, base2.id, kind.charAt(0).toUpperCase() + kind.slice(1));
+    for (const host of Array.from(document.body.querySelectorAll(":scope > .modal-container"))) {
+      const modal = host.querySelector(":scope > .modal.zl-sheet, :scope > .modal");
+      if (!modal || !(host.classList.contains("zl-sheet-host") || modal.classList.contains("zl-sheet"))) continue;
+      const title = first2(modal.querySelector(".modal-title")?.textContent ?? "") || "Sheet";
+      const bg = host.querySelector(":scope > .modal-bg"), head = modal.querySelector(":scope > .modal-header");
+      const own = [...bg ? [["Dim", "float", bg, true]] : [], ["Sheet", "float", modal, true]];
+      if (head) own.push(["Title", "nav", head]);
+      for (const c of kids(modal.querySelector(":scope > .modal-content") ?? modal)) {
+        const words = (c.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 24);
+        own.push([words || ([...c.classList].find((x) => x.startsWith("zl-")) ?? "row").replace(/^zl-/, ""), c.querySelector("button, input, textarea") ? "action" : "list", c]);
+      }
+      const sid = `sheet-${base2.id.split("-")[0]}-${slug2(title)}`;
+      push(sid, title, own, host);
+      layersIn(host, sid, title);
+    }
+    return out;
+  }
   // every enabled tab's first page in turn (for capture): calls back once each page has drawn and settled
   async eachTab(cb) {
     for (const id of this.plugin.enabledTabs()) {
@@ -13626,7 +13675,7 @@ var named = (pal, p) => {
   }
   return d <= 12 && (p[3] ?? 1) >= 0.98 ? best : hex(p);
 };
-function block(el2, name, kind, origin, k, pal, view) {
+function block(el2, name, kind, origin, k, pal, view, shallow = false) {
   const br = el2.getBoundingClientRect();
   if (br.width < 2 || br.height < 2 || br.bottom < view.top || br.top > view.bottom) return null;
   const bx = br.left, by = Math.max(br.top, view.top), items2 = [], shapes = [];
@@ -13685,10 +13734,36 @@ function block(el2, name, kind, origin, k, pal, view) {
       if (drawn && big) items2.push({ type: "text", v: what.toUpperCase(), g: "tl", dx: Math.round((r.left - bx + r.width / 2) * k) - 24, dy: Math.round((r.top - by + r.height / 2) * k) - 8, size: 12, wt: 600, ls: 0.1, color: "dim" });
     }
     if (drawn) return;
+    if (n instanceof HTMLInputElement || n instanceof HTMLTextAreaElement) {
+      if (n instanceof HTMLInputElement && ["checkbox", "radio", "range", "hidden"].includes(n.type)) return;
+      const typed = n.value.trim(), v = typed || n.placeholder.trim();
+      if (v) {
+        const col = rgb(cs.color);
+        const t2 = { type: "text", v: mask(v), g: "tl", dx: Math.round((r.left - bx + (parseFloat(cs.paddingLeft) || 0)) * k), dy: Math.round((r.top - by + (parseFloat(cs.paddingTop) || 0)) * k), size: r1(parseFloat(cs.fontSize) * k) };
+        if (!typed) t2.color = "dim";
+        else if (col) {
+          const c = named(pal, col);
+          if (c !== "text") t2.color = c;
+        }
+        items2.push(t2);
+      }
+      return;
+    }
+    if (shallow && n !== el2) return;
     const own = Array.from(n.childNodes).filter((c) => c.nodeType === 3).map((c) => c.textContent ?? "").join("").replace(/\s+/g, " ").trim();
     if (own) {
       const size = parseFloat(cs.fontSize) * k, col = rgb(cs.color);
-      const t2 = { type: "text", v: mask(cs.textTransform === "uppercase" ? own.toUpperCase() : own), ...at(r), size: r1(size) };
+      let tr = r;
+      const tn = Array.from(n.childNodes).filter((c) => c.nodeType === 3 && (c.textContent ?? "").trim());
+      if (tn.length) {
+        const rg = document.createRange();
+        rg.setStart(tn[0], 0);
+        rg.setEnd(tn[tn.length - 1], (tn[tn.length - 1].textContent ?? "").length);
+        const gr = rg.getBoundingClientRect(), left = r.left + (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.borderLeftWidth) || 0);
+        if (gr.width > 0 && Math.abs(gr.left - left) > 2) tr = gr;
+      }
+      const words = cs.textTransform === "uppercase" ? own.toUpperCase() : own;
+      const t2 = { type: "text", v: n.closest(".zl-drw-pad, .zl-pad") ? words : mask(words), ...at(tr), size: r1(size) };
       const wt = Number(cs.fontWeight);
       if (wt && wt !== 400) t2.wt = wt;
       if (/anton/i.test(cs.fontFamily)) t2.font = "display";
@@ -13725,7 +13800,8 @@ function block(el2, name, kind, origin, k, pal, view) {
     it.id = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 6) || "b"}${i}`;
   });
   if (row2) all.push(row2);
-  const ef = rgb(getComputedStyle(el2).backgroundColor);
+  const ecs = getComputedStyle(el2), ef = rgb(ecs.backgroundColor);
+  if (ef && Number(ecs.opacity) < 1) ef[3] = (ef[3] ?? 1) * Number(ecs.opacity);
   if (ef) all.unshift({ id: "bg" + Math.round(by), type: "rect", g: "tl", dx: 0, dy: 0, w: "fill", h: "fill", fill: named(pal, ef) });
   return { id: (name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "b") + "-" + Math.round(by), name, kind, x: Math.round((bx - origin.x) * k), y: Math.round((by - origin.y) * k), w: Math.round(br.width * k), h: Math.round((Math.min(br.bottom, view.bottom) - by) * k), items: all };
 }
@@ -13736,7 +13812,7 @@ var pageText = (p) => {
 };
 var fileName = (name) => name.replace(/[\\/:*?"<>|#^[\]]/g, "-").replace(/\s+/g, " ").trim().slice(0, 80) || "Screen";
 async function capture(app, shot) {
-  for (const a of shot.appEl.getAnimations({ subtree: true })) {
+  for (const l of [shot.appEl, ...shot.layers ?? []]) for (const a of l.getAnimations({ subtree: true })) {
     try {
       a.finish();
     } catch {
@@ -13766,7 +13842,7 @@ async function capture(app, shot) {
   const origin = !import_obsidian18.Platform.isMobile ? { x: ar.left, y: ar.top - TOP3 / k } : emu ? land ? { x: ar.left - TOP3, y: ar.top } : { x: 0, y: ar.top - TOP3 } : { x: 0, y: Math.max(0, ar.top - safe) };
   const view = new DOMRect(ar.left, ar.top, ar.width, import_obsidian18.Platform.isMobile ? Math.min(ar.height, H) : Math.min(ar.height, (H - TOP3) / k));
   const pal = palette(app, shot.appEl);
-  const blocks2 = shot.parts.map(([name, kind, el2]) => block(el2, name, kind, origin, k, pal, view)).filter((b) => !!b);
+  const blocks2 = shot.parts.map(([name, kind, el2, shallow]) => block(el2, name, kind, origin, k, pal, view, shallow)).filter((b) => !!b);
   const page3 = { id: shot.id, name: mask(shot.name), ...shot.parent ? { parent: shot.parent } : {}, ...shot.link ? { link: mask(shot.link) } : {}, note: `Captured from the app ${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}${import_obsidian18.Platform.isMobile ? " on the phone" : ""}.`, blocks: blocks2 };
   const v = app.vault;
   if (!(v.getAbstractFileByPath(SCREENS) instanceof import_obsidian18.TFolder)) await v.createFolder(SCREENS);
@@ -13972,8 +14048,11 @@ var LedgerlinePlugin = class extends import_obsidian20.Plugin {
       }
       const done = [];
       const one = async () => {
-        const p = await capture(this.app, v.shot());
-        if (p) done.push(p);
+        const up = v.overlays();
+        for (const s2 of up.length ? up : [v.shot()]) {
+          const p = await capture(this.app, s2);
+          if (p) done.push(p);
+        }
       };
       if (all) await v.eachTab(one);
       else await one();
