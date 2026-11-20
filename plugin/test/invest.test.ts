@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { addTradingDays, autoFee, autoTax, buildPortfolio, legacyFields, tradeTotal, tickOf, capOf, checkRules, grossOf, investCash, newWarnings, readJournal, newTradeId, nextDca, syncEntries, toBase, toP, toQ, tradeLinks } from "../src/calc/invest";
+import { buildAccounts } from "../src/calc/accounts";
+import { addTradingDays, autoFee, autoTax, buildPortfolio, legacyFields, tradeTotal, tickOf, capOf, checkRules, grossOf, investCash, newWarnings, readJournal, newTradeId, nextDca, syncEntries, toBase, toP, toQ, tradeLinks, unbooked, cashAccountOf } from "../src/calc/invest";
 
 const noPrice = () => null;
 const usd = (c: string) => (c === "USD" ? 32 : 1);
@@ -134,6 +135,31 @@ test("an edited trade adds an adjust for the difference; the old entries stay", 
     const out = syncEntries(buy0050(), accts, booked, ["0050-2026-11-02"], "2026-11-05");
     assert.deepEqual(out.map((e) => [e.kind, e.amount, e.date]), [["adjust", -21, "2026-11-05"]]);
     assert.deepEqual(syncEntries(buy0050(), accts, [...booked, { trade: "0050-2026-11-02", amount: -21, account: "etf_cash" }], ["0050-2026-11-02"], "2026-11-05"), []);
+});
+
+test("a bucket written in capitals or with spaces still books its category's trades", () => {
+    const A = buildAccounts({ accounts: [{ key: "etf_box", bucket: "ETF " }, { key: "stock_box", bucket: "Stock" }] });
+    assert.equal(cashAccountOf("etf", A.list), "etf_box");
+    assert.equal(cashAccountOf(" STOCK", A.list), "stock_box");
+    assert.equal(cashAccountOf("other", A.list), undefined);
+    assert.equal(cashAccountOf("", A.list), undefined);
+    const P = one([{ ticker: "0050", category: " ETF", transactions: [{ type: "BUY", shares: 250, price: 85.8, fee: 30, date: "2026-11-20", settled: "2026-11-24" }] }]);
+    assert.equal(P.positions[0].category, "etf");
+    const out = syncEntries(P, A.list, [], ["0050-2026-11-20"], "2026-11-20");
+    assert.deepEqual(out.map((e) => [e.account, e.kind, e.amount, e.date]), [["etf_box", "buy", -21450, "2026-11-24"], ["etf_box", "fee", -30, "2026-11-24"]]);
+});
+
+test("trades with no cash account for their category are named, booked ones are not", () => {
+    const P = one([
+        { ticker: "0050", category: "etf", transactions: [{ type: "BUY", shares: 250, price: 85.8, date: "2026-11-20" }] },
+        { ticker: "3515", category: "other", transactions: [{ type: "BUY", shares: 30, price: 400, date: "2026-11-20" }] },
+        { ticker: "2395", transactions: [{ type: "BUY", shares: 10, price: 300, date: "2026-11-20" }] },
+    ]);
+    const ids = ["0050-2026-11-20", "3515-2026-11-20", "2395-2026-11-20"];
+    assert.deepEqual(unbooked(P, accts, [], ids).map((m) => [m.ticker, m.category]), [["3515", "other"], ["2395", "other"]]);
+    assert.deepEqual(syncEntries(P, accts, [], ids, "2026-11-20").map((e) => e.trade), ["0050-2026-11-20"]);
+    // one already booked by hand is not unbooked, even with no account for its category
+    assert.deepEqual(unbooked(P, accts, [{ trade: "3515-2026-11-20" }], ids).map((m) => m.ticker), ["2395"]);
 });
 
 test("a deleted trade is cancelled by an adjust", () => {

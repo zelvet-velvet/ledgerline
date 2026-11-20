@@ -110,7 +110,7 @@ export const buildPortfolio = (fm: FM | null, price: (t: string) => number | nul
         const exit = held > 0 && last !== null && fxOk ? toBase(autoFee(g, currency) + autoTax(g, currency, ticker), currency, fxNow) : 0;
         const d = a.dca && typeof a.dca === "object" ? (a.dca as FM) : null;
         const dca = d && num(d.amount) > 0 ? { amount: Math.round(num(d.amount)), day: Math.round(num(d.day)) || 1 } : null;
-        return { ticker, name: String(a.name ?? ticker), category: String(a.category ?? "other").toLowerCase(), currency, broker, dca, trades, shares: held / 10000, q: held, cost, avg: held > 0 ? (cost * 10000) / held : 0, avgP: held > 0 ? Math.round((own * 1e6) / (minorOf(currency) * held)) : 0, fxMissing, realized, fees, bought, price: last, value, exit, pl: value - exit - cost, index, dropped: dropped / 10000 };
+        return { ticker, name: String(a.name ?? ticker), category: String(a.category ?? "other").trim().toLowerCase() || "other", currency, broker, dca, trades, shares: held / 10000, q: held, cost, avg: held > 0 ? (cost * 10000) / held : 0, avgP: held > 0 ? Math.round((own * 1e6) / (minorOf(currency) * held)) : 0, fxMissing, realized, fees, bought, price: last, value, exit, pl: value - exit - cost, index, dropped: dropped / 10000 };
     });
     const value = positions.reduce((s, p) => s + p.value, 0);
     const buckets: Bucket[] = alloc.map((b) => {
@@ -169,6 +169,20 @@ export const tradeEntries = (t: Trade, ticker: string, currency: string, account
     ];
 };
 
+// The cash account of a holding's category: the first account whose bucket names it (both read trimmed, in lower case, so
+// `bucket: ETF` in Accounts still pays for `category: etf`); undefined = none, the trade cannot be booked.
+export const cashAccountOf = (category: string, accounts: { key: string; bucket: string }[]): string | undefined => {
+    const c = category.trim().toLowerCase();
+    return c ? accounts.find((a) => a.bucket && a.bucket.trim().toLowerCase() === c)?.key : undefined;
+};
+
+// The trades among `ids` that exist, have nothing booked and no cash account for their category: they stay out of Accounts.
+export const unbooked = (P: Portfolio, accounts: { key: string; bucket: string }[], entries: { trade?: string }[], ids: string[]): { id: string; ticker: string; category: string }[] =>
+    ids.flatMap((id) => {
+        const p = P.positions.find((x) => x.trades.some((t) => t.id === id));
+        return p && !entries.some((e) => e.trade === id) && !cashAccountOf(p.category, accounts) ? [{ id, ticker: p.ticker, category: p.category }] : [];
+    });
+
 // After trades `ids` were added, edited or deleted: the entries to append so the books agree again. A trade with nothing booked
 // gets its entries; a booked one that changed gets an `adjust` for the difference (old entries are never rewritten);
 // a deleted one gets an `adjust` that cancels what was booked. No cash account for the holding's category: nothing is written.
@@ -177,7 +191,7 @@ export const syncEntries = (P: Portfolio, accounts: { key: string; bucket: strin
     for (const id of ids) {
         const own = entries.filter((e) => e.trade === id), booked = own.reduce((s, e) => s + e.amount, 0);
         const p = P.positions.find((x) => x.trades.some((t) => t.id === id)), t = p?.trades.find((x) => x.id === id);
-        const account = own[0]?.account ?? accounts.find((a) => a.bucket && a.bucket === p?.category)?.key;
+        const account = own[0]?.account ?? cashAccountOf(p?.category ?? "", accounts);
         if (!account) continue;
         if (!t) { if (booked) out.push({ date: today, account, amount: -booked, kind: "adjust", trade: id, note: "trade deleted" }); continue; }
         if (!own.length) { out.push(...tradeEntries(t, p!.ticker, p!.currency, account)); continue; }
@@ -188,7 +202,7 @@ export const syncEntries = (P: Portfolio, accounts: { key: string; bucket: strin
 
 // Cash waiting to invest: what the cash accounts of the allocation buckets hold now; null when no account names a bucket.
 export const investCash = (accounts: { bucket: string; balance: number }[], keys: string[]): number | null => {
-    const own = accounts.filter((a) => a.bucket && keys.includes(a.bucket));
+    const k = keys.map((x) => x.trim().toLowerCase()), own = accounts.filter((a) => a.bucket && k.includes(a.bucket.trim().toLowerCase()));
     return own.length ? own.reduce((s, a) => s + a.balance, 0) : null;
 };
 

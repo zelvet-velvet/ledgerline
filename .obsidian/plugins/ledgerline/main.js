@@ -531,7 +531,7 @@ var buildPortfolio = (fm, price, fx, today3 = "", base2 = "TWD") => {
     const exit = held > 0 && last !== null && fxOk ? toBase(autoFee(g, currency) + autoTax(g, currency, ticker), currency, fxNow) : 0;
     const d = a.dca && typeof a.dca === "object" ? a.dca : null;
     const dca = d && num2(d.amount) > 0 ? { amount: Math.round(num2(d.amount)), day: Math.round(num2(d.day)) || 1 } : null;
-    return { ticker, name: String(a.name ?? ticker), category: String(a.category ?? "other").toLowerCase(), currency, broker, dca, trades, shares: held / 1e4, q: held, cost, avg: held > 0 ? cost * 1e4 / held : 0, avgP: held > 0 ? Math.round(own * 1e6 / (minorOf(currency) * held)) : 0, fxMissing, realized, fees, bought, price: last, value: value2, exit, pl: value2 - exit - cost, index, dropped: dropped / 1e4 };
+    return { ticker, name: String(a.name ?? ticker), category: String(a.category ?? "other").trim().toLowerCase() || "other", currency, broker, dca, trades, shares: held / 1e4, q: held, cost, avg: held > 0 ? cost * 1e4 / held : 0, avgP: held > 0 ? Math.round(own * 1e6 / (minorOf(currency) * held)) : 0, fxMissing, realized, fees, bought, price: last, value: value2, exit, pl: value2 - exit - cost, index, dropped: dropped / 1e4 };
   });
   const value = positions.reduce((s2, p) => s2 + p.value, 0);
   const buckets = alloc.map((b) => {
@@ -582,12 +582,20 @@ var tradeEntries = (t2, ticker, currency, account) => {
     ...rest ? [{ date, account, amount: rest, kind: "fee", trade: t2.id, note: `${ticker} fee` }] : []
   ];
 };
+var cashAccountOf = (category, accounts) => {
+  const c = category.trim().toLowerCase();
+  return c ? accounts.find((a) => a.bucket && a.bucket.trim().toLowerCase() === c)?.key : void 0;
+};
+var unbooked = (P, accounts, entries, ids) => ids.flatMap((id) => {
+  const p = P.positions.find((x) => x.trades.some((t2) => t2.id === id));
+  return p && !entries.some((e) => e.trade === id) && !cashAccountOf(p.category, accounts) ? [{ id, ticker: p.ticker, category: p.category }] : [];
+});
 var syncEntries = (P, accounts, entries, ids, today3) => {
   const out = [];
   for (const id of ids) {
     const own = entries.filter((e) => e.trade === id), booked = own.reduce((s2, e) => s2 + e.amount, 0);
     const p = P.positions.find((x) => x.trades.some((t3) => t3.id === id)), t2 = p?.trades.find((x) => x.id === id);
-    const account = own[0]?.account ?? accounts.find((a) => a.bucket && a.bucket === p?.category)?.key;
+    const account = own[0]?.account ?? cashAccountOf(p?.category ?? "", accounts);
     if (!account) continue;
     if (!t2) {
       if (booked) out.push({ date: today3, account, amount: -booked, kind: "adjust", trade: id, note: "trade deleted" });
@@ -602,7 +610,7 @@ var syncEntries = (P, accounts, entries, ids, today3) => {
   return out;
 };
 var investCash = (accounts, keys) => {
-  const own = accounts.filter((a) => a.bucket && keys.includes(a.bucket));
+  const k = keys.map((x) => x.trim().toLowerCase()), own = accounts.filter((a) => a.bucket && k.includes(a.bucket.trim().toLowerCase()));
   return own.length ? own.reduce((s2, a) => s2 + a.balance, 0) : null;
 };
 var journalPath = (ticker) => `Invest/${ticker}.md`;
@@ -3090,6 +3098,7 @@ var en = {
   iFeeN: "fee {n}",
   iPending: "settles later",
   iBooked: "Written in Accounts",
+  iNoCash: "{tk} not written in Accounts: no account has bucket {cat}",
   iBooksOff: "Accounts off by {n}",
   iNotBooked: "not in Accounts",
   iPlanT: "Plan",
@@ -5636,7 +5645,7 @@ var buildAccounts = (fm, upTo) => {
     label: String(a.label ?? a.key ?? ""),
     bank: String(a.bank ?? ""),
     line: String(a.line ?? ""),
-    bucket: String(a.bucket ?? ""),
+    bucket: String(a.bucket ?? "").trim().toLowerCase(),
     target: int4(a.target)
   })).filter((a) => a.key);
   const entries = arr4(fm?.entries).map((e, index) => ({
@@ -10584,16 +10593,18 @@ var investPage = {
     const links = new Map(tradeLinks(P, [...A.list.flatMap((a) => a.entries), ...A.unknown]).map((l) => [l.id, l]));
     const snap = (f) => JSON.parse(JSON.stringify(f));
     const book = async (fresh, ids) => {
-      if (!store.file(ACC)) return;
+      if (!store.file(ACC)) return { line: "", loud: false };
       const Q = buildPortfolio(fresh, (tk) => prices.price(tk), (c) => prices.fx(c, cur, fb), today(), cur);
-      let n = 0;
+      let n = 0, missed = [];
       await store.update(ACC, (a) => {
-        const B = buildAccounts(a);
-        const out2 = syncEntries(Q, B.list, [...B.list.flatMap((x2) => x2.entries), ...B.unknown], ids, today());
+        const B = buildAccounts(a), all = [...B.list.flatMap((x2) => x2.entries), ...B.unknown];
+        const out2 = syncEntries(Q, B.list, all, ids, today());
+        missed = unbooked(Q, B.list, all, ids);
         n = out2.length;
         if (n) a.entries = [...list3(a.entries), ...out2];
       });
-      if (n) toast(t("iBooked"));
+      const miss = missed.map((m) => t("iNoCash", { tk: m.ticker, cat: m.category })).join("\n");
+      return miss ? { line: miss, loud: true } : { line: n ? t("iBooked") : "", loud: false };
     };
     const updateAsset = async (ticker, fn) => {
       let fresh = {};
@@ -10780,11 +10791,11 @@ var investPage = {
             f.assets = assets;
             fresh = snap(f);
           });
-          await book(fresh, [id]);
+          const booked = await book(fresh, [id]);
           const broke2 = newWarnings(checkRules(P, cap3, () => true), checkRules(buildPortfolio(fresh, (q) => prices.price(q), (c) => prices.fx(c, cur, fb), today(), cur), cap3, () => true));
-          if (broke2.length) toast(broke2.map(warnText).join("\n"), true, 8e3);
           if (v.why?.trim()) await think(tk, { date: tr.date, trade: id, why: v.why.trim() });
-          toast(t("iSaved", { what: v.type === "SELL" ? t("iSell") : t("iBuy"), n: qty(parseNum(v.shares)), tk }));
+          const loud = broke2.length > 0 || booked.loud;
+          toast([t("iSaved", { what: v.type === "SELL" ? t("iSell") : t("iBuy"), n: qty(parseNum(v.shares)), tk }), ...booked.line ? [booked.line] : [], ...broke2.map(warnText)].join("\n"), loud, loud ? 8e3 : 2500);
         }
       }).open();
     };
@@ -10821,8 +10832,8 @@ var investPage = {
           else delete x2.settled;
           recalc(a);
         });
-        await book(fresh, [tr.id]);
-        toast(t("iUpdated", { tk: p.ticker }));
+        const booked = await book(fresh, [tr.id]);
+        toast([t("iUpdated", { tk: p.ticker }), ...booked.line ? [booked.line] : []].join("\n"), booked.loud, booked.loud ? 6e3 : 2500);
       },
       danger: { text: t("iDeleteTrade"), onTap: async () => {
         if (!await confirmSheet(ctx.app, t("iDeleteTrade"), t("iDeleteTradeQ", { n: qty(tr.shares), tk: p.ticker, date: tr.date || "-" }), t("delete"))) return false;
@@ -10839,7 +10850,8 @@ var investPage = {
             recalc(a);
           }
         });
-        await book(fresh, [tr.id]);
+        const booked = await book(fresh, [tr.id]);
+        if (booked.line) toast(booked.line, booked.loud);
         return true;
       } }
     }).open();
