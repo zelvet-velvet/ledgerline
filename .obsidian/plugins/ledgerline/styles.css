@@ -1375,9 +1375,12 @@ body.zl-calm .zl-live.is-on::before, body.zl-calm .zl-tickc { animation: none; }
 .zl-app .zl-fig.zl-qrow.is-dragging { transition: none; position: relative; z-index: 2; background: var(--zl-paper); box-shadow: 0 0 0 2px var(--zl-ink); }
 .zl-app .zl-qrow.is-dragging .zl-qrow-grip { cursor: grabbing; color: var(--zl-ink); }
 /* Holdings row B (2026-11-05): ticker / shares · last price / today's % · value / return tiles; no icon, no arrow */
-.zl-app .zl-fig.zl-hrow { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(104px, auto); grid-template-rows: auto auto; column-gap: 16px; row-gap: 5px; align-items: center; }
+/* the summary's three columns (Vellum's 3-column overlay, owner 2026-11-20): the ticker starts on column 1, price and today's %
+   end on column 2's right edge (under NET PROFIT's column), value and return end on the right margin */
+.zl-app .zl-fig.zl-hrow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: auto auto; column-gap: 12px; row-gap: 5px; align-items: center; }
 .zl-hrow-k, .zl-hrow-v { font: 400 22px/1 var(--zl-disp); color: var(--zl-text); white-space: nowrap; letter-spacing: .01em; }
 .zl-hrow-k { grid-column: 1; grid-row: 1; overflow: hidden; text-overflow: ellipsis; }
+.zl-hrow-r { overflow: visible; }
 .zl-hrow-s { grid-column: 1; grid-row: 2; font: 400 13px var(--zl-ui); color: var(--zl-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .zl-hrow-p, .zl-hrow-d { justify-self: end; font: 400 15px var(--zl-ui); color: var(--zl-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .zl-hrow-p { grid-column: 2; grid-row: 1; }
