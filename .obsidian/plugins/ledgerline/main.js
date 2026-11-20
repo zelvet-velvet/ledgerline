@@ -1502,6 +1502,7 @@ var nextOpen = (symbol, now, cal) => {
   }
   return null;
 };
+var limitOf = (q) => !q || !(q.price > 0) ? null : q.up !== void 0 && q.up > 0 && q.price >= q.up - 1e-9 ? "up" : q.down !== void 0 && q.down > 0 && q.price <= q.down + 1e-9 ? "down" : null;
 var parseTwseAll = (json) => {
   const out = {};
   for (const a of json?.msgArray ?? []) {
@@ -1514,13 +1515,13 @@ var parseTwse = (json) => {
   const a = json?.msgArray?.[0];
   if (!a) return null;
   const best = (x) => Number(String(x ?? "").split("_")[0]);
-  const last = Number(a.z), prev = Number(a.y), bid = best(a.b), ask = best(a.a);
+  const last = Number(a.z), prev = Number(a.y), bid = best(a.b), ask = best(a.a), up = Number(a.u), down = Number(a.w);
   const book = bid > 0 && ask > 0 ? Math.round((bid + ask) / 2 * 100) / 100 : bid > 0 ? bid : ask > 0 ? ask : 0;
   const price = last > 0 ? last : String(a.t ?? "") >= "09:00:00" && book > 0 ? book : prev;
   if (!(price > 0)) return null;
   const at = Number(a.tlong);
   const lots3 = Number(a.v);
-  return { price, time: Date.now(), asOf: at > 0 ? at : Date.now(), source: "twse", ...prev > 0 ? { prev } : {}, ...lots3 >= 0 && String(a.v ?? "") !== "" && !isNaN(lots3) ? { vol: lots3 * 1e3 } : {} };
+  return { price, time: Date.now(), asOf: at > 0 ? at : Date.now(), source: "twse", ...prev > 0 ? { prev } : {}, ...up > 0 ? { up } : {}, ...down > 0 ? { down } : {}, ...lots3 >= 0 && String(a.v ?? "") !== "" && !isNaN(lots3) ? { vol: lots3 * 1e3 } : {} };
 };
 var parseFugleQuote = (json) => {
   const j = json;
@@ -1529,7 +1530,8 @@ var parseFugleQuote = (json) => {
   const last = Number(j.lastTrade?.price) || Number(j.closePrice) || 0, price = last > 0 ? last : prev;
   if (!(price > 0)) return null;
   const us = Number(j.lastTrade?.time) || Number(j.closeTime) || Number(j.lastUpdated) || 0;
-  return { price, time: Date.now(), asOf: us > 0 ? Math.round(us / 1e3) : Date.now(), source: "fugle", ...prev > 0 ? { prev } : {} };
+  const up = Number(j.priceHighLimit) || 0, down = Number(j.priceLowLimit) || 0;
+  return { price, time: Date.now(), asOf: us > 0 ? Math.round(us / 1e3) : Date.now(), source: "fugle", ...prev > 0 ? { prev } : {}, ...up > 0 ? { up } : {}, ...down > 0 ? { down } : {} };
 };
 
 // src/prices/index.ts
@@ -8521,6 +8523,10 @@ var chgOf = (x, tk, p) => {
   const priced = p.price !== null, rp = p.cost > 0 ? p.pl / p.cost * 100 : 0;
   return { ...c, t: [priced ? pctS(rp) : "-", ...c.t, priced ? signed3(p.pl) : "-"], hot: [p.pl < 0, ...c.hot, p.pl < 0], k: ["", ...c.k, t("chgProfit")], ret: [true, false, false, true] };
 };
+var limitCls = (pr, tk) => {
+  const l = limitOf(pr.get(tk));
+  return l ? `is-limit-${l}` : "";
+};
 var lastOf = (x, tk) => {
   const q = x.ctx.plugin.prices.get(tk);
   return q ? price2(Math.round(q.price * 100)) : "-";
@@ -10342,6 +10348,9 @@ var hrows = (x, parent, ps) => {
     h(b, "span", "zl-hrow-s", on ? t("iSharesN", { n: qty(p.shares) }) : t("iClosed"));
     const today3 = h(b, "span", "zl-hrow-d");
     const paint = () => {
+      b.removeClass("is-limit-up", "is-limit-down");
+      const lc = on ? limitCls(pr, p.ticker) : "";
+      if (lc) b.addClass(lc);
       const d = on ? todayOf(pr, p.ticker) : null;
       today3.setText(d ? pctS(d.pct) : on ? "-" : "");
       today3.toggleClass("is-hot", !!d && d.ch < 0);
@@ -10476,7 +10485,8 @@ var qrows = (x, parent, list5, rows, move) => {
   const box = h(parent, "div", "zl-figs zl-qrows");
   const els = [];
   rows.forEach((r, i) => {
-    const b = h(box, "button", "zl-fig zl-qrow zl-in" + (r.dim ? " is-dim" : ""));
+    const lc = r.chg ? limitCls(x.ctx.plugin.prices, r.k) : "";
+    const b = h(box, "button", "zl-fig zl-qrow zl-in" + (r.dim ? " is-dim" : "") + (lc ? ` ${lc}` : ""));
     b.style.setProperty("--i", String(i));
     b.dataset.k = r.k;
     const ic = sprite(b, move ? "grip" : r.icon, "zl-px zl-fig-ic");

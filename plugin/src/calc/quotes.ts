@@ -68,7 +68,12 @@ export const nextOpen = (symbol: string, now: Date, cal?: Cal): Date | null => {
     return null;
 };
 
-export interface Quote { price: number; time: number; closes?: number[]; asOf?: number; source?: string; prev?: number; vol?: number }   // vol: the day's shares so far (TWSE MIS)
+export interface Quote { price: number; time: number; closes?: number[]; asOf?: number; source?: string; prev?: number; vol?: number; up?: number; down?: number }   // vol: the day's shares so far (TWSE MIS); up / down: today's limit prices (Taiwan)
+
+// a Taiwan price at today's limit (owner, 2026-11-20: the row tinted whole in the up / down colour): the exchange's own limit
+// prices (MIS u / w, Fugle priceHighLimit / priceLowLimit), never worked out here; none known (a US quote): null
+export const limitOf = (q: Pick<Quote, "price" | "up" | "down"> | null | undefined): "up" | "down" | null =>
+    !q || !(q.price > 0) ? null : q.up !== undefined && q.up > 0 && q.price >= q.up - 1e-9 ? "up" : q.down !== undefined && q.down > 0 && q.price <= q.down + 1e-9 ? "down" : null;
 
 // The Taiwan exchange's own quote service (mis.twse.com.tw). Its last trade `z` is "-" in
 // most 5-second snapshots, also mid-session (checked 2026-11-05: 0050 traded all morning, z "-"): then, from 09:00, the middle
@@ -86,22 +91,23 @@ export const parseTwse = (json: unknown): Quote | null => {
     const a = (json as { msgArray?: Record<string, string>[] })?.msgArray?.[0];
     if (!a) return null;
     const best = (x?: string) => Number(String(x ?? "").split("_")[0]);
-    const last = Number(a.z), prev = Number(a.y), bid = best(a.b), ask = best(a.a);
+    const last = Number(a.z), prev = Number(a.y), bid = best(a.b), ask = best(a.a), up = Number(a.u), down = Number(a.w);   // u / w: today's limit prices
     const book = bid > 0 && ask > 0 ? Math.round(((bid + ask) / 2) * 100) / 100 : bid > 0 ? bid : ask > 0 ? ask : 0;
     const price = last > 0 ? last : String(a.t ?? "") >= "09:00:00" && book > 0 ? book : prev;
     if (!(price > 0)) return null;
     const at = Number(a.tlong);
     const lots = Number(a.v);   // the day's lots so far (1 lot = 1,000 shares): live minute volume (prices/index.ts apply)
-    return { price, time: Date.now(), asOf: at > 0 ? at : Date.now(), source: "twse", ...(prev > 0 ? { prev } : {}), ...(lots >= 0 && String(a.v ?? "") !== "" && !isNaN(lots) ? { vol: lots * 1000 } : {}) };
+    return { price, time: Date.now(), asOf: at > 0 ? at : Date.now(), source: "twse", ...(prev > 0 ? { prev } : {}), ...(up > 0 ? { up } : {}), ...(down > 0 ? { down } : {}), ...(lots >= 0 && String(a.v ?? "") !== "" && !isNaN(lots) ? { vol: lots * 1000 } : {}) };
 };
 // Fugle's intraday quote: the last real trade (closePrice; lastPrice also counts trial matching), else before the first trade
 // the reference price; prev = the reference price (yesterday's close, ex-dividend adjusted); times in microseconds
 export const parseFugleQuote = (json: unknown): Quote | null => {
-    const j = json as { referencePrice?: number; previousClose?: number; closePrice?: number; closeTime?: number; lastUpdated?: number; lastTrade?: { price?: number; time?: number } };
+    const j = json as { referencePrice?: number; previousClose?: number; closePrice?: number; closeTime?: number; lastUpdated?: number; lastTrade?: { price?: number; time?: number }; priceHighLimit?: number; priceLowLimit?: number };
     if (!j) return null;
     const prev = Number(j.referencePrice) || Number(j.previousClose) || 0;
     const last = Number(j.lastTrade?.price) || Number(j.closePrice) || 0, price = last > 0 ? last : prev;
     if (!(price > 0)) return null;
     const us = Number(j.lastTrade?.time) || Number(j.closeTime) || Number(j.lastUpdated) || 0;
-    return { price, time: Date.now(), asOf: us > 0 ? Math.round(us / 1000) : Date.now(), source: "fugle", ...(prev > 0 ? { prev } : {}) };
+    const up = Number(j.priceHighLimit) || 0, down = Number(j.priceLowLimit) || 0;
+    return { price, time: Date.now(), asOf: us > 0 ? Math.round(us / 1000) : Date.now(), source: "fugle", ...(prev > 0 ? { prev } : {}), ...(up > 0 ? { up } : {}), ...(down > 0 ? { down } : {}) };
 };

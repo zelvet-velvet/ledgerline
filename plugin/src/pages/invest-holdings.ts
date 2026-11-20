@@ -5,7 +5,7 @@ import { t } from "../i18n";
 import { h, page } from "../ui";
 import { summary } from "../ui/c";
 import type { PageOut } from "./index";
-import { signed, pctS, qty, X, findAct, Chg, chgEl, todayOf, atNow, lastOf } from "./invest-shared";
+import { signed, pctS, qty, X, findAct, Chg, chgEl, todayOf, atNow, lastOf, limitCls } from "./invest-shared";
 
 // C list: every holding: ticker and shares on the left, the change (a tap cycles it) above what it is worth now on the right;
 // sold-out positions after them, dim
@@ -40,7 +40,7 @@ export const hrows = (x: X, parent: HTMLElement, ps: Position[]): void => {
         const value = h(b, "span", "zl-hrow-v", num(p.value));
         h(b, "span", "zl-hrow-s", on ? t("iSharesN", { n: qty(p.shares) }) : t("iClosed"));
         const today = h(b, "span", "zl-hrow-d");
-        const paint = () => { const d = on ? todayOf(pr, p.ticker) : null; today.setText(d ? pctS(d.pct) : on ? "-" : ""); today.toggleClass("is-hot", !!d && d.ch < 0); today.toggleClass("is-up", !!d && d.ch > 0); };
+        const paint = () => { b.removeClass("is-limit-up", "is-limit-down"); const lc = on ? limitCls(pr, p.ticker) : ""; if (lc) b.addClass(lc); const d = on ? todayOf(pr, p.ticker) : null; today.setText(d ? pctS(d.pct) : on ? "-" : ""); today.toggleClass("is-hot", !!d && d.ch < 0); today.toggleClass("is-up", !!d && d.ch > 0); };
         paint();
         if (on) chgEl(x, b, retOf(x, p.ticker, p), "zl-hrow-r", `holdings|${p.ticker}`); else h(b, "span", "zl-hrow-r");
         b.addEventListener("click", (e) => { e.preventDefault(); x.ctx.push({ key: "asset:" + p.ticker, title: p.ticker }); });
