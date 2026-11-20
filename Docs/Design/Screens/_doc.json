@@ -18,6 +18,27 @@
     "invest-watch",
     "invest-map",
     "invest-alerts",
-    "invest-mix"
+    "invest-mix",
+    "sheet-invest-trade",
+    "sheet-invest-trade-pad",
+    "sheet-debt-record-payment",
+    "sheet-debt-initial-principal",
+    "sheet-goals-add-expense",
+    "sheet-log-add-expense-text",
+    "log-day-pad",
+    "sheet-log-new-group",
+    "sheet-log-add-item",
+    "sheet-log-add-income",
+    "sheet-log-add-one-off",
+    "sheet-ledger-new-transaction",
+    "sheet-goals-new-goal",
+    "sheet-goals-target-date",
+    "sheet-log-add-expense",
+    "sheet-invest-chart-settings",
+    "sheet-invest-plan",
+    "sheet-invest-thesis",
+    "sheet-invest-before-you-buy",
+    "sheet-invest-delete-trade",
+    "sheet-invest-add-thought"
   ]
 }
