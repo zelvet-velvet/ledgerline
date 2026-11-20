@@ -9,8 +9,8 @@ import type { PageCtx, PageOut } from "./index";
 
 // Readability redesign (2026-11-04): entering an amount is a bottom drawer over the page, not a page of its own. The page
 // stays in view, dimmed, above it. The drawer: what and where, what is there already, ADD TO IT / REPLACE, the amount as a
-// split-flap with a fixed count of tiles (a sign tile, then room for the widest amount; 0 until a digit is typed; owner,
-// 2026-11-09), the new total, +50 / +100 / +200 chips, the 3 × 4 ruled pad,
+// split-flap with a fixed count of tiles (always 10 on every pad: a sign tile, then 9 for the number with its separators and
+// decimals, so every pad shows them at one size; 0 until a digit is typed; owner, 2026-11-09, one row for every pad 2026-11-20), the new total, +50 / +100 / +200 chips, the 3 × 4 ruled pad,
 // CANCEL and a loud SAVE with the amount. Tapping the dimmed page cancels.
 const MAX = 7;                 // whole digits
 const BLANK = "\u00a0";       // a blank tile (ui/flap.ts)
@@ -67,11 +67,11 @@ export const openPad = (_ctx: PageCtx, o: AmountSpec): void => {
 
     const chips = h(d, "div", "zl-drw-chips");
     const dec = o.dec ?? 0;
-    const W = MAX + Math.floor((MAX - 1) / 3) + (dec ? dec + 1 : 0);   // tiles for the widest amount, separators included
+    const W = MAX + Math.floor((MAX - 1) / 3);   // 9 tiles for the number on every pad: decimals use them too (9,999.9999)
     if (o.chips && !o.chips.length) chips.remove();
     for (const n of o.chips ?? [50, 100, 200]) {
         const c = h(chips, "button", "zl-drw-chip", `+${n}`);
-        c.addEventListener("click", (e) => { e.preventDefault(); st.s = String(Math.min(10 ** MAX - 1, value() + n)); paint(); });
+        c.addEventListener("click", (e) => { e.preventDefault(); const next = String(Math.min(10 ** MAX - 1, value() + n)); if (shown(next).length <= W) { st.s = next; paint(); } });
     }
 
     const pad = h(d, "div", "zl-drw-pad");
@@ -99,7 +99,7 @@ export const openPad = (_ctx: PageCtx, o: AmountSpec): void => {
         // the same count of tiles every time: where ADD TO IT is offered the first is the sign's (blank on REPLACE), the
         // amount sits on the right
         const body = st.s ? (dec ? shown(st.s) : num(value())) : "0";
-        const lead = o.current > 0 && !o.setOnly ? (st.mode === "add" ? "+" : BLANK) : "";
+        const lead = o.current > 0 && !o.setOnly && st.mode === "add" ? "+" : BLANK;   // the sign tile is always there
         flap!.set(lead + body.padStart(W, BLANK), dir);
         // a long amount scales the row of tiles down to fit, keeping it right-aligned
         flap!.el.style.transform = "";
@@ -107,17 +107,19 @@ export const openPad = (_ctx: PageCtx, o: AmountSpec): void => {
         if (room && w > room) flap!.el.style.transform = `scale(${room / w})`;
         totalRow.toggleClass("is-off", !(o.current > 0));
         totalK.textContent = o.sub.toLowerCase() === t("today").toLowerCase() ? t("cNewTotalToday") : t("cNewTotal");
-        totalV.textContent = num(total());
+        totalV.textContent = dec ? shown(String(total())) : num(total());   // shares and prices keep their decimals
         save.textContent = st.s ? `${t("save").toUpperCase()} ${dec ? shown(st.s) : num(total())} →` : t("save").toUpperCase();
     }
     function press(k: string): void {
         if (k === "C") st.s = "";
         else if (k === "<") st.s = st.s.slice(0, -1);
-        else if (k === ".") { if (!st.s.includes(".")) st.s = (st.s || "0") + "."; }
+        else if (k === ".") { if (!st.s.includes(".") && shown((st.s || "0") + ".").length < W) st.s = (st.s || "0") + "."; }   // room for a decimal after it
         else {
             const [a, b] = st.s.split(".");
             if (b !== undefined ? b.length >= dec : a.length >= MAX) return;   // at most MAX whole digits, dec decimals
-            st.s = (st.s + k).replace(/^0+(?=\d)/, "");
+            const next = (st.s + k).replace(/^0+(?=\d)/, "");
+            if (shown(next).length > W) return;   // and never past the 9th tile (9,999.9999; 999,999.99)
+            st.s = next;
         }
         paint(k === "<" ? "del" : undefined);   // a delete runs from the leftmost tile
     }
