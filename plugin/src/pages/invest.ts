@@ -1,6 +1,6 @@
 import { toast } from "../ui/toast";
 import { buildAccounts } from "../calc/accounts";
-import { findTrade, addTradingDays, autoFee, autoTax, grossOf, isTwBondEtf, isTwEtf, legacyFields, tickOf, tradeTotal, toP, toQ, buildPortfolio, capOf, checkRules, investCash, newWarnings, journalPath, minorOf, newTradeId, nextDca, readJournal, Position, syncEntries, tickerOf, Trade, tradeLinks } from "../calc/invest";
+import { findTrade, addTradingDays, autoFee, autoTax, grossOf, isTwBondEtf, isTwEtf, legacyFields, tickOf, tradeTotal, toP, toQ, buildPortfolio, capOf, checkRules, investCash, newWarnings, journalPath, minorOf, newTradeId, nextDca, readJournal, Position, syncEntries, tickerOf, Trade, tradeLinks, unbooked } from "../calc/invest";
 import { ACCOUNTS_FILE } from "./accounts";
 import { FILES, FM } from "../data/store";
 import { num, parseNum, shortDate, today } from "../format";
@@ -54,17 +54,22 @@ export const investPage: PageDef = {
         const links = new Map(tradeLinks(P, [...A.list.flatMap((a) => a.entries), ...A.unknown]).map((l) => [l.id, l]));
         const snap = (f: FM): FM => JSON.parse(JSON.stringify(f)) as FM;
         // after a trade is saved, edited or deleted: append the Accounts entries that make the books agree (never rewrite old ones)
-        const book = async (fresh: FM, ids: string[]) => {
-            if (!store.file(ACC)) return;
+        // returns the line for the caller's toast (one toast at a time, a later one hides an earlier): what was written, or
+        // loud = what could not be (no cash account for the category); "" = nothing to say
+        const book = async (fresh: FM, ids: string[]): Promise<{ line: string; loud: boolean }> => {
+            if (!store.file(ACC)) return { line: "", loud: false };
             const Q = buildPortfolio(fresh, (tk) => prices.price(tk), (c) => prices.fx(c, cur, fb), today(), cur);
-            let n = 0;
+            let n = 0, missed: { ticker: string; category: string }[] = [];
             await store.update(ACC, (a) => {
-                const B = buildAccounts(a);
-                const out = syncEntries(Q, B.list, [...B.list.flatMap((x) => x.entries), ...B.unknown], ids, today());
+                const B = buildAccounts(a), all = [...B.list.flatMap((x) => x.entries), ...B.unknown];
+                const out = syncEntries(Q, B.list, all, ids, today());
+                missed = unbooked(Q, B.list, all, ids);
                 n = out.length;
                 if (n) a.entries = [...list(a.entries), ...out];
             });
-            if (n) toast(t("iBooked"));
+            // a trade with no cash account for its category is said aloud, never skipped in silence
+            const miss = missed.map((m) => t("iNoCash", { tk: m.ticker, cat: m.category })).join("\n");
+            return miss ? { line: miss, loud: true } : { line: n ? t("iBooked") : "", loud: false };
         };
 
         const updateAsset = async (ticker: string, fn: (a: FM) => void): Promise<FM> => { let fresh: FM = {}; await store.update(CFG, (f) => { const a = list(f.assets).find((x) => tickerOf(x) === ticker); if (a) fn(a); fresh = snap(f); }); return fresh; };
@@ -162,12 +167,13 @@ export const investPage: PageDef = {
                         f.assets = assets;
                         fresh = snap(f);
                     });
-                    await book(fresh, [id]);
+                    const booked = await book(fresh, [id]);
                     // S5: say which rule this trade newly broke (a warning, the trade is saved)
                     const broke = newWarnings(checkRules(P, cap, () => true), checkRules(buildPortfolio(fresh, (q) => prices.price(q), (c) => prices.fx(c, cur, fb), today(), cur), cap, () => true));
-                    if (broke.length) toast(broke.map(warnText).join("\n"), true, 8000);
                     if (v.why?.trim()) await think(tk, { date: tr.date, trade: id, why: v.why.trim() });
-                    toast(t("iSaved", { what: v.type === "SELL" ? t("iSell") : t("iBuy"), n: qty(parseNum(v.shares)), tk }));
+                    // one toast (a later one replaces an earlier): saved, then what went wrong, loud and longer if anything did
+                    const loud = broke.length > 0 || booked.loud;
+                    toast([t("iSaved", { what: v.type === "SELL" ? t("iSell") : t("iBuy"), n: qty(parseNum(v.shares)), tk }), ...(booked.line ? [booked.line] : []), ...broke.map(warnText)].join("\n"), loud, loud ? 8000 : 2500);
                 },
             }).open();
         };
@@ -193,14 +199,15 @@ export const investPage: PageDef = {
                     if (v.settled) x.settled = v.settled; else delete x.settled;
                     recalc(a);
                 });
-                await book(fresh, [tr.id]);
-                toast(t("iUpdated", { tk: p.ticker }));
+                const booked = await book(fresh, [tr.id]);
+                toast([t("iUpdated", { tk: p.ticker }), ...(booked.line ? [booked.line] : [])].join("\n"), booked.loud, booked.loud ? 6000 : 2500);
             },
             danger: { text: t("iDeleteTrade"), onTap: async () => {
                 if (!(await confirmSheet(ctx.app, t("iDeleteTrade"), t("iDeleteTradeQ", { n: qty(tr.shares), tk: p.ticker, date: tr.date || "-" }), t("delete")))) return false;
                 // the other trades keep their ids: write the default ids before one is taken out
                 const fresh = await updateAsset(p.ticker, (a) => { const xs = list(a.transactions); p.trades.forEach((q) => { const j = findTrade(xs, q); if (j >= 0) xs[j].id = q.id; }); const k = findTrade(xs, tr); if (k >= 0) { xs.splice(k, 1); a.transactions = xs; recalc(a); } });
-                await book(fresh, [tr.id]);
+                const booked = await book(fresh, [tr.id]);   // the cancelling adjust; before, its own toast said so
+                if (booked.line) toast(booked.line, booked.loud);
                 return true;
             } },
         }).open();

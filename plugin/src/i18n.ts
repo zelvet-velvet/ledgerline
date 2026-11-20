@@ -690,6 +690,7 @@ const en = {
     iFeeN: "fee {n}",
     iPending: "settles later",
     iBooked: "Written in Accounts",
+    iNoCash: "{tk} not written in Accounts: no account has bucket {cat}",
     iBooksOff: "Accounts off by {n}",
     iNotBooked: "not in Accounts",
     iPlanT: "Plan",

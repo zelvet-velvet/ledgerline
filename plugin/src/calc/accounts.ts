@@ -17,7 +17,7 @@ const int = (v: unknown): number => { const n = Number(v); return Number.isFinit
 export const buildAccounts = (fm: FM | null, upTo?: string): Accounts => {
     const accounts: Account[] = arr(fm?.accounts).map((a) => ({
         key: String(a.key ?? ""), label: String(a.label ?? a.key ?? ""), bank: String(a.bank ?? ""),
-        line: String(a.line ?? ""), bucket: String(a.bucket ?? ""), target: int(a.target),
+        line: String(a.line ?? ""), bucket: String(a.bucket ?? "").trim().toLowerCase(), target: int(a.target),
     })).filter((a) => a.key);
     const entries: Entry[] = arr(fm?.entries).map((e, index) => ({
         date: dateStr(e.date, ""), account: String(e.account ?? ""), amount: int(e.amount),
