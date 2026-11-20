@@ -5,14 +5,15 @@ import { figures, segment } from "../ui/c";
 import { isTwSym } from "../calc/quotes";
 import { sprite } from "../ui/pixel";
 import type { PageOut } from "./index";
-import { X, findAct, Chg, CHG, alignChg, chgEl, swipeChg, todayOf, chgOf, lastOf, openKey } from "./invest-shared";
+import { X, findAct, Chg, CHG, alignChg, chgEl, swipeChg, todayOf, chgOf, lastOf, openKey, limitCls } from "./invest-shared";
 
 // list rows with the change above the value: ticker and a sub line left, change and value right
 export const qrows = (x: X, parent: HTMLElement, list: string, rows: { icon: string; k: string; s: string; v: string; chg: Chg | null; dim?: boolean; onTap: () => void }[], move?: (order: string[]) => void): void => {
     const box = h(parent, "div", "zl-figs zl-qrows");
     const els: HTMLElement[] = [];
     rows.forEach((r, i) => {
-        const b = h(box, "button", "zl-fig zl-qrow zl-in" + (r.dim ? " is-dim" : ""));
+        const lc = r.chg ? limitCls(x.ctx.plugin.prices, r.k) : "";   // a Taiwan ticker at today's limit: the row in the up / down colour
+        const b = h(box, "button", "zl-fig zl-qrow zl-in" + (r.dim ? " is-dim" : "") + (lc ? ` ${lc}` : ""));
         b.style.setProperty("--i", String(i));
         b.dataset.k = r.k;
         // the owner's row (Layouts, Invest · Ticker row, zoomed, 2026-11-04): the ticker big on the left, shares / name beside it

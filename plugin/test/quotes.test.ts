@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { marketOpen, nextOpen, parseFugleQuote, parseTwse, parseTwseAll } from "../src/calc/quotes";
+import { limitOf, marketOpen, nextOpen, parseFugleQuote, parseTwse, parseTwseAll } from "../src/calc/quotes";
 import { dayChange } from "../src/calc/chart";
 
 const mis = (o: Record<string, string>) => ({ msgArray: [{ y: "50.0000", tlong: "1700000000000", ...o }] });
@@ -103,4 +103,20 @@ test("marketMinute: the US day bar a live quote patches is New York's day, so to
 test("marketTime: the source line's clock is the market's", () => {
     assert.equal(marketTime("AAPL", Date.UTC(2026, 10, 5, 18, 36, 15)), "13:36:15");
     assert.equal(marketTime("0050.TW", Date.UTC(2026, 10, 6, 3, 1, 2)), "11:01:02");
+});
+
+test("today's limit prices come from the exchange (MIS u / w, Fugle priceHighLimit / priceLowLimit)", () => {
+    const q = parseTwse(mis({ z: "110.0000", y: "100.0000", u: "110.0000", w: "90.1000", t: "10:00:00" }))!;
+    assert.equal(q.up, 110); assert.equal(q.down, 90.1);
+    const f = parseFugleQuote({ referencePrice: 100, lastTrade: { price: 90.1, time: 1 }, priceHighLimit: 110, priceLowLimit: 90.1 })!;
+    assert.equal(f.up, 110); assert.equal(f.down, 90.1);
+    assert.equal(parseTwse(mis({ z: "50.0000", y: "50.0000", t: "10:00:00" }))!.up, undefined);   // none sent: none kept
+});
+
+test("a row is at its limit only when the price meets the exchange's limit", () => {
+    assert.equal(limitOf({ price: 110, up: 110, down: 90.1 }), "up");
+    assert.equal(limitOf({ price: 90.1, up: 110, down: 90.1 }), "down");
+    assert.equal(limitOf({ price: 109.5, up: 110, down: 90.1 }), null);
+    assert.equal(limitOf({ price: 612.4 }), null);                     // a US quote: no limits, never tinted
+    assert.equal(limitOf(null), null);
 });

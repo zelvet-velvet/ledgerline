@@ -6,7 +6,7 @@ import { h, page } from "../ui";
 import { liveOf, price2 } from "../ui/chart";
 import { Flap } from "../ui/flap";
 import { dayChange } from "../calc/chart";
-import { closedInHours, isTwSym, nextOpen } from "../calc/quotes";
+import { closedInHours, isTwSym, nextOpen, limitOf } from "../calc/quotes";
 import type { PageCtx } from "./index";
 
 export const PLAN_KEY = "investment";   // the savings-plan line that feeds investing
@@ -153,6 +153,8 @@ export const chgOf = (x: X, tk: string, p?: Position): Chg => {
     const priced = p.price !== null, rp = p.cost > 0 ? (p.pl / p.cost) * 100 : 0;
     return { ...c, t: [priced ? pctS(rp) : "-", ...c.t, priced ? signed(p.pl) : "-"], hot: [p.pl < 0, ...c.hot, p.pl < 0], k: ["", ...c.k, t("chgProfit")]   /* return: no label (owner, 2026-11-05), its light tiles say it */, ret: [true, false, false, true] };
 };
+// a row's class while its Taiwan price sits at today's limit: the whole row in the up / down colour (css/c.css .is-limit-*)
+export const limitCls = (pr: X["ctx"]["plugin"]["prices"], tk: string): string => { const l = limitOf(pr.get(tk)); return l ? `is-limit-${l}` : ""; };
 export const lastOf = (x: X, tk: string): string => { const q = x.ctx.plugin.prices.get(tk); return q ? price2(Math.round(q.price * 100)) : "-"; };
 
 // 法人 flows are fetched for the holdings and the watchlist
