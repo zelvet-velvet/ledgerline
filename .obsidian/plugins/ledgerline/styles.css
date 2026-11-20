@@ -783,7 +783,7 @@ body.zl-calm.is-phone .modal.zl-sheet, body.zl-calm .modal-container:has(> .zl-s
 .zl-sheet .zl-words .zl-chip { flex: 1; }
 .zl-sheet .zl-words .zl-chip + .zl-chip { margin-left: -2px; }
 /* a choice of two or three in a sheet (BUY | SELL) is the boxed segment: one ink box split by rules, the chosen one inverted */
-.zl-sheet .zl-words:not(.zl-mpick-y) { border: 2px solid var(--zl-text); }
+.zl-sheet .zl-words:not(.zl-mpick-y) { gap: 0; border: 2px solid var(--zl-text); }   /* one box: no gap between its parts (the list gap of .zl-words left a strip) */
 .zl-sheet .zl-words:not(.zl-mpick-y) button.zl-chip { border: 0; margin: 0; }
 .zl-sheet .zl-words:not(.zl-mpick-y) button.zl-chip + button.zl-chip { border-left: 2px solid var(--zl-text); }
 .zl-sheet button.zl-chip { height: 40px; min-width: 44px; padding: 0 12px; border: 2px solid var(--zl-dim); border-radius: 0; background: none; box-shadow: none; color: var(--zl-text); font: 400 17px var(--zl-disp); letter-spacing: .04em; }
