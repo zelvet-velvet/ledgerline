@@ -44,6 +44,9 @@
     "invest-rules",
     "sheet-invest-single-stock-cap",
     "mock-limit-holdings-a",
-    "mock-limit-watch-a"
+    "mock-limit-watch-a",
+    "mock-limit-watch-c1",
+    "mock-limit-watch-c2",
+    "mock-limit-watch-c3"
   ]
 }
