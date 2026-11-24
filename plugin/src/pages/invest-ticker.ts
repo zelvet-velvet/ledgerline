@@ -2,7 +2,7 @@
 import { journalPath, minorOf, nextDca, Position, Trade } from "../calc/invest";
 import { num, shortDate, today } from "../format";
 import { t } from "../i18n";
-import { empty, h, page } from "../ui";
+import { adopt, empty, h, page } from "../ui";
 import { figures, sec, summary, tileGrid } from "../ui/c";
 import { holdingChart, liveOf, price2, shownTime } from "../ui/chart";
 import { Flap } from "../ui/flap";
@@ -121,7 +121,7 @@ export const chartBlock = (x: X, el: HTMLElement, tk: string, currency: string, 
     h(lt, "div", "zl-lastp-s" + (ch !== null && ch < 0 ? " is-hot" : ch !== null && ch > 0 ? " is-up" : ""), !td ? asOfText(q?.asOf ?? null) : t("iToday", { n: `${td.ch > 0 ? "+" : td.ch < 0 ? "\u2212" : ""}${price2(Math.abs(td.ch))}`, p: pctS(td.pct) }));
     let f = LAST.get(tk);
     if (!f) { f = new Flap("md"); LAST.set(tk, f); }
-    row.appendChild(f.el);
+    adopt(row, f.el);
     // no price yet (a first look at a ticker; owner, 2026-11-05: the top sat empty while it loaded): dark blank tiles with a
     // light running across them, the lines under the label dim bars; the first quote flips the tiles to the price
     let loading = lastP === null;

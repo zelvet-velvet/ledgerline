@@ -1,5 +1,5 @@
 import { t } from "../i18n";
-import { h } from "./index";
+import { adopt, h } from "./index";
 import { Flap } from "./flap";
 import { FlipDot } from "./flipdot";
 import { calm, rowSprite, sprite } from "./pixel";
@@ -69,7 +69,7 @@ export const board = (parent: HTMLElement, key: string, text: string, dir = 1): 
     const wrap = h(parent, "div", "zl-boardwrap");
     const flap = document.body.hasClass("zl-bigflap"), id = (flap ? "f:" : "d:") + key;
     let b = BOARDS.get(id);
-    if (!b) { b = flap ? new FlapBoard(wrap) : new FlipDot(wrap); BOARDS.set(id, b); } else wrap.appendChild(b.el);
+    if (!b) { b = flap ? new FlapBoard(wrap) : new FlipDot(wrap); BOARDS.set(id, b); } else adopt(wrap, b.el);
     b.set(text, dir);   // a live tick too: the same left-to-right sweep (FlipDot.set)
     return b;
 };
@@ -132,7 +132,7 @@ export const reads = (parent: HTMLElement, list: [string, string, string, ReadX?
         let f = FLAPS.get(id);
         // a number is a fixed row of 5 tiles (more when it needs them), the unused ones dark blanks; words ("NOV 16") are not padded, their space is a blank tile
         if (!f) { f = new Flap("md", /^[+\-\u2212]?[\d,]+$/.test(value) ? 5 : 0); FLAPS.set(id, f); }
-        r.appendChild(f.el);
+        adopt(r, f.el);
         f.set(value.replace(/ /g, "\u00a0"));   // a space inside a word ("AUG 27") is a blank tile, not a gap (owner)
         f.el.toggleClass("is-up", x?.tone === "up"); f.el.toggleClass("is-down", x?.tone === "down");
     }
@@ -361,7 +361,7 @@ export const summary = (parent: HTMLElement, o: { key?: string; label: string; v
     let f = SUMS.get(id);
     if (!f) { f = new Flap(size); SUMS.set(id, f); }
     const box = h(g, "div", "zl-sum-flap" + (o.hot ? " is-hot" : "") + (o.dim ? " is-dim" : ""));
-    box.appendChild(f.el);
+    adopt(box, f.el);
     f.set(o.value);
     if (o.items?.length) {
         const r = h(g, "div", "zl-sum-items");
