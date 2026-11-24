@@ -1502,6 +1502,13 @@ var nextOpen = (symbol, now, cal) => {
   }
   return null;
 };
+var keepQuote = (symbol, was, x) => {
+  const q = { ...x, closes: x.closes?.length ? x.closes : was?.closes };
+  const day = (t2) => t2 ? marketClock(symbol, new Date(t2)).day : "";
+  if (!x.ref || !was || was.ref || !(was.price > 0) || !was.asOf || day(was.asOf) !== day(x.asOf)) return q;
+  const { ref: _ref, ...kept } = q;
+  return { ...kept, price: was.price, asOf: was.asOf, source: was.source };
+};
 var limitOf = (q) => !q || !(q.price > 0) ? null : q.up !== void 0 && q.up > 0 && q.price >= q.up - 1e-9 ? "up" : q.down !== void 0 && q.down > 0 && q.price <= q.down + 1e-9 ? "down" : null;
 var parseTwseAll = (json) => {
   const out = {};
@@ -1515,13 +1522,14 @@ var parseTwse = (json) => {
   const a = json?.msgArray?.[0];
   if (!a) return null;
   const best = (x) => Number(String(x ?? "").split("_")[0]);
-  const last = Number(a.z), prev = Number(a.y), bid = best(a.b), ask = best(a.a), up = Number(a.u), down = Number(a.w);
+  const open2 = String(a.t ?? "") >= "09:00:00";
+  const last = Number(a.z) > 0 ? Number(a.z) : open2 && Number(a.pz) > 0 ? Number(a.pz) : 0, prev = Number(a.y), bid = best(a.b), ask = best(a.a), up = Number(a.u), down = Number(a.w);
   const book = bid > 0 && ask > 0 ? Math.round((bid + ask) / 2 * 100) / 100 : bid > 0 ? bid : ask > 0 ? ask : 0;
-  const price = last > 0 ? last : String(a.t ?? "") >= "09:00:00" && book > 0 ? book : prev;
+  const price = last > 0 ? last : open2 && book > 0 ? book : prev, ref = !(last > 0) && !(open2 && book > 0);
   if (!(price > 0)) return null;
   const at = Number(a.tlong);
   const lots3 = Number(a.v);
-  return { price, time: Date.now(), asOf: at > 0 ? at : Date.now(), source: "twse", ...prev > 0 ? { prev } : {}, ...up > 0 ? { up } : {}, ...down > 0 ? { down } : {}, ...lots3 >= 0 && String(a.v ?? "") !== "" && !isNaN(lots3) ? { vol: lots3 * 1e3 } : {} };
+  return { price, time: Date.now(), asOf: at > 0 ? at : Date.now(), source: "twse", ...ref ? { ref } : {}, ...prev > 0 ? { prev } : {}, ...up > 0 ? { up } : {}, ...down > 0 ? { down } : {}, ...lots3 >= 0 && String(a.v ?? "") !== "" && !isNaN(lots3) ? { vol: lots3 * 1e3 } : {} };
 };
 var parseFugleQuote = (json) => {
   const j = json;
@@ -1531,7 +1539,7 @@ var parseFugleQuote = (json) => {
   if (!(price > 0)) return null;
   const us = Number(j.lastTrade?.time) || Number(j.closeTime) || Number(j.lastUpdated) || 0;
   const up = Number(j.priceHighLimit) || 0, down = Number(j.priceLowLimit) || 0;
-  return { price, time: Date.now(), asOf: us > 0 ? Math.round(us / 1e3) : Date.now(), source: "fugle", ...prev > 0 ? { prev } : {}, ...up > 0 ? { up } : {}, ...down > 0 ? { down } : {} };
+  return { price, time: Date.now(), asOf: us > 0 ? Math.round(us / 1e3) : Date.now(), source: "fugle", ...last > 0 ? {} : { ref: true }, ...prev > 0 ? { prev } : {}, ...up > 0 ? { up } : {}, ...down > 0 ? { down } : {} };
 };
 
 // src/prices/index.ts
@@ -1804,7 +1812,7 @@ var Prices = class {
     due.forEach((s2) => this.busy.add(s2));
     void Promise.all(due.map((s2) => this.ask(s2).then(([k, x]) => {
       if (x) {
-        this.q[k] = { ...x, closes: x.closes?.length ? x.closes : this.q[k]?.closes };
+        this.q[k] = keepQuote(k, this.q[k], x);
         this.bad.delete(s2);
         this.bad.delete(k);
         return 1;
@@ -1977,7 +1985,7 @@ var Prices = class {
     if (!s2) return;
     const was = this.q[s2];
     if (was?.asOf && ms < was.asOf) return;
-    this.q[s2] = { ...was, price, asOf: ms, time: Date.now(), source: "fugle" };
+    this.q[s2] = { ...was, price, asOf: ms, time: Date.now(), source: "fugle", ref: void 0 };
     this.t[s2] = addTick(this.t[s2], marketMinute(s2, ms), Math.round(price * 100));
     if (this.pend.has(s2)) return;
     this.pend.add(s2);
@@ -2006,7 +2014,7 @@ var Prices = class {
   // a fresh quote kept (memory only: the 10-minute refresh stores quotes); listeners hear when anything changed; true = the price moved
   apply(s2, x) {
     const was = this.q[s2];
-    this.q[s2] = { ...x, closes: x.closes?.length ? x.closes : was?.closes };
+    x = this.q[s2] = keepQuote(s2, was, x);
     if (was && was.price === x.price && was.asOf === x.asOf) {
       if (was.vol !== void 0 && x.vol === void 0) this.q[s2].vol = was.vol;
       return false;
