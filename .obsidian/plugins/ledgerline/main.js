@@ -541,8 +541,9 @@ var buildPortfolio = (fm, price, fx, today3 = "", base2 = "TWD") => {
     return { key, label, target, value: v, pct: pct2, drift: pct2 - target };
   });
   const sum = (k) => positions.reduce((s2, p) => s2 + p[k], 0);
+  positions.sort((a, b) => b.value - a.value);
   return {
-    positions: positions.sort((a, b) => b.value - a.value),
+    positions,
     buckets,
     value,
     cost: sum("cost"),
@@ -553,9 +554,10 @@ var buildPortfolio = (fm, price, fx, today3 = "", base2 = "TWD") => {
     priced: positions.every((p) => p.q <= 0 || p.price !== null && !p.fxMissing),
     missing: positions.filter((p) => p.q > 0 && (p.price === null || p.fxMissing)).map((p) => p.ticker),
     threshold: num2(fm?.rebalance_threshold) || 5,
-    watch: arr(fm?.watchlist).map((w) => String(w.ticker ?? "").toUpperCase()).filter(Boolean)
+    watch: watchOf(arr(fm?.watchlist).map((w) => String(w.ticker ?? "")), positions)
   };
 };
+var watchOf = (written, positions) => [...new Set([...written, ...positions.filter((p) => p.q > 0).map((p) => p.ticker)].map((t2) => t2.trim().toUpperCase()).filter(Boolean))];
 var tradeLinks = (P, entries) => P.positions.flatMap((p) => p.trades.map((t2) => {
   const own = entries.filter((e) => e.trade === t2.id), booked = own.reduce((s2, e) => s2 + e.amount, 0);
   return { id: t2.id, ticker: p.ticker, cash: t2.cash, booked, diff: t2.pending && !own.length ? 0 : booked - t2.cash, pending: t2.pending };
@@ -3026,6 +3028,7 @@ var en = {
   iWatchAdd: "Watch",
   iWatchRemove: "Stop watching",
   iWatchRemoveQ: "Remove {tk} from the watchlist?",
+  iWatchHeld: "You hold {tk}: it stays in the watchlist while you do.",
   iFind: "Find a ticker",
   iFindGo: "Show chart",
   iWatching: "On the watchlist",
@@ -8547,7 +8550,7 @@ var lastOf = (x, tk) => {
   const q = x.ctx.plugin.prices.get(tk);
   return q ? price2(Math.round(q.price * 100)) : "-";
 };
-var flowTickers = (P) => [...P.positions.filter((p) => p.shares > 0).map((p) => p.ticker), ...P.watch];
+var flowTickers = (P) => [.../* @__PURE__ */ new Set([...P.positions.filter((p) => p.shares > 0).map((p) => p.ticker), ...P.watch])];
 var openKey = (x, tk) => x.P.positions.some((p) => p.ticker === tk && p.shares > 0) ? { key: "asset:" + tk, title: tk } : { key: "chart:" + tk, title: tk };
 var guessCur = (sym) => isTwSym(sym) ? "TWD" : "USD";
 var warnText = (w) => w.rule === "cap" ? t("iWarnCap", { tk: w.key, n: num(w.over) }) : w.rule === "mix" ? t(w.over > 0 ? "iWarnMixOver" : "iWarnMixUnder", { b: w.key, n: Math.abs(w.over) }) : t("iWarnReason", { tk: w.key });
@@ -11022,6 +11025,10 @@ var investPage = {
       });
     }, t("sWatchWhat"));
     const dropWatch = async (tk) => {
+      if (xs.P.positions.some((p) => p.ticker.toUpperCase() === tk && p.q > 0)) {
+        toast(t("iWatchHeld", { tk }));
+        return;
+      }
       if (!await confirmSheet(ctx.app, t("iWatchRemove"), t("iWatchRemoveQ", { tk }), t("remove"))) return;
       await store.update(CFG, (f) => {
         f.watchlist = list3(f.watchlist).filter((w) => String(w.ticker ?? "").toUpperCase() !== tk);
@@ -11041,7 +11048,8 @@ var investPage = {
     const moveWatch = async (order) => {
       const set = new Set(order), tkOf = (w) => String(w.ticker ?? "").toUpperCase();
       await store.update(CFG, (f) => {
-        const ws = list3(f.watchlist), by = new Map(ws.map((w) => [tkOf(w), w]));
+        const had = list3(f.watchlist), known = new Set(had.map(tkOf));
+        const ws = [...had, ...order.filter((tk) => !known.has(tk)).map((tk) => ({ ticker: tk }))], by = new Map(ws.map((w) => [tkOf(w), w]));
         let i = 0;
         f.watchlist = ws.map((w) => set.has(tkOf(w)) ? by.get(order[i++]) ?? w : w);
       });

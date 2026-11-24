@@ -158,7 +158,7 @@ export const limitCls = (pr: X["ctx"]["plugin"]["prices"], tk: string): string =
 export const lastOf = (x: X, tk: string): string => { const q = x.ctx.plugin.prices.get(tk); return q ? price2(Math.round(q.price * 100)) : "-"; };
 
 // 法人 flows are fetched for the holdings and the watchlist
-export const flowTickers = (P: Portfolio): string[] => [...P.positions.filter((p) => p.shares > 0).map((p) => p.ticker), ...P.watch];
+export const flowTickers = (P: Portfolio): string[] => [...new Set([...P.positions.filter((p) => p.shares > 0).map((p) => p.ticker), ...P.watch])];
 // a ticker's page from a list: a holding opens its holding page (shares, cost, trades), any other ticker its chart
 export const openKey = (x: X, tk: string) => (x.P.positions.some((p) => p.ticker === tk && p.shares > 0) ? { key: "asset:" + tk, title: tk } : { key: "chart:" + tk, title: tk });
 // the currency a looked-up ticker trades in (a holding knows its own): Taiwan listings TWD, the rest USD

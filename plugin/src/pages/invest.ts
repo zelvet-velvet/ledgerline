@@ -257,6 +257,8 @@ export const investPage: PageDef = {
             void store.update(CFG, (f) => { f.watchlist = [...list(f.watchlist), { ticker: tk }]; });
         }, t("sWatchWhat"));
         const dropWatch = async (tk: string) => {
+            // a holding is in the watchlist while it has shares (calc/invest.ts watchOf): nothing to remove
+            if (xs.P.positions.some((p) => p.ticker.toUpperCase() === tk && p.q > 0)) { toast(t("iWatchHeld", { tk })); return; }
             if (!(await confirmSheet(ctx.app, t("iWatchRemove"), t("iWatchRemoveQ", { tk }), t("remove")))) return;
             await store.update(CFG, (f) => { f.watchlist = list(f.watchlist).filter((w) => String(w.ticker ?? "").toUpperCase() !== tk); });
         };
@@ -276,11 +278,13 @@ export const investPage: PageDef = {
             });
         };
         // a new order for some watched tickers (a drag in MANUAL): they take the places they held, in the given order, so the
-        // other market's tickers stay where they are in the note
+        // other market's tickers stay where they are in the note. A holding shown but not written (watchOf) is written at the
+        // end first: a dragged order is kept in the note (else its place went to a written one twice)
         const moveWatch = async (order: string[]) => {
             const set = new Set(order), tkOf = (w: Record<string, unknown>) => String(w.ticker ?? "").toUpperCase();
             await store.update(CFG, (f) => {
-                const ws = list(f.watchlist), by = new Map(ws.map((w) => [tkOf(w), w]));
+                const had = list(f.watchlist), known = new Set(had.map(tkOf));
+                const ws = [...had, ...order.filter((tk) => !known.has(tk)).map((tk) => ({ ticker: tk }))], by = new Map(ws.map((w) => [tkOf(w), w]));
                 let i = 0;
                 f.watchlist = ws.map((w) => (set.has(tkOf(w)) ? by.get(order[i++]) ?? w : w));
             });

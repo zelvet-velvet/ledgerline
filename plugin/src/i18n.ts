@@ -594,6 +594,7 @@ const en = {
     iWatchAdd: "Watch",
     iWatchRemove: "Stop watching",
     iWatchRemoveQ: "Remove {tk} from the watchlist?",
+    iWatchHeld: "You hold {tk}: it stays in the watchlist while you do.",
     iFind: "Find a ticker",
     iFindGo: "Show chart",
     iWatching: "On the watchlist",
