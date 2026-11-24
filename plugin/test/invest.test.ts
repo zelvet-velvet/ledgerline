@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildAccounts } from "../src/calc/accounts";
-import { addTradingDays, autoFee, autoTax, buildPortfolio, legacyFields, tradeTotal, tickOf, capOf, checkRules, grossOf, investCash, newWarnings, readJournal, newTradeId, nextDca, syncEntries, toBase, toP, toQ, tradeLinks, unbooked, cashAccountOf, guessCategory, capRule, stockBase } from "../src/calc/invest";
+import { addTradingDays, autoFee, autoTax, buildPortfolio, legacyFields, tradeTotal, tickOf, capOf, checkRules, grossOf, investCash, newWarnings, readJournal, newTradeId, nextDca, syncEntries, toBase, toP, toQ, tradeLinks, unbooked, cashAccountOf, guessCategory, capRule, stockBase, watchOf } from "../src/calc/invest";
 
 const noPrice = () => null;
 const usd = (c: string) => (c === "USD" ? 32 : 1);
@@ -370,4 +370,21 @@ test("a share cap stays put through a buy: the money moves from stock cash to st
     assert.equal(capRule({ single_stock_cap: "40%" }, b0.cash, b0.cost).amount, capRule({ single_stock_cap: "40%" }, b1.cash, b1.cost).amount);
     // ETFs are not in the stock bucket's cost
     assert.equal(stockBase(one([{ ticker: "0050", category: "etf", transactions: [{ type: "BUY", shares: 1, price: 100, date: "2026-11-01" }] }]), []).cost, 0);
+});
+
+test("the watchlist: the written order first, then holdings not written (largest first), each once; sold to 0 drops out", () => {
+    const P = buildPortfolio({
+        watchlist: [{ ticker: "2330" }, { ticker: "voo" }, { ticker: "0050" }],
+        assets: [
+            { ticker: "0050", transactions: [{ type: "BUY", shares: 100, price: 150, date: "2026-11-02" }] },
+            { ticker: "2454", transactions: [{ type: "BUY", shares: 10, price: 1200, date: "2026-11-03" }] },
+            { ticker: "00679B", transactions: [{ type: "BUY", shares: 200, price: 26, date: "2026-11-03" }] },
+            { ticker: "2317", transactions: [{ type: "BUY", shares: 10, price: 200, date: "2026-11-02" }, { type: "SELL", shares: 10, price: 210, date: "2026-11-05" }] },
+        ],
+    }, noPrice, usd, "");
+    assert.deepEqual(P.watch, ["2330", "VOO", "0050", "2454", "00679B"]);   // 2454 (12,000 at cost) before 00679B (5,200); 2317 sold to 0
+});
+test("watchOf: no watchlist written = the holdings; nothing held = the written list", () => {
+    assert.deepEqual(watchOf([], [{ ticker: "0050", q: 10000 }, { ticker: "2317", q: 0 }]), ["0050"]);
+    assert.deepEqual(watchOf(["qqq", " 2330 ", ""], []), ["QQQ", "2330"]);
 });

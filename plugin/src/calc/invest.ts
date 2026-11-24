@@ -120,13 +120,19 @@ export const buildPortfolio = (fm: FM | null, price: (t: string) => number | nul
         return { key, label, target, value: v, pct, drift: pct - target };
     });
     const sum = (k: "cost" | "pl" | "realized" | "fees" | "bought") => positions.reduce((s, p) => s + p[k], 0);
+    positions.sort((a, b) => b.value - a.value);
     return {
-        positions: positions.sort((a, b) => b.value - a.value), buckets, value,
+        positions, buckets, value,
         cost: sum("cost"), pl: sum("pl"), realized: sum("realized"), fees: sum("fees"), bought: sum("bought"),
         priced: positions.every((p) => p.q <= 0 || (p.price !== null && !p.fxMissing)), missing: positions.filter((p) => p.q > 0 && (p.price === null || p.fxMissing)).map((p) => p.ticker), threshold: num(fm?.rebalance_threshold) || 5,
-        watch: arr(fm?.watchlist).map((w) => String(w.ticker ?? "").toUpperCase()).filter(Boolean),
+        watch: watchOf(arr(fm?.watchlist).map((w) => String(w.ticker ?? "")), positions),
     };
 };
+// the watchlist every page shows (#17, 2026-11-24: a buy logged from the phone was missing from it): the tickers written in
+// `watchlist:` in their order, then every holding with shares not written there (largest first, as Holdings), each once.
+// The note keeps only what was written; a holding sold to 0 stays only if it is written there.
+export const watchOf = (written: string[], positions: Pick<Position, "ticker" | "q">[]): string[] =>
+    [...new Set([...written, ...positions.filter((p) => p.q > 0).map((p) => p.ticker)].map((t) => t.trim().toUpperCase()).filter(Boolean))];
 
 // Trades against the Accounts entries that name them (`trade: <id>`): booked = sum of those entries (buy + fee …),
 // diff = booked − cash (0 = the books agree). A pending trade with nothing booked yet is not a mismatch.
