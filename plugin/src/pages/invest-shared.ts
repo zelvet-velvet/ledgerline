@@ -2,7 +2,7 @@
 import { Warning, Thought, Portfolio, Position, Trade, revalue } from "../calc/invest";
 import { num, today } from "../format";
 import { t } from "../i18n";
-import { h, page } from "../ui";
+import { adopt, h, page } from "../ui";
 import { liveOf, price2 } from "../ui/chart";
 import { Flap } from "../ui/flap";
 import { dayChange } from "../calc/chart";
@@ -86,7 +86,7 @@ export const chgEl = (x: X, parent: HTMLElement, c: Chg, cls: string, key: strin
     h(e, "span", "zl-chg-k");
     let f = CHG_FLAPS.get(key);
     if (!f) { f = new Flap("xs"); CHG_FLAPS.set(key, f); }
-    e.appendChild(f.el);
+    adopt(e, f.el);
     const o = { c, f };
     CHGS.set(e, o);
     paintChg(e, chgMode(x));

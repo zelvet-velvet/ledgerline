@@ -4258,6 +4258,14 @@ var h = (parent, tag, cls, text2) => {
   parent?.appendChild(e);
   return e;
 };
+var adopt = (parent, el2) => {
+  if (el2.isConnected && el2.parentElement !== parent) {
+    const still = el2.cloneNode(true);
+    if (el2 instanceof HTMLCanvasElement && still instanceof HTMLCanvasElement) still.getContext("2d")?.drawImage(el2, 0, 0);
+    el2.replaceWith(still);
+  }
+  parent.appendChild(el2);
+};
 var CJK = /[\u2e80-\u9fff\uf900-\ufaff\uff00-\uffef]+/g;
 var titleText = (el2, text2) => {
   el2.empty();
@@ -6160,7 +6168,7 @@ var board = (parent, key, text2, dir = 1) => {
   if (!b) {
     b = flap2 ? new FlapBoard(wrap) : new FlipDot(wrap);
     BOARDS.set(id, b);
-  } else wrap.appendChild(b.el);
+  } else adopt(wrap, b.el);
   b.set(text2, dir);
   return b;
 };
@@ -6234,7 +6242,7 @@ var reads = (parent, list5) => {
       f = new Flap("md", /^[+\-\u2212]?[\d,]+$/.test(value) ? 5 : 0);
       FLAPS.set(id, f);
     }
-    r.appendChild(f.el);
+    adopt(r, f.el);
     f.set(value.replace(/ /g, "\xA0"));
     f.el.toggleClass("is-up", x?.tone === "up");
     f.el.toggleClass("is-down", x?.tone === "down");
@@ -6452,7 +6460,7 @@ var summary = (parent, o) => {
     SUMS.set(id, f);
   }
   const box = h(g, "div", "zl-sum-flap" + (o.hot ? " is-hot" : "") + (o.dim ? " is-dim" : ""));
-  box.appendChild(f.el);
+  adopt(box, f.el);
   f.set(o.value);
   if (o.items?.length) {
     const r = h(g, "div", "zl-sum-items");
@@ -8445,7 +8453,7 @@ var chgEl = (x, parent, c, cls, key) => {
     f = new Flap("xs");
     CHG_FLAPS.set(key, f);
   }
-  e.appendChild(f.el);
+  adopt(e, f.el);
   const o = { c, f };
   CHGS.set(e, o);
   paintChg(e, chgMode(x));
@@ -10216,7 +10224,7 @@ var chartBlock = (x, el2, tk, currency, cost) => {
     f = new Flap("md");
     LAST.set(tk, f);
   }
-  row2.appendChild(f.el);
+  adopt(row2, f.el);
   let loading = lastP === null;
   f.set(lastP !== null ? price2(lastP) : "\xA0".repeat(6));
   const flap2 = f, todayEl = lt.lastElementChild;

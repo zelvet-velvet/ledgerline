@@ -9,6 +9,17 @@ export const h = <K extends keyof HTMLElementTagNameMap>(parent: HTMLElement | n
     parent?.appendChild(e);
     return e;
 };
+// a part kept across redraws (a split-flap, a board) moves into the page being built; when it is still on the page on screen,
+// a still copy takes its place there, so that page keeps its shape until the new one replaces it (#19, 2026-11-24: on every
+// live price the old list lost its change flaps, grew shorter, and the browser pulled the scroll up before the redraw)
+export const adopt = (parent: HTMLElement, el: HTMLElement): void => {
+    if (el.isConnected && el.parentElement !== parent) {
+        const still = el.cloneNode(true) as HTMLElement;
+        if (el instanceof HTMLCanvasElement && still instanceof HTMLCanvasElement) still.getContext("2d")?.drawImage(el, 0, 0);
+        el.replaceWith(still);
+    }
+    parent.appendChild(el);
+};
 
 // Display titles (Anton has no Chinese): runs of CJK characters go in their own span (zl-cjk), set in a heavy CJK face at
 // Anton's height, so "0050 自營商" reads as one title (owner, 2026-11-04)
