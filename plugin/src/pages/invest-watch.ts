@@ -12,7 +12,7 @@ export const qrows = (x: X, parent: HTMLElement, list: string, rows: { icon: str
     const box = h(parent, "div", "zl-figs zl-qrows");
     const els: HTMLElement[] = [];
     rows.forEach((r, i) => {
-        const lc = r.chg ? limitCls(x.ctx.plugin.prices, r.k) : "";   // a Taiwan ticker at today's limit: the row in the up / down colour
+        const lc = r.chg ? limitCls(x.ctx.plugin.prices, r.k) : "";   // a Taiwan ticker at today's limit: an edge bar and the price in the up / down colour
         const b = h(box, "button", "zl-fig zl-qrow zl-in" + (r.dim ? " is-dim" : "") + (lc ? ` ${lc}` : ""));
         b.style.setProperty("--i", String(i));
         b.dataset.k = r.k;

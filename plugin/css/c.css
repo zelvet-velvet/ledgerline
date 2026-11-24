@@ -1471,14 +1471,12 @@ body.zl-calm .zl-lastp.is-loading .zl-flap .t, body.zl-calm .zl-lastp.is-loading
    new page sliding in (owner, 2026-11-18: the page enter transition was bad). */
 .zl-app .zl-scroll { position: relative; z-index: 1; isolation: isolate; }
 
-/* a Taiwan row at today's limit (owner picked Vellum "Holdings · limit rows A", 2026-11-20): the whole row, edge to edge, in
-   the up / down colour; its words in the page colour, which reads at 5 : 1 or more on every fill (dark ink on the dark theme's
-   bright colours, light ink on the light theme's deep ones); the split-flap cards keep their own look. Green up on the light
-   theme takes a deeper red for limit down (#C9503B gives 3.7 : 1, #A8402E 5.0 : 1). */
-.zl-app .zl-fig:is(.zl-hrow, .zl-qrow):is(.is-limit-up, .is-limit-down) { width: calc(100% + 32px); margin: 0 -16px; padding-left: 16px; padding-right: 16px; border-bottom-color: transparent; }
-.zl-app .zl-fig:is(.zl-hrow, .zl-qrow).is-limit-up { background: var(--zl-limit-up, var(--zl-up)); }
-.zl-app .zl-fig:is(.zl-hrow, .zl-qrow).is-limit-down { background: var(--zl-limit-down, var(--zl-down)); }
-body:not(.zl-red-up):not(.theme-dark) .zl-app:not(.theme-dark) { --zl-limit-down: #A8402E; }
-.zl-app .zl-fig:is(.is-limit-up, .is-limit-down) > :not(.zl-hrow-r):not(.zl-qrow-c),
-.zl-app .zl-fig:is(.is-limit-up, .is-limit-down) > :not(.zl-hrow-r):not(.zl-qrow-c) * { color: var(--zl-paper) !important; }
-.zl-app .zl-fig:is(.is-limit-up, .is-limit-down) .zl-chg-k { color: var(--zl-paper) !important; }   /* the change's small label (TODAY), not its cards */
+/* a Taiwan row at today's limit (owner picked Vellum "Watchlist · limit rows C1", 2026-11-24, #18; was the whole row filled,
+   too heavy on the phone): a 4 px bar in the up / down colour at the screen's left edge and the last price in that colour; the
+   rest of the row and the split-flap cards as on any row. The bar is drawn outside the row, in the page's 16 px margin, so
+   the row and its rule keep their width. Text in --zl-up / --zl-down, the same tokens every change line uses. */
+.zl-app .zl-fig:is(.zl-hrow, .zl-qrow):is(.is-limit-up, .is-limit-down) { position: relative; }
+.zl-app .zl-fig:is(.zl-hrow, .zl-qrow):is(.is-limit-up, .is-limit-down)::before { content: ""; position: absolute; left: -16px; top: 0; bottom: -1px; width: 4px; background: var(--zl-up); pointer-events: none; }
+.zl-app .zl-fig:is(.zl-hrow, .zl-qrow).is-limit-down::before { background: var(--zl-down); }
+.zl-app .zl-fig.is-limit-up :is(.zl-hrow-p, .zl-qrow-v) { color: var(--zl-up); }
+.zl-app .zl-fig.is-limit-down :is(.zl-hrow-p, .zl-qrow-v) { color: var(--zl-down); }
