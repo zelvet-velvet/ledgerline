@@ -68,7 +68,18 @@ export const nextOpen = (symbol: string, now: Date, cal?: Cal): Date | null => {
     return null;
 };
 
-export interface Quote { price: number; time: number; closes?: number[]; asOf?: number; source?: string; prev?: number; vol?: number; up?: number; down?: number }   // vol: the day's shares so far (TWSE MIS); up / down: today's limit prices (Taiwan)
+export interface Quote { price: number; time: number; closes?: number[]; asOf?: number; source?: string; prev?: number; vol?: number; up?: number; down?: number; ref?: boolean }   // vol: the day's shares so far (TWSE MIS); up / down: today's limit prices (Taiwan); ref: no trade in this answer, the price is only the reference price
+
+// a fresh answer over the quote kept (prices/index.ts: refresh, the background poll): its chart closes kept when it has none,
+// and a bare reference price (ref) never replaces a price the same market day has traded at (#16, 2026-11-23: a stock locked
+// at limit-up flipped between 990 from Fugle and 900, the reference price, from a MIS snapshot with no trade and an empty book)
+export const keepQuote = (symbol: string, was: Quote | undefined, x: Quote): Quote => {
+    const q: Quote = { ...x, closes: x.closes?.length ? x.closes : was?.closes };
+    const day = (t?: number) => (t ? marketClock(symbol, new Date(t)).day : "");
+    if (!x.ref || !was || was.ref || !(was.price > 0) || !was.asOf || day(was.asOf) !== day(x.asOf)) return q;
+    const { ref: _ref, ...kept } = q;
+    return { ...kept, price: was.price, asOf: was.asOf, source: was.source };
+};
 
 // a Taiwan price at today's limit (owner, 2026-11-20: the row tinted whole in the up / down colour): the exchange's own limit
 // prices (MIS u / w, Fugle priceHighLimit / priceLowLimit), never worked out here; none known (a US quote): null
@@ -76,8 +87,10 @@ export const limitOf = (q: Pick<Quote, "price" | "up" | "down"> | null | undefin
     !q || !(q.price > 0) ? null : q.up !== undefined && q.up > 0 && q.price >= q.up - 1e-9 ? "up" : q.down !== undefined && q.down > 0 && q.price <= q.down + 1e-9 ? "down" : null;
 
 // The Taiwan exchange's own quote service (mis.twse.com.tw). Its last trade `z` is "-" in
-// most 5-second snapshots, also mid-session (checked 2026-11-05: 0050 traded all morning, z "-"): then, from 09:00, the middle
-// of the best bid and ask (b / a, "98.05_98.00_…"); before the open, yesterday's close `y` (the pre-open book is a trial).
+// most 5-second snapshots, also mid-session (checked 2026-11-05: 0050 traded all morning, z "-"): then, from 09:00, the last
+// trade before it `pz` (as parseMisIndex in calc/market.ts), else the middle of the best bid and ask (b / a, "98.05_98.00_…"; a
+// stock locked at limit-up has bids at `u` and no ask: the bid, the limit); else yesterday's close `y`, marked ref (keepQuote
+// does not let it replace today's price). Before the open only `z` or `y` (the pre-open book is a trial).
 // many tickers in one answer (`ex_ch=tse_0050.tw|tse_2330.tw`): code → quote
 export const parseTwseAll = (json: unknown): Record<string, Quote> => {
     const out: Record<string, Quote> = {};
@@ -91,16 +104,17 @@ export const parseTwse = (json: unknown): Quote | null => {
     const a = (json as { msgArray?: Record<string, string>[] })?.msgArray?.[0];
     if (!a) return null;
     const best = (x?: string) => Number(String(x ?? "").split("_")[0]);
-    const last = Number(a.z), prev = Number(a.y), bid = best(a.b), ask = best(a.a), up = Number(a.u), down = Number(a.w);   // u / w: today's limit prices
+    const open = String(a.t ?? "") >= "09:00:00";
+    const last = Number(a.z) > 0 ? Number(a.z) : open && Number(a.pz) > 0 ? Number(a.pz) : 0, prev = Number(a.y), bid = best(a.b), ask = best(a.a), up = Number(a.u), down = Number(a.w);   // u / w: today's limit prices
     const book = bid > 0 && ask > 0 ? Math.round(((bid + ask) / 2) * 100) / 100 : bid > 0 ? bid : ask > 0 ? ask : 0;
-    const price = last > 0 ? last : String(a.t ?? "") >= "09:00:00" && book > 0 ? book : prev;
+    const price = last > 0 ? last : open && book > 0 ? book : prev, ref = !(last > 0) && !(open && book > 0);
     if (!(price > 0)) return null;
     const at = Number(a.tlong);
     const lots = Number(a.v);   // the day's lots so far (1 lot = 1,000 shares): live minute volume (prices/index.ts apply)
-    return { price, time: Date.now(), asOf: at > 0 ? at : Date.now(), source: "twse", ...(prev > 0 ? { prev } : {}), ...(up > 0 ? { up } : {}), ...(down > 0 ? { down } : {}), ...(lots >= 0 && String(a.v ?? "") !== "" && !isNaN(lots) ? { vol: lots * 1000 } : {}) };
+    return { price, time: Date.now(), asOf: at > 0 ? at : Date.now(), source: "twse", ...(ref ? { ref } : {}), ...(prev > 0 ? { prev } : {}), ...(up > 0 ? { up } : {}), ...(down > 0 ? { down } : {}), ...(lots >= 0 && String(a.v ?? "") !== "" && !isNaN(lots) ? { vol: lots * 1000 } : {}) };
 };
 // Fugle's intraday quote: the last real trade (closePrice; lastPrice also counts trial matching), else before the first trade
-// the reference price; prev = the reference price (yesterday's close, ex-dividend adjusted); times in microseconds
+// the reference price (marked ref); prev = the reference price (yesterday's close, ex-dividend adjusted); times in microseconds
 export const parseFugleQuote = (json: unknown): Quote | null => {
     const j = json as { referencePrice?: number; previousClose?: number; closePrice?: number; closeTime?: number; lastUpdated?: number; lastTrade?: { price?: number; time?: number }; priceHighLimit?: number; priceLowLimit?: number };
     if (!j) return null;
@@ -109,5 +123,5 @@ export const parseFugleQuote = (json: unknown): Quote | null => {
     if (!(price > 0)) return null;
     const us = Number(j.lastTrade?.time) || Number(j.closeTime) || Number(j.lastUpdated) || 0;
     const up = Number(j.priceHighLimit) || 0, down = Number(j.priceLowLimit) || 0;
-    return { price, time: Date.now(), asOf: us > 0 ? Math.round(us / 1000) : Date.now(), source: "fugle", ...(prev > 0 ? { prev } : {}), ...(up > 0 ? { up } : {}), ...(down > 0 ? { down } : {}) };
+    return { price, time: Date.now(), asOf: us > 0 ? Math.round(us / 1000) : Date.now(), source: "fugle", ...(last > 0 ? {} : { ref: true }), ...(prev > 0 ? { prev } : {}), ...(up > 0 ? { up } : {}), ...(down > 0 ? { down } : {}) };
 };

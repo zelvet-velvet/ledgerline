@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { limitOf, marketOpen, nextOpen, parseFugleQuote, parseTwse, parseTwseAll } from "../src/calc/quotes";
+import { keepQuote, limitOf, marketOpen, nextOpen, parseFugleQuote, parseTwse, parseTwseAll } from "../src/calc/quotes";
 import { dayChange } from "../src/calc/chart";
 
 const mis = (o: Record<string, string>) => ({ msgArray: [{ y: "50.0000", tlong: "1700000000000", ...o }] });
@@ -119,4 +119,38 @@ test("a row is at its limit only when the price meets the exchange's limit", () 
     assert.equal(limitOf({ price: 109.5, up: 110, down: 90.1 }), null);
     assert.equal(limitOf({ price: 612.4 }), null);                     // a US quote: no limits, never tinted
     assert.equal(limitOf(null), null);
+});
+
+// #16: a stock locked at limit-up (made-up numbers: reference 900, limit 990)
+const LOCK = { y: "900.0000", u: "990.0000", w: "810.0000" };
+test("parseTwse: no trade in the snapshot = the last trade before it (pz), not the reference price", () => {
+    const q = parseTwse(mis({ ...LOCK, z: "-", pz: "990.0000", t: "11:30:00", b: "990.0000_", a: "-" }))!;
+    assert.equal(q.price, 990); assert.equal(q.ref, undefined); assert.equal(limitOf(q), "up");
+});
+test("parseTwse: locked at limit-up, bids at the limit and no ask = the limit price", () => {
+    const q = parseTwse(mis({ ...LOCK, z: "-", t: "11:30:00", b: "990.0000_989.0000_", a: "-" }))!;
+    assert.equal(q.price, 990); assert.equal(limitOf(q), "up");
+    const d = parseTwse(mis({ ...LOCK, z: "-", t: "11:30:00", b: "-", a: "810.0000_811.0000_" }))!;
+    assert.equal(d.price, 810); assert.equal(limitOf(d), "down");
+});
+test("parseTwse / parseFugleQuote: falling back to the reference price is marked ref", () => {
+    assert.equal(parseTwse(mis({ ...LOCK, z: "-", t: "11:30:00", b: "-", a: "-" }))!.ref, true);
+    assert.equal(parseTwse(mis({ ...LOCK, z: "-", pz: "905.0000", t: "08:45:00" }))!.price, 900);   // pz before the open is a trial
+    assert.equal(parseTwse(mis({ ...LOCK, z: "990.0000", t: "11:30:00" }))!.ref, undefined);
+    assert.equal(parseFugleQuote({ referencePrice: 900 })!.ref, true);
+    assert.equal(parseFugleQuote({ referencePrice: 900, lastTrade: { price: 990, time: 1 } })!.ref, undefined);
+});
+test("keepQuote: a bare reference price never replaces a price the same day traded at", () => {
+    const at = Date.UTC(2026, 10, 23, 3, 0), later = at + 5000;   // 11:00 and 11:00:05 Taipei
+    const was = { price: 990, prev: 900, asOf: at, time: at, source: "fugle", up: 990, down: 810 };
+    const k = keepQuote("2330.TW", was, { price: 900, prev: 900, asOf: later, time: later, source: "twse", ref: true, vol: 1000 });
+    assert.equal(k.price, 990); assert.equal(k.asOf, at); assert.equal(k.source, "fugle"); assert.equal(k.ref, undefined);
+    assert.equal(k.vol, 1000); assert.equal(k.time, later);   // the rest of the answer is still taken
+    // a real trade replaces it; so does the reference price on a new day (yesterday's quote at today's open)
+    assert.equal(keepQuote("2330.TW", was, { price: 980, asOf: later, time: later }).price, 980);
+    assert.equal(keepQuote("2330.TW", was, { price: 990, asOf: at + 864e5, time: at + 864e5, ref: true }).asOf, at + 864e5);
+    // a kept reference price is replaced by the next reference price
+    assert.equal(keepQuote("2330.TW", { ...was, price: 900, ref: true }, { price: 900, asOf: later, time: later, ref: true }).asOf, later);
+    // chart closes kept when the answer has none
+    assert.deepEqual(keepQuote("2330.TW", { ...was, closes: [1, 2] }, { price: 980, asOf: later, time: later }).closes, [1, 2]);
 });

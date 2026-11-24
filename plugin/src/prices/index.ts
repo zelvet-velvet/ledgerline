@@ -9,7 +9,7 @@ import { addTick, Bars, fromFugle, fromTwseMonth, fromYahoo, isMinutes, joinBars
 // Prices and FX rates are kept in memory and in the plugin's local storage (last good value, shown at once on the next start)
 // and refreshed in the background when older than TTL. Pages never wait for the network: they draw with what is known and
 // redraw when fresh numbers arrive.
-import { closedInHours, isTwSym, marketClock, marketMinute, marketOpen, nextOpen, parseFugleQuote, parseTwse, parseTwseAll, Quote } from "../calc/quotes";
+import { closedInHours, isTwSym, keepQuote, marketClock, marketMinute, marketOpen, nextOpen, parseFugleQuote, parseTwse, parseTwseAll, Quote } from "../calc/quotes";
 export type { Quote };
 export interface PriceProvider { quote(symbol: string, range?: "1mo" | "6mo" | "1y"): Promise<Quote | null>; bars?(symbol: string, range: Range): Promise<Bars | null> }
 // Bars for a chart interval, fetched further back than one screen (panning, and the averages from the left edge).
@@ -223,7 +223,7 @@ export class Prices {
         if (!due.length) return;
         due.forEach((s) => this.busy.add(s));
         void Promise.all(due.map((s) => this.ask(s).then(([k, x]) => {
-            if (x) { this.q[k] = { ...x, closes: x.closes?.length ? x.closes : this.q[k]?.closes }; this.bad.delete(s); this.bad.delete(k); return 1; }
+            if (x) { this.q[k] = keepQuote(k, this.q[k], x); this.bad.delete(s); this.bad.delete(k); return 1; }
             const first = !this.bad.has(s);
             this.miss(s);
             return first ? 2 : 0;   // a first failure redraws once too: the page stops saying "loading"
@@ -352,7 +352,7 @@ export class Prices {
         if (!s) return;
         const was = this.q[s];
         if (was?.asOf && ms < was.asOf) return;   // older than what we have
-        this.q[s] = { ...was, price, asOf: ms, time: Date.now(), source: "fugle" };
+        this.q[s] = { ...was, price, asOf: ms, time: Date.now(), source: "fugle", ref: undefined };   // a trade: no longer the bare reference price
         this.t[s] = addTick(this.t[s], marketMinute(s, ms), Math.round(price * 100));
         if (this.pend.has(s)) return;
         this.pend.add(s);
@@ -372,7 +372,7 @@ export class Prices {
     // a fresh quote kept (memory only: the 10-minute refresh stores quotes); listeners hear when anything changed; true = the price moved
     private apply(s: string, x: Quote): boolean {
         const was = this.q[s];
-        this.q[s] = { ...x, closes: x.closes?.length ? x.closes : was?.closes };
+        x = this.q[s] = keepQuote(s, was, x);
         if (was && was.price === x.price && was.asOf === x.asOf) { if (was.vol !== undefined && x.vol === undefined) this.q[s].vol = was.vol; return false; }   // nothing new: nobody redraws
         // the shares traded since the last quote of the same day go into this minute's bar (TWSE MIS sends the day's total)
         const sameDay = !!was?.asOf && !!x.asOf && marketMinute(s, was.asOf).slice(0, 10) === marketMinute(s, x.asOf).slice(0, 10);
