@@ -1,5 +1,5 @@
 {
-  "folder": "Docs/Design/Screens",
+  "folder": "Docs/Design/Ledgerline",
   "colors": {
     "paper": "var(--ze-bg, var(--background-secondary))",
     "text": "var(--ze-text, var(--text-normal))",
@@ -24,5 +24,6 @@
     "frame": true,
     "others": true,
     "guides": true
-  }
+  },
+  "uiTheme": "Dark"
 }

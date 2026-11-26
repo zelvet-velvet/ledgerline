@@ -1,12 +1,12 @@
 import { Notice, normalizePath, Platform, TFile, TFolder, type App } from "obsidian";
 
-// Capture the app's pages as Vellum screens (Docs/Design/Screens, one JSON file per screen, see github.com/zelvet-velvet/vellum):
+// Capture the app's pages as Vellum screens (Docs/Design/Ledgerline, one JSON file per screen, see github.com/zelvet-velvet/vellum):
 // what is on screen, measured from the page itself: the top bar, each section of the page, the dock and the tab bar become
 // blocks; inside them every text (its size, weight, colour, font) and every box with a fill or an outline. Run it on the
 // phone for the real device; on a computer the app pane must be about a phone's width. Digits are swapped for others (the
 // layout, not your numbers; a number pad's keys keep theirs); names stay (the vault is private). With a sheet open (the search,
 // a sheet, its number pad or text window: view.ts overlays()) only those are captured, one screen each, drawn over the page.
-export const SCREENS = "Docs/Design/Screens";
+export const SCREENS = "Docs/Design/Ledgerline";
 const DEVICES: [string, number, number][] = [["iphone-12-pro-max", 428, 926], ["iphone-16-pro-max", 440, 956], ["iphone-16-pro", 402, 874], ["iphone-16", 393, 852], ["iphone-14", 390, 844], ["iphone-12-mini", 375, 812], ["iphone-se", 375, 667]];
 const TOP = 47;   // the iPhone 12 Pro Max status bar: on a computer the app starts under it
 

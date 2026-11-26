@@ -6,7 +6,7 @@ tags:
 sticker: lucide//layout-dashboard
 ---
 > [!abstract]+ Page kinds, grid, room, gravity, sideways, wide panes
-> Part of [[Design Rules]] (read the core first). Where each page's blocks sit: its Vellum screen in `Docs/Design/Screens/`.
+> Part of [[Design Rules]] (read the core first). Where each page's blocks sit: its Vellum screen in `Docs/Design/Ledgerline/`.
 
 ## 📐 Grid
 - **Phone frame.** Pages are designed in phone px, **428 × 926** (the owner's iPhone, debug log 2026-11-03; masthead about 90, tab bar about 86, bottom bar 68). Agents check a page at this size in desktop Obsidian with `plugin/scripts/phone.mjs` before the phone test.
