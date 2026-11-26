@@ -13745,7 +13745,7 @@ var LedgerView = class extends import_obsidian17.ItemView {
 
 // src/capture.ts
 var import_obsidian18 = require("obsidian");
-var SCREENS = "Docs/Design/Screens";
+var SCREENS = "Docs/Design/Ledgerline";
 var DEVICES = [["iphone-12-pro-max", 428, 926], ["iphone-16-pro-max", 440, 956], ["iphone-16-pro", 402, 874], ["iphone-16", 393, 852], ["iphone-14", 390, 844], ["iphone-12-mini", 375, 812], ["iphone-se", 375, 667]];
 var TOP3 = 47;
 var mask = (s2) => {

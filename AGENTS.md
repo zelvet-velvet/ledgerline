@@ -4,7 +4,7 @@ Ledgerline is an Obsidian plugin: a personal finance app (Log, Debt, Goals, Ledg
 
 ## Start here
 - The work log (status, plan, test checklists) is the project's Folio vault, `../ledgerline-folio`, if it sits next to this repo. Its commands (`/cmd-sync`, `/cmd-rollover`, …) are linked in as skills; read `../ledgerline-folio/LLM/DEV_STATUS.md` at the start of a session.
-- UI work: read `Docs/Design/Design Rules/Design Rules.md` (the core), then only the topic notes its index lists for what you build, then that page's Vellum screen in `Docs/Design/Screens/` and its source file. Reuse the shared parts named there; a new shared rule goes into its topic note first.
+- UI work: read `Docs/Design/Design Rules/Design Rules.md` (the core), then only the topic notes its index lists for what you build, then that page's Vellum screen in `Docs/Design/Ledgerline/` and its source file. Reuse the shared parts named there; a new shared rule goes into its topic note first.
 - New pages are proposed as Vellum screens marked mock (`"mock": true`) and picked before they are built.
 
 ## Rules
@@ -36,6 +36,6 @@ npm run install-vault       # copies the build into ../.obsidian/plugins/ledgerl
 | `plugin/src/calc/` | Pure maths (money, charts, rules), tested |
 | `plugin/src/prices/` | Market data (TWSE, Fugle, Yahoo, FinMind) |
 | `plugin/src/ui/` | Shared parts: C pages, flip-dot board, split-flaps, charts, sheets |
-| `plugin/src/capture.ts` | "Capture this page, or the open sheet, for Vellum": writes the page on screen, or each sheet / pad / text window open over it, to `Docs/Design/Screens/` |
+| `plugin/src/capture.ts` | "Capture this page, or the open sheet, for Vellum": writes the page on screen, or each sheet / pad / text window open over it, to `Docs/Design/Ledgerline/` |
 | `plugin/css/` | Styles, concatenated into `styles.css` by the build |
 | `Config/`, `Log/`, `Invest/` | The demo data the plugin reads |

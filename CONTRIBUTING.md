@@ -24,7 +24,7 @@ Edit styles in `plugin/css/*.css`; `styles.css` is generated.
 ## Rules that keep it working
 - **No real financial data, ever.** This repo is public. Demo notes and tests use made-up names and numbers.
 - **Money is integer** (whole dollars, prices in hundredths, shares to 4 decimals, USD in cents with the FX rate per trade). A change to `plugin/src/calc/` comes with a test in `plugin/test/`.
-- **Design**: the look and behaviour are written down in `Docs/Design/Design Rules/`; each page's layout is a Vellum screen in `Docs/Design/Screens/` (open them with the Vellum plugin, included in the demo vault). A new page starts as a Vellum mock and is picked before it is built.
+- **Design**: the look and behaviour are written down in `Docs/Design/Design Rules/`; each page's layout is a Vellum screen in `Docs/Design/Ledgerline/` (open them with the Vellum plugin, included in the demo vault). A new page starts as a Vellum mock and is picked before it is built.
 - **Commit messages**: `type(scope): summary`, e.g. `fix(invest): marquee keeps its speed after a drag`.
 
 ## Working with a coding agent

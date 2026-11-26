@@ -7,7 +7,7 @@ tags:
 sticker: lucide//ruler
 ---
 > [!abstract]+ How the whole app looks and behaves (core)
-> Every page follows these rules, so the app reads as one thing. This note is the **core**: the rules that apply to every page, and an index of the topic notes. Read the core before any UI change, then only the topic notes the index lists for what you build, then the page's Vellum screen (`Docs/Design/Screens/`) and its source file. A shared behaviour is built once (`plugin/src/ui/`, `view.ts`) and reused; a page never makes its own version. A new shared rule is written in the topic note it belongs to first; a rule that applies to every page goes here. Colour tokens: `plugin/css/c.css` (the CSS snippets). Split into a folder 2026-11-10 (was one note); adapted from Morellonomicon's Design Rules (2026-11-03).
+> Every page follows these rules, so the app reads as one thing. This note is the **core**: the rules that apply to every page, and an index of the topic notes. Read the core before any UI change, then only the topic notes the index lists for what you build, then the page's Vellum screen (`Docs/Design/Ledgerline/`) and its source file. A shared behaviour is built once (`plugin/src/ui/`, `view.ts`) and reused; a page never makes its own version. A new shared rule is written in the topic note it belongs to first; a rule that applies to every page goes here. Colour tokens: `plugin/css/c.css` (the CSS snippets). Split into a folder 2026-11-10 (was one note); adapted from Morellonomicon's Design Rules (2026-11-03).
 
 ## 🗂️ Index: what to read for what you build
 
@@ -21,7 +21,7 @@ sticker: lucide//ruler
 | Sideways or wide panes | core + [[Rules - Pages]] |
 | Numbers that animate (flip-dot board, split-flaps) | core + [[Rules - Motion]] |
 
-Mocks: a new page is proposed as a **Vellum screen marked mock** in `Docs/Design/Screens/` (one JSON file per screen), picked by the owner, then built. the old layout editor (retired) is the old editor: read-only history, not for new mocks.
+Mocks: a new page is proposed as a **Vellum screen marked mock** in `Docs/Design/Ledgerline/` (one JSON file per screen), picked by the owner, then built. the old layout editor (retired) is the old editor: read-only history, not for new mocks.
 
 ## 🎨 The C look (every page)
 - **Kinds of page.** Every page is a **C home**, a **C detail** or a **C list** ([[Rules - Pages]]), built from the shared parts in `plugin/src/ui/c.ts`. A new page picks its kind first; it never invents its own number block, row, chart, sheet or motion.
