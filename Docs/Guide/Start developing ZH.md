@@ -117,5 +117,5 @@ tags:
 | :--- | :--- |
 | Agent 規則 | `ledgerline/AGENTS.md` |
 | 設計規則 | `ledgerline/Docs/Design/Design Rules/` |
-| 各頁面版面 | `ledgerline/Docs/Design/Screens/`（用 Vellum 外掛開啟） |
+| 各頁面版面 | `ledgerline/Docs/Design/Ledgerline/`（用 Vellum 外掛開啟） |
 | 計畫、進度、手機檢查清單 | `ledgerline-folio` |

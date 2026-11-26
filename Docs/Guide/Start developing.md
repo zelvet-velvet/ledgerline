@@ -110,5 +110,5 @@ Then open **both folders in Obsidian** (*Open folder as vault*): `ledgerline` is
 | :--- | :--- |
 | Rules for agents | `ledgerline/AGENTS.md` |
 | How pages look and behave | `ledgerline/Docs/Design/Design Rules/` |
-| Each page's layout | `ledgerline/Docs/Design/Screens/` (open with the Vellum plugin) |
+| Each page's layout | `ledgerline/Docs/Design/Ledgerline/` (open with the Vellum plugin) |
 | Plan, status, phone checklists | `ledgerline-folio` |
